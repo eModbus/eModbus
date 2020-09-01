@@ -22,8 +22,6 @@ public:
   uint8_t   getFunctionCode();
   // resizeData() - delete MM_data, if allocated and allocate a new MM_data size. Copy old contents, if copy==true
   bool      resizeData(size_t dataLen, bool copy = false);
-  // isValid() - return true, if MM_data holds a well-formed MODBUS message
-  bool      isValid();
   // Assignment operator - take care of MM_data
   ModbusMessage& operator=(const ModbusMessage& m);
   // Copy constructor - take care of MM_data
