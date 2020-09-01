@@ -30,12 +30,8 @@ public:
   bool operator==(const ModbusMessage& m);
   // Inequality comparison
   bool operator!=(const ModbusMessage& m);
-  // add8() - add a single byte to MM_data. Returns updated MM_index or 0
-  uint16_t add8(uint8_t c);
-  // add16() - add two bytes MSB first to MM_data. Returns updated MM_index or 0
-  uint16_t add16(uint16_t s);
-  // add32() - add four bytes MSB first to MM_data. Returns updated MM_index or 0
-  uint16_t add32(uint32_t w);
+  // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0
+  template <class T> uint16_t add(T v);
 protected:
   virtual void isInstance() = 0;   // Make this class abstract
   uint8_t   *MM_data;            // Message data buffer
