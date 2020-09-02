@@ -1,7 +1,8 @@
 #ifndef _MODBUS_MESSAGE_H
 #define _MODBUS_MESSAGE_H
-#include <stdint.h>
-#include <stddef.h>
+#include "ModbusTypeDefs.h"
+
+using namespace ModbusClient;
 
 // Definition of the classes for MODBUS messages - Request and Response
 // all classes are abstract, a concrete class has to be derived from these.
@@ -16,8 +17,8 @@ public:
   uint8_t   *data();
   // len() - return length of MM_data
   size_t    len();
-  // getSlaveID() - return MM_slaveID or 0
-  uint8_t   getSlaveID();
+  // getServerID() - return MM_serverID or 0
+  uint8_t   getServerID();
   // getFunctionCode() - return fc or 0
   uint8_t   getFunctionCode();
   // resizeData() - delete MM_data, if allocated and allocate a new MM_data size. Copy old contents, if copy==true
@@ -37,7 +38,7 @@ protected:
   uint8_t   *MM_data;            // Message data buffer
   size_t    MM_len;              // Allocated length of MM_data
   uint16_t  MM_index;            // Pointer into MM_data
-  uint8_t   MM_slaveID;          // slave id from message - MM_data[0]
+  uint8_t   MM_serverID;          // server id from message - MM_data[0]
   uint8_t   MM_functionCode;     // function code from message - MM_data[1]
 };
 

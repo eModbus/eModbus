@@ -4,7 +4,7 @@
 
 // Struct describing the TCP header of Modbus packets
 struct ModbusTCPhead {
-  uint16_t transactionID;     // Client-defined identification
+  uint16_t transactionID;     // Caller-defined identification
   uint16_t protocolID;        // const 0x0000
   uint16_t len;               // Length of remainder of TCP packet
 };
