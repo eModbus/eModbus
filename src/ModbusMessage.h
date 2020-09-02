@@ -9,8 +9,6 @@ using namespace ModbusClient;
 
 class ModbusMessage {
 public:
-  // Constructor - takes size of MM_data
-  ModbusMessage(size_t dataLen);
   // Destructor - takes care of MM_data deletion
   ~ModbusMessage();
   // data() - return address of MM_data or NULL
@@ -21,8 +19,11 @@ public:
   uint8_t   getServerID();
   // getFunctionCode() - return fc or 0
   uint8_t   getFunctionCode();
-  // resizeData() - delete MM_data, if allocated and allocate a new MM_data size. Copy old contents, if copy==true
-  bool      resizeData(size_t dataLen, bool copy = false);
+  // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0
+  template <class T> uint16_t add(T v);
+protected:
+  // Default Constructor - takes size of MM_data
+  ModbusMessage(size_t dataLen);
   // Assignment operator - take care of MM_data
   ModbusMessage& operator=(const ModbusMessage& m);
   // Copy constructor - take care of MM_data
@@ -31,9 +32,6 @@ public:
   bool operator==(const ModbusMessage& m);
   // Inequality comparison
   bool operator!=(const ModbusMessage& m);
-  // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0
-  template <class T> uint16_t add(T v);
-protected:
   virtual void isInstance() = 0;   // Make this class abstract
   uint8_t   *MM_data;            // Message data buffer
   size_t    MM_len;              // Allocated length of MM_data
