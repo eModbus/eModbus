@@ -34,10 +34,10 @@ protected:
   // 4. three uint16_t parameters (FC 0x16)
   static TCPRequest *createTCPRequest(uint8_t& returnCode, uint32_t targetHost, uint16_t targetPort, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token = 0);
   
-  // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of bytes (FC 0x0f)
+  // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
   static TCPRequest *createTCPRequest(uint8_t& returnCode, uint32_t targetHost, uint16_t targetPort, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token = 0);
   
-  // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of values (FC 0x10)
+  // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
   static TCPRequest *createTCPRequest(uint8_t& returnCode, uint32_t targetHost, uint16_t targetPort, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
 
   // 7. generic constructor for preformatted data ==> count is counting bytes!

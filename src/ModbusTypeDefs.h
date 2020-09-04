@@ -68,10 +68,10 @@ enum Error : uint8_t {
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
 
-typedef void (MBOnData) (uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t data_length);
-typedef void (MBOnError) (ModbusClient::Error);
-typedef void (MBOnDataToken) (uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t data_length, uint32_t token);
-typedef void (MBOnErrorToken) (ModbusClient::Error, uint32_t token);
+typedef void (*MBOnData) (uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t data_length);
+typedef void (*MBOnError) (ModbusClient::Error);
+typedef void (*MBOnDataToken) (uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t data_length, uint32_t token);
+typedef void (*MBOnErrorToken) (ModbusClient::Error, uint32_t token);
 
 }  // namespace ModbusClient
 
