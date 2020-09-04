@@ -8,7 +8,7 @@ protected:
   uint16_t CRC;          // CRC16 value
 
   // Default constructor
-  RTURequest(uint32_t token);
+  RTURequest(uint32_t token = 0);
 
   // Factory methods to create valid Modbus messages from the parameters
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)

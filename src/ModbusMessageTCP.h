@@ -10,14 +10,16 @@ struct ModbusTCPhead {
 };
 
 class TCPRequest : public ModbusRequest {
-  friend class ModbusTCP;
+  friend class ModbusTCPsingle;
+  friend class ModbusTCPmulti;
+  friend class ModbusTCPasync;
 protected:
   ModbusTCPhead tcpHead;       // Header structure for Modbus TCP packets
   uint32_t  targetHost;        // 4 bytes target IP address MSB first
   uint16_t  targetPort;        // 2 byte target port number
 
   // Default constructor
-  TCPRequest(uint32_t targetHost, uint16_t targetPort, uint32_t token;);
+  TCPRequest(uint32_t targetHost, uint16_t targetPort, uint32_t token = 0);
 
   // Factory methods to create valid Modbus messages from the parameters
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)

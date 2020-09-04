@@ -60,6 +60,9 @@ protected:
 
 class ModbusRequest : public ModbusMessage {
 protected:
+  // Default constructor
+  ModbusRequest(uint32_t token = 0);
+
   // getToken() - return this request's token value
   uint32_t getToken();
 
