@@ -19,14 +19,12 @@ protected:
   // data() - return address of MM_data or NULL
   uint8_t   *data();
   
-  // len() - return length of MM_data
+  // len() - return MM_index (used length of MM_data)
   size_t    len();
-  
-  // getServerID() - return MM_serverID or 0
-  uint8_t   getServerID();
-  
-  // getFunctionCode() - return fc or 0
-  uint8_t   getFunctionCode();
+
+  // Get MM_data[0] (server ID) and MM_data[1] (function code)
+  uint8_t getFunctionCode();  // returns 0 if MM_data is invalid/nullptr
+  uint8_t getServerID();      // returns 0 if MM_data is invalid/nullptr
   
   // Default Constructor - takes size of MM_data
   ModbusMessage(size_t dataLen);
@@ -48,8 +46,6 @@ protected:
   uint8_t   *MM_data;            // Message data buffer
   size_t    MM_len;              // Allocated length of MM_data
   uint16_t  MM_index;            // Pointer into MM_data
-  uint8_t   MM_serverID;          // server id from message - MM_data[0]
-  uint8_t   MM_functionCode;     // function code from message - MM_data[1]
   
   // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0
   template <class T> uint16_t add(T v);
@@ -61,23 +57,24 @@ protected:
 class ModbusRequest : public ModbusMessage {
 protected:
   // Default constructor
-  ModbusRequest(uint32_t token = 0);
+  ModbusRequest(size_t dataLen, uint32_t token = 0);
 
-  // getToken() - return this request's token value
-  uint32_t getToken();
+  // check token to find a match
+  bool isToken(uint32_t token);
 
   uint32_t MRQ_token;            // User defined token to uniquely identify request
-  uint32_t MRQ_timeout;          // timeout value waiting for response
-
 };
 
 class ModbusResponse : public ModbusMessage {
 protected:
+  // Default constructor
+  ModbusResponse(size_t dataLen, ModbusRequest *request);
+
   // getError() - returns error code
-  uint8_t getError();
+  Error getError();
 
   ModbusRequest *MRS_request;    // Pointer to the request for this response
-  uint8_t MRS_error;             // Error code (0 if ok)
+  Error MRS_error;             // Error code (0 if ok)
 };
 
 #endif

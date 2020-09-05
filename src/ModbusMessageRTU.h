@@ -2,13 +2,24 @@
 #define _MODBUS_MESSAGE_RTU_H
 #include "ModbusMessage.h"
 
+// Helper class for CRC16 calculations
+// No constructors etc., just one static method to be used by RTURequest and RTUResponse
+class RTUCRC {
+public:
+  friend class RTURequest;
+  friend class RTUResponse;
+protected:
+  RTUCRC() = delete;
+  static uint16_t calcCRC(uint8_t *data, size_t len);
+};
+
 class RTURequest : public ModbusRequest {
   friend class ModbusRTU;
 protected:
   uint16_t CRC;          // CRC16 value
 
   // Default constructor
-  RTURequest(uint32_t token = 0);
+  RTURequest(size_t dataLen, uint32_t token = 0);
 
   // Factory methods to create valid Modbus messages from the parameters
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -38,8 +49,12 @@ protected:
 class RTUResponse : public ModbusResponse {
   friend class ModbusRTU;
 protected:
+  // Default constructor
+  RTUResponse(size_t dataLen, RTURequest *request);
+
   uint16_t CRC;          // CRC16 value
   void isInstance() { return; }        // Make class instantiable
+  bool isValidCRC();     // Check CRC and report back.
 };
 
 #endif
