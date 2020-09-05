@@ -11,10 +11,10 @@ extern "C" {
 
 class PhysicalInterface {
 public:
-  bool setTimeOut(uint32_t TOV);   // Set default timeout value for interface
-  void onData(MBOnData handler);   // Accept onData handler 
-  void onError(MBOnError handler); // Accept onError handler 
-  uint32_t getMessageCount();      // Informative: return number of messages created
+  bool setTimeOut(uint32_t TOV);          // Set default timeout value for interface
+  void onDataHandler(MBOnData handler);   // Accept onData handler 
+  void onErrorHandler(MBOnError handler); // Accept onError handler 
+  uint32_t getMessageCount();             // Informative: return number of messages created
   
 protected:
   virtual void isInstance() = 0;   // Make class abstract
