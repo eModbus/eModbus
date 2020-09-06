@@ -13,22 +13,12 @@ public:
  template <class T> uint16_t addValue(uint8_t *target, uint16_t targetLength, T v);
 
 protected:
-  // Destructor - takes care of MM_data deletion
-  ~ModbusMessage();
-
-  // data() - return address of MM_data or NULL
-  uint8_t   *data();
-  
-  // len() - return MM_index (used length of MM_data)
-  size_t    len();
-
-  // Get MM_data[0] (server ID) and MM_data[1] (function code)
-  uint8_t getFunctionCode();  // returns 0 if MM_data is invalid/nullptr
-  uint8_t getServerID();      // returns 0 if MM_data is invalid/nullptr
-  
   // Default Constructor - takes size of MM_data
   ModbusMessage(size_t dataLen);
   
+  // Destructor - takes care of MM_data deletion
+  ~ModbusMessage();
+
   // Assignment operator - take care of MM_data
   ModbusMessage& operator=(const ModbusMessage& m);
   
@@ -40,6 +30,16 @@ protected:
   
   // Inequality comparison
   bool operator!=(const ModbusMessage& m);
+  
+  // data() - return address of MM_data or NULL
+  uint8_t   *data();
+  
+  // len() - return MM_index (used length of MM_data)
+  size_t    len();
+
+  // Get MM_data[0] (server ID) and MM_data[1] (function code)
+  uint8_t getFunctionCode();  // returns 0 if MM_data is invalid/nullptr
+  uint8_t getServerID();      // returns 0 if MM_data is invalid/nullptr
   
   virtual void isInstance() = 0;   // Make this class abstract
   
