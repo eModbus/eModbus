@@ -13,7 +13,7 @@ using std::lock_guard;
 class ModbusRTU : public PhysicalInterface {
 public:
   // Constructor takes Serial reference and optional DE/RE pin
-  ModbusRTU(HardwareSerial *serial, int8_t rtsPin = -1);
+  ModbusRTU(HardwareSerial& serial, int8_t rtsPin = -1);
 
   // Destructor: clean up queue, task etc.
   ~ModbusRTU();
@@ -56,9 +56,10 @@ protected:
   // receive: get response via Serial
   RTUResponse* receive(RTURequest *request);
 
+  void isInstance() { return; }   // make class instantiable
   queue<RTURequest> requests;     // Queue to hold requests to be processed
   mutex qLock;                    // Mutex to protect queue
-  HardwareSerial *MR_serial;      // Ptr to the serial interface used
+  HardwareSerial& MR_serial;      // Ptr to the serial interface used
   uint32_t MR_lastMicros;         // Microseconds since last bus activity
   uint32_t MR_interval;           // Modbus RTU bus quiet time
   int8_t MR_rtsPin;               // GPIO pin to toggle RS485 DE/RE line. -1 if none.
