@@ -17,12 +17,12 @@ bool PhysicalInterface::setTimeOut(uint32_t TOV) {
 }
 
 // onDataHandler: register callback for data responses
-void PhysicalInterface::onDataHandler(MBOnData *handler) {
+void PhysicalInterface::onDataHandler(MBOnData handler) {
   onData = handler;
 }
 
 // onErrorHandler: register callback for error responses
-void PhysicalInterface::onErrorHandler(MBOnError *handler) {
+void PhysicalInterface::onErrorHandler(MBOnError handler) {
   onError = handler;
 }
 
