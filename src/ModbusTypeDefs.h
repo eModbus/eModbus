@@ -65,6 +65,8 @@ enum Error : uint8_t {
   FC_MISMATCH            = 0xE4,
   SERVER_ID_MISMATCH     = 0xE5,
   PACKET_LENGTH_ERROR    = 0xE6,
+  PARAMETER_COUNT_ERROR  = 0xE7,
+  PARAMETER_LIMIT_ERROR  = 0xE8,
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
 

@@ -62,6 +62,31 @@ protected:
   // check token to find a match
   bool isToken(uint32_t token);
 
+  // Data validation methods for the different factory calls
+  // 0. serverID and function code - used by all of the below
+  static Error checkServerFC(uint8_t serverID, uint8_t functionCode);
+
+  // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
+  static Error checkData(uint8_t serverID, uint8_t functionCode);
+  
+  // 2. one uint16_t parameter (FC 0x18)
+  static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1);
+  
+  // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
+  static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2);
+  
+  // 4. three uint16_t parameters (FC 0x16)
+  static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3);
+  
+  // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
+  static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords);
+  
+  // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
+  static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes);
+
+  // 7. generic constructor for preformatted data ==> count is counting bytes!
+  static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
+
   uint32_t MRQ_token;            // User defined token to uniquely identify request
 };
 
