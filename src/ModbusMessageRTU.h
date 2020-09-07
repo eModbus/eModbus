@@ -52,9 +52,10 @@ protected:
   // Default constructor
   RTUResponse(size_t dataLen, RTURequest *request);
 
-  uint16_t CRC;          // CRC16 value
-  void isInstance() { return; }        // Make class instantiable
-  bool isValidCRC();     // Check CRC and report back.
+  void isInstance() { return; }  // Make class instantiable
+  bool isValidCRC();             // Check CRC and report back.
+  void setCRC(uint16_t crc);     // Set CRC value externally (as received)
+  uint16_t CRC;                  // CRC16 value
 };
 
 #endif

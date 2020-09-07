@@ -98,6 +98,9 @@ protected:
   // getError() - returns error code
   Error getError();
 
+  // setData: fill received data into MM_data
+  uint16_t setData(uint16_t dataLen, uint8_t *data);
+
   ModbusRequest *MRS_request;    // Pointer to the request for this response
   Error MRS_error;             // Error code (0 if ok)
 };
