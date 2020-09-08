@@ -51,13 +51,13 @@ protected:
   static void handleConnection(ModbusRTU *instance);
 
   // send: send request via Serial
-  void send(uint8_t *data, uint8_t length);
+  void send(RTURequest *request);
 
   // receive: get response via Serial
   RTUResponse* receive(RTURequest *request);
 
   void isInstance() { return; }   // make class instantiable
-  queue<RTURequest> requests;     // Queue to hold requests to be processed
+  queue<RTURequest *> requests;     // Queue to hold requests to be processed
   mutex qLock;                    // Mutex to protect queue
   HardwareSerial& MR_serial;      // Ptr to the serial interface used
   uint32_t MR_lastMicros;         // Microseconds since last bus activity

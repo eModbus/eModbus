@@ -151,6 +151,11 @@ ModbusRequest::ModbusRequest(size_t dataLen, uint32_t token) :
   MRQ_token(token) {}
 
 // check token to find a match
+uint32_t ModbusRequest::getToken() {
+  return MRQ_token;
+}
+
+// check token to find a match
 bool ModbusRequest::isToken(uint32_t token) {
   return (token == MRQ_token);
 }

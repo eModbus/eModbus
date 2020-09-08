@@ -64,7 +64,7 @@ RTURequest::RTURequest(size_t dataLen, uint32_t token) :
 
 // Factory methods to create valid Modbus messages from the parameters
 // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, uint8_t functionCode, uint32_t token) {
+RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, uint8_t functionCode, uint32_t token) {
   RTURequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = checkData(serverID, functionCode);
@@ -81,7 +81,7 @@ RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, 
 }
 
 // 2. one uint16_t parameter (FC 0x18)
-RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
+RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
   RTURequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = checkData(serverID, functionCode, p1);
@@ -99,7 +99,7 @@ RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, 
 }
 
 // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
+RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
   RTURequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = checkData(serverID, functionCode, p1, p2);
@@ -118,7 +118,7 @@ RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, 
 }
 
 // 4. three uint16_t parameters (FC 0x16)
-RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token) {
+RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token) {
   RTURequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = checkData(serverID, functionCode, p1, p2, p3);
@@ -138,7 +138,7 @@ RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, 
 }
 
 // 5. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of words (FC 0x10)
-RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
+RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
   RTURequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = checkData(serverID, functionCode, p1, p2, count, arrayOfWords);
@@ -161,7 +161,7 @@ RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, 
 }
 
 // 6. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of bytes (FC 0x0f)
-RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token) {
+RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token) {
   RTURequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = checkData(serverID, functionCode, p1, p2, count, arrayOfBytes);
@@ -184,7 +184,7 @@ RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, 
 }
 
 // 7. generic constructor for preformatted data ==> count is counting bytes!
-RTURequest *RTURequest::createRTURequest(uint8_t& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
+RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
   RTURequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = checkData(serverID, functionCode, count, arrayOfBytes);

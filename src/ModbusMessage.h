@@ -17,7 +17,7 @@ protected:
   ModbusMessage(size_t dataLen);
   
   // Destructor - takes care of MM_data deletion
-  ~ModbusMessage();
+  virtual ~ModbusMessage();
 
   // Assignment operator - take care of MM_data
   ModbusMessage& operator=(const ModbusMessage& m);
@@ -58,6 +58,9 @@ class ModbusRequest : public ModbusMessage {
 protected:
   // Default constructor
   ModbusRequest(size_t dataLen, uint32_t token = 0);
+
+  // Get token
+  uint32_t getToken();
 
   // check token to find a match
   bool isToken(uint32_t token);
