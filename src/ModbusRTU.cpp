@@ -200,6 +200,9 @@ void ModbusRTU::handleConnection(ModbusRTU *instance) {
       delete request;   // object created from addRequest()
       delete response;  // object created in receive()
     }
+    else {
+      delay(1);
+    }
   }
 }
 

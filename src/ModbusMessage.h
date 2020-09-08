@@ -48,7 +48,23 @@ protected:
   uint16_t  MM_index;            // Pointer into MM_data
   
   // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0
-  template <class T> uint16_t add(T v);
+  template <class T> uint16_t add(T v) {
+    uint16_t sz = sizeof(T);    // Size of value to be added
+
+    // Will it fit?
+    if (MM_data && sz <= (MM_len - MM_index)) {
+      // Yes. Copy it MSB first
+      while (sz) {
+        sz--;
+        MM_data[MM_index++] = (v >> (sz << 3)) & 0xFF;
+      }
+      // Return updated MM_index (logical length of message so far)
+      return MM_index;
+    }
+    // No, will not fit - return 0
+    return 0;
+  }
+
   // add() variant to copy a buffer into MM_data. Returns updated MM_index or 0
   uint16_t add(uint16_t count, uint8_t *arrayOfBytes);
 
