@@ -59,6 +59,8 @@ protected:
   uint8_t getServerID();      // returns 0 if MM_data is invalid/nullptr
   
   virtual void isInstance() = 0;   // Make this class abstract
+
+  void dump();
   
   uint8_t   *MM_data;            // Message data buffer
   size_t    MM_len;              // Allocated length of MM_data

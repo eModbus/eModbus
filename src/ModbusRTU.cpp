@@ -263,6 +263,7 @@ void ModbusRTU::send(RTURequest *request) {
   while (micros() - MR_lastMicros < MR_interval) delayMicroseconds(1);  // respect _interval
   // Toggle rtsPin, if necessary
   if (MR_rtsPin >= 0) digitalWrite(MR_rtsPin, HIGH);
+  request->dump();        // ********* TEST *********
   MR_serial.write(request->data(), request->len());
   MR_serial.write(request->CRC & 0xFF);
   MR_serial.write((request->CRC >> 8) & 0xFF);
