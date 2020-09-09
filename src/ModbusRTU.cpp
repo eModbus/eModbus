@@ -252,7 +252,9 @@ void ModbusRTU::handleConnection(ModbusRTU *instance) {
       delete request;   // object created from addRequest()
       delete response;  // object created in receive()
     }
-    delay(1);
+    else {
+      delay(1);
+    }
   }
 }
 
@@ -315,6 +317,7 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
         errorCode = TIMEOUT;
         state = ERROR_EXIT;
       }
+      delay(1);
       break;
     // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
     case IN_PACKET:

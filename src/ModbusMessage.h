@@ -1,16 +1,33 @@
 #ifndef _MODBUS_MESSAGE_H
 #define _MODBUS_MESSAGE_H
+#include <map>
 #include "ModbusTypeDefs.h"
 
 using namespace ModbusClient;
+using myMap = std::map<Error, const char *>;
 
 // Definition of the classes for MODBUS messages - Request and Response
 // all classes are abstract, a concrete class has to be derived from these.
 
 class ModbusMessage {
 public:
-  // Service method to fill a given byte array with Modbus MSB-first values. Returns number of bytes written.
- template <class T> uint16_t addValue(uint8_t *target, uint16_t targetLength, T v);
+  static myMap ErrorText;
+
+// Service method to fill a given byte array with Modbus MSB-first values. Returns number of bytes written.
+template <class T> uint16_t addValue(uint8_t *target, uint16_t targetLength, T v) {
+  uint16_t sz = sizeof(v);    // Size of value to be added
+  uint16_t index = 0;         // Byte pointer in target
+
+  // Will it fit?
+  if (target && sz <= targetLength) {
+    // Yes. Copy it MSB first
+    while (sz) {
+      sz--;
+      target[index++] = (v >> (sz << 3)) & 0xFF;
+    }
+  }
+  return index;
+}
 
 protected:
   // Default Constructor - takes size of MM_data

@@ -4,21 +4,29 @@
 // ****************************************
 // ModbusMessage class implementations
 // ****************************************
-// Service method to fill a given byte array with Modbus MSB-first values. Returns number of bytes written.
-template <class T> uint16_t ModbusMessage::addValue(uint8_t *target, uint16_t targetLength, T v) {
-  uint16_t sz = sizeof(v);    // Size of value to be added
-  uint16_t index = 0;         // Byte pointer in target
-
-  // Will it fit?
-  if (target && sz <= targetLength) {
-    // Yes. Copy it MSB first
-    while (sz) {
-      sz--;
-      target[index++] = (v >> (sz << 3)) & 0xFF;
-    }
-  }
-  return index;
-}
+myMap ModbusMessage::ErrorText = {
+  { SUCCESS                , "Success" },
+  { ILLEGAL_FUNCTION       , "Illegal function code" },
+  { ILLEGAL_DATA_ADDRESS   , "Illegal data address" },
+  { ILLEGAL_DATA_VALUE     , "Illegal data value" },
+  { SERVER_DEVICE_FAILURE  , "Server device failure" },
+  { ACKNOWLEDGE            , "Acknowledge" },
+  { SERVER_DEVICE_BUSY     , "Server device busy" },
+  { NEGATIVE_ACKNOWLEDGE   , "Negative acknowledge" },
+  { MEMORY_PARITY_ERROR    , "Memory parity error" },
+  { GATEWAY_PATH_UNAVAIL   , "Gateway path unavailable" },
+  { GATEWAY_TARGET_NO_RESP , "Gateway target not responding" },
+  { TIMEOUT                , "Timeout" },
+  { INVALID_SERVER         , "Invalid server ID" },
+  { CRC_ERROR              , "RTU CRC error" },
+  { FC_MISMATCH            , "FC differs in response" },
+  { SERVER_ID_MISMATCH     , "Server ID differs in response" },
+  { PACKET_LENGTH_ERROR    , "Packet length error" },
+  { PARAMETER_COUNT_ERROR  , "Wrong # of parameters for FC" },
+  { PARAMETER_LIMIT_ERROR  , "Parameter value exceeds limits" },
+  { REQUEST_QUEUE_FULL     , "Request queue full" },
+  { UNDEFINED_ERROR        , "Unspecified error" },
+};
 
 // Default Constructor - takes size of MM_data to allocate memory
 ModbusMessage::ModbusMessage(size_t dataLen) :
@@ -147,14 +155,14 @@ bool ModbusRequest::isToken(uint32_t token) {
 Error ModbusRequest::checkServerFC(uint8_t serverID, uint8_t functionCode) {
   if (serverID == 0)      return INVALID_SERVER;   // Broadcast - not supported here
   if (serverID > 247)     return INVALID_SERVER;   // Reserved server addresses
-  if (functionCode == 0)  return INVALID_FUNCTION; // FC 0 does not exist
-  if (functionCode == 9)  return INVALID_FUNCTION; // FC 9 does not exist
-  if (functionCode == 10) return INVALID_FUNCTION; // FC 10 does not exist
-  if (functionCode == 13) return INVALID_FUNCTION; // FC 13 does not exist
-  if (functionCode == 14) return INVALID_FUNCTION; // FC 14 does not exist
-  if (functionCode == 18) return INVALID_FUNCTION; // FC 18 does not exist
-  if (functionCode == 19) return INVALID_FUNCTION; // FC 19 does not exist
-  if (functionCode > 127) return INVALID_FUNCTION; // FC only defined up to 127
+  if (functionCode == 0)  return ILLEGAL_FUNCTION; // FC 0 does not exist
+  if (functionCode == 9)  return ILLEGAL_FUNCTION; // FC 9 does not exist
+  if (functionCode == 10) return ILLEGAL_FUNCTION; // FC 10 does not exist
+  if (functionCode == 13) return ILLEGAL_FUNCTION; // FC 13 does not exist
+  if (functionCode == 14) return ILLEGAL_FUNCTION; // FC 14 does not exist
+  if (functionCode == 18) return ILLEGAL_FUNCTION; // FC 18 does not exist
+  if (functionCode == 19) return ILLEGAL_FUNCTION; // FC 19 does not exist
+  if (functionCode > 127) return ILLEGAL_FUNCTION; // FC only defined up to 127
   return SUCCESS;
 }
 

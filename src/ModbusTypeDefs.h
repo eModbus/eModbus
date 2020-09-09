@@ -2,6 +2,7 @@
 #define _MODBUS_TYPEDEFS_H
 #include <stdint.h>
 #include <stddef.h>
+#include <map>
 
 namespace ModbusClient {
 
@@ -60,14 +61,13 @@ enum Error : uint8_t {
   GATEWAY_TARGET_NO_RESP = 0x0B,
   TIMEOUT                = 0xE0,
   INVALID_SERVER         = 0xE1,
-  INVALID_FUNCTION       = 0xE2,
-  CRC_ERROR              = 0xE3, // only for Modbus-RTU
-  FC_MISMATCH            = 0xE4,
-  SERVER_ID_MISMATCH     = 0xE5,
-  PACKET_LENGTH_ERROR    = 0xE6,
-  PARAMETER_COUNT_ERROR  = 0xE7,
-  PARAMETER_LIMIT_ERROR  = 0xE8,
-  REQUEST_QUEUE_FULL     = 0xE9,
+  CRC_ERROR              = 0xE2, // only for Modbus-RTU
+  FC_MISMATCH            = 0xE3,
+  SERVER_ID_MISMATCH     = 0xE4,
+  PACKET_LENGTH_ERROR    = 0xE5,
+  PARAMETER_COUNT_ERROR  = 0xE6,
+  PARAMETER_LIMIT_ERROR  = 0xE7,
+  REQUEST_QUEUE_FULL     = 0xE8,
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
 
