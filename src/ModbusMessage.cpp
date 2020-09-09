@@ -437,11 +437,11 @@ Error ModbusResponse::getError() {
     return MM_index;
   }
 
-  void ModbusMessage::dump() {
+  void ModbusMessage::dump(const char *header) {
     const uint16_t BUFLEN(128);
     char buffer[BUFLEN];
 
-    snprintf(buffer, BUFLEN, "MM_data: %08X / MM_len: %3d / MM_index: %3d", (uint32_t)MM_data, (unsigned int)MM_len, (unsigned int)MM_index);
+    snprintf(buffer, BUFLEN, "%s - MM_data: %08X / MM_len: %3d / MM_index: %3d", header, (uint32_t)MM_data, (unsigned int)MM_len, (unsigned int)MM_index);
     Serial.println(buffer);
 
     uint16_t maxByte = 0;               // maximum byte to fit in buffer

@@ -263,7 +263,7 @@ void ModbusRTU::send(RTURequest *request) {
   while (micros() - MR_lastMicros < MR_interval) delayMicroseconds(1);  // respect _interval
   // Toggle rtsPin, if necessary
   if (MR_rtsPin >= 0) digitalWrite(MR_rtsPin, HIGH);
-  request->dump();        // ********* TEST *********
+  request->dump("Request");        // ********* TEST *********
   MR_serial.write(request->data(), request->len());
   MR_serial.write(request->CRC & 0xFF);
   MR_serial.write((request->CRC >> 8) & 0xFF);
@@ -314,9 +314,11 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
       if (MR_serial.available()) {
         state = IN_PACKET;
         MR_lastMicros = micros();
-      } else if (millis() - TimeOut >= timeOutValue) {
-        errorCode = TIMEOUT;
-        state = ERROR_EXIT;
+      } else {
+        if (millis() - TimeOut >= timeOutValue) {
+          errorCode = TIMEOUT;
+          state = ERROR_EXIT;
+        }
       }
       delay(1);
       break;
@@ -385,10 +387,9 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
     case ERROR_EXIT:
       response = new RTUResponse(3, request);
       {
-        uint8_t *cp = response->data();
-        *cp++ = request->getServerID();
-        *cp++ = request->getFunctionCode() | 0x80;
-        *cp++ = errorCode;
+        response->add((uint8_t)request->getServerID());
+        response->add((uint8_t)(request->getFunctionCode() | 0x80));
+        response->add((uint8_t)errorCode);
         response->setCRC(RTUCRC::calcCRC(response->data(), 3));
       }
       state = FINISHED;
@@ -398,6 +399,7 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
       break;
     }
   }
+  response->dump("Response");  // ********* TEST ***********
 
   // Deallocate buffer
   delete[] buffer;

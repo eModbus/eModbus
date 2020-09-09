@@ -60,7 +60,7 @@ protected:
   
   virtual void isInstance() = 0;   // Make this class abstract
 
-  void dump();
+  void dump(const char *header);
   
   uint8_t   *MM_data;            // Message data buffer
   size_t    MM_len;              // Allocated length of MM_data
