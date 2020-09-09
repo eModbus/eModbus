@@ -12,8 +12,8 @@ using std::lock_guard;
 
 class ModbusRTU : public PhysicalInterface {
 public:
-  // Constructor takes Serial reference and optional DE/RE pin
-  ModbusRTU(HardwareSerial& serial, int8_t rtsPin = -1);
+  // Constructor takes Serial reference and optional DE/RE pin and queue limit
+  ModbusRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.
   ~ModbusRTU();
@@ -63,6 +63,7 @@ protected:
   uint32_t MR_lastMicros;         // Microseconds since last bus activity
   uint32_t MR_interval;           // Modbus RTU bus quiet time
   int8_t MR_rtsPin;               // GPIO pin to toggle RS485 DE/RE line. -1 if none.
+  uint16_t MR_qLimit;             // Maximum number of requests to hold in the queue
 
 };
 

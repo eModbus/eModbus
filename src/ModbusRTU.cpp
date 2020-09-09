@@ -1,12 +1,13 @@
 #include "ModbusRTU.h"
 
 // Constructor takes Serial reference and optional DE/RE pin
-ModbusRTU::ModbusRTU(HardwareSerial& serial, int8_t rtsPin) :
+ModbusRTU::ModbusRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit) :
   PhysicalInterface(2000),
   MR_serial(serial),
   MR_lastMicros(micros()),
   MR_interval(2000),
-  MR_rtsPin(rtsPin) {
+  MR_rtsPin(rtsPin),
+  MR_qLimit(queueLimit) {
 }
 
 // Destructor: clean up queue, task etc.
@@ -59,7 +60,14 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t tok
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, token);
 
   // Add it to the queue, if valid
-  if (r) addToQueue(r);
+  if (r) {
+    // Queue add successful?
+    if (!addToQueue(r)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+      delete r;
+    }
+  }
 
   return rc;
 }
@@ -72,7 +80,14 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, token);
 
   // Add it to the queue, if valid
-  if (r) addToQueue(r);
+  if (r) {
+    // Queue add successful?
+    if (!addToQueue(r)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+      delete r;
+    }
+  }
 
   return rc;
 }
@@ -85,7 +100,14 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, p2, token);
 
   // Add it to the queue, if valid
-  if (r) addToQueue(r);
+  if (r) {
+    // Queue add successful?
+    if (!addToQueue(r)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+      delete r;
+    }
+  }
 
   return rc;
     
@@ -99,7 +121,14 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, p2, p3, token);
 
   // Add it to the queue, if valid
-  if (r) addToQueue(r);
+  if (r) {
+    // Queue add successful?
+    if (!addToQueue(r)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+      delete r;
+    }
+  }
 
   return rc;
     
@@ -113,7 +142,14 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, p2, count, arrayOfWords, token);
 
   // Add it to the queue, if valid
-  if (r) addToQueue(r);
+  if (r) {
+    // Queue add successful?
+    if (!addToQueue(r)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+      delete r;
+    }
+  }
 
   return rc;
     
@@ -127,7 +163,14 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, p2, count, arrayOfBytes, token);
 
   // Add it to the queue, if valid
-  if (r) addToQueue(r);
+  if (r) {
+    // Queue add successful?
+    if (!addToQueue(r)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+      delete r;
+    }
+  }
 
   return rc;
 }
@@ -140,7 +183,14 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, count, arrayOfBytes, token);
 
   // Add it to the queue, if valid
-  if (r) addToQueue(r);
+  if (r) {
+    // Queue add successful?
+    if (!addToQueue(r)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+      delete r;
+    }
+  }
 
   return rc;
     
@@ -151,10 +201,12 @@ bool ModbusRTU::addToQueue(RTURequest *request) {
   bool rc = false;
   // Did we get one?
   if (request) {
-    // Yes. Safely lock queue and push request to queue
-    rc = true;
-    lock_guard<mutex> lockGuard(qLock);
-    requests.push(request);
+    if(requests.size()<MR_qLimit) {
+      // Yes. Safely lock queue and push request to queue
+      rc = true;
+      lock_guard<mutex> lockGuard(qLock);
+      requests.push(request);
+    }
   }
 
   return rc;
@@ -200,9 +252,7 @@ void ModbusRTU::handleConnection(ModbusRTU *instance) {
       delete request;   // object created from addRequest()
       delete response;  // object created in receive()
     }
-    else {
-      delay(1);
-    }
+    delay(1);
   }
 }
 

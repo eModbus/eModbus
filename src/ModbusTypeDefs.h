@@ -67,6 +67,7 @@ enum Error : uint8_t {
   PACKET_LENGTH_ERROR    = 0xE6,
   PARAMETER_COUNT_ERROR  = 0xE7,
   PARAMETER_LIMIT_ERROR  = 0xE8,
+  REQUEST_QUEUE_FULL     = 0xE9,
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
 
