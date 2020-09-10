@@ -349,7 +349,7 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
       // the core FIFO handling takes much longer than that.
       //
       // Workaround: uncomment the following line to wait for 16ms(!) for the handling to finish:
-      if (micros() - MR_lastMicros >= 16000) {
+      // if (micros() - MR_lastMicros >= 16000) {
       //
       // Alternate solution: is to modify the uartEnableInterrupt() function in
       // the core implementation file 'esp32-hal-uart.c', to have the line
@@ -358,32 +358,41 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
       // from 112 (as is implemented in the core) to 1, effectively firing the interrupt
       // for any single byte.
       // Then you may uncomment the line below instead:
-      // if (micros() - _lastMicros >= _interval) {
+      if (micros() - MR_lastMicros >= MR_interval) {
       //
         state = DATA_READ;
       }
       break;
     // DATA_READ: successfully gathered some data. Prepare return object.
     case DATA_READ:
-      // Allocate response object - without CRC
-      response = new RTUResponse(bufferPtr - 2, request);
-      // Move gathered data into it
-      response->setData(bufferPtr - 2, buffer);
-      // Extract CRC value
-      response->setCRC(buffer[bufferPtr - 2] | (buffer[bufferPtr - 1] << 8));
-      // Check CRC - OK?
-      if(response->isValidCRC()) {
-        // Yes, move on
-        state = FINISHED;
+      // Did we get a sensible buffer length?
+      if(bufferPtr >= 5)
+      {
+        // Yes. Allocate response object - without CRC
+        response = new RTUResponse(bufferPtr - 2, request);
+        // Move gathered data into it
+        response->setData(bufferPtr - 2, buffer);
+        // Extract CRC value
+        response->setCRC(buffer[bufferPtr - 2] | (buffer[bufferPtr - 1] << 8));
+        // Check CRC - OK?
+        if(response->isValidCRC()) {
+          // Yes, move on
+          state = FINISHED;
+        }
+        else {
+          // No! Delete received response, set error code and proceed to ERROR_EXIT.
+          delete response;
+          errorCode = CRC_ERROR;
+          state = ERROR_EXIT;
+        }
       }
       else {
-        // No! Delete received response, set error code and proceed to ERROR_EXIT.
-        delete response;
-        errorCode = CRC_ERROR;
+        // No, packet was too short for anything usable. Return error
+        errorCode = PACKET_LENGTH_ERROR;
         state = ERROR_EXIT;
       }
       break;
-    // ERROR_EXIT: We had a timeout or CRC error. Prepare error return object
+    // ERROR_EXIT: We had an error. Prepare error return object
     case ERROR_EXIT:
       response = new RTUResponse(3, request);
       {
