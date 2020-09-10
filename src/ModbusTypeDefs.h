@@ -68,6 +68,7 @@ enum Error : uint8_t {
   PARAMETER_COUNT_ERROR  = 0xE6,
   PARAMETER_LIMIT_ERROR  = 0xE7,
   REQUEST_QUEUE_FULL     = 0xE8,
+  ILLEGAL_IP_OR_PORT     = 0xE9,
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
 

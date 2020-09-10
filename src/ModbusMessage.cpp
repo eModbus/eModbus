@@ -27,6 +27,7 @@ myMap ModbusMessage::ErrorText = {
   { PARAMETER_COUNT_ERROR  , "Wrong # of parameters for FC" },
   { PARAMETER_LIMIT_ERROR  , "Parameter value exceeds limits" },
   { REQUEST_QUEUE_FULL     , "Request queue full" },
+  { ILLEGAL_IP_OR_PORT     , "Illegal host IP or port #" },
   { UNDEFINED_ERROR        , "Unspecified error" },
 };
 
