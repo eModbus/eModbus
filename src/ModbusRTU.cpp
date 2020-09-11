@@ -193,7 +193,6 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
   }
 
   return rc;
-    
 }
 
 // addToQueue: send freshly created request to queue

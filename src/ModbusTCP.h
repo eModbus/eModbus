@@ -1,5 +1,5 @@
-#ifndef _MODBUS_TCP_MULTI_H
-#define _MODBUS_TCP_MULTI_H
+#ifndef _MODBUS_TCP_H
+#define _MODBUS_TCP_H
 #include "ModbusMessageTCP.h"
 #include "PhysicalInterface.h"
 #include "Client.h"
@@ -13,10 +13,10 @@ using std::lock_guard;
 class ModbusTCP : public PhysicalInterface {
 public:
   // Constructor takes reference to Client (EthernetClient or WiFiClient)
-  ModbusTCP(Client& client);
+  ModbusTCP(Client& client, uint16_t queueLimit = 100);
 
   // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
-  ModbusTCP(Client& client, IPAddress host, uint16_t port);
+  ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.
   ~ModbusTCP();
@@ -68,6 +68,9 @@ protected:
   Client& MT_client;              // Client reference for Internet connections (EthernetClient or WifiClient)
   IPAddress MT_lastHost;          // target host from previous request processed - to keep connection open if host/port stays the same
   uint16_t MT_lastPort;           // target port from previous request processed - to keep connection open if host/port stays the same
+  IPAddress MT_targetHost;        // target host for next request processed
+  uint16_t MT_targetPort;         // target port for next request processed
+  uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
 };
 
 #endif
