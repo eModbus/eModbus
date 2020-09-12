@@ -1,5 +1,6 @@
 #ifndef _MODBUS_TCP_H
 #define _MODBUS_TCP_H
+#include <Arduino.h>
 #include "ModbusMessageTCP.h"
 #include "PhysicalInterface.h"
 #include "Client.h"
@@ -57,7 +58,7 @@ protected:
   static void handleConnection(ModbusTCP *instance);
 
   // send: send request via Client connection
-  void send(uint8_t *data, uint8_t length);
+  void send(Client& client, TCPRequest *request);
 
   // receive: get response via Client connection
   TCPResponse* receive(TCPRequest *request);
@@ -68,8 +69,8 @@ protected:
   Client& MT_client;              // Client reference for Internet connections (EthernetClient or WifiClient)
   IPAddress MT_lastHost;          // target host from previous request processed - to keep connection open if host/port stays the same
   uint16_t MT_lastPort;           // target port from previous request processed - to keep connection open if host/port stays the same
-  IPAddress MT_targetHost;        // target host for next request processed
-  uint16_t MT_targetPort;         // target port for next request processed
+  IPAddress MT_targetHost;        // target host for next request(s) to be processed
+  uint16_t MT_targetPort;         // target port for next request(s) to be processed
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
 };
 

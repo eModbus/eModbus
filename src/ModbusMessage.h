@@ -14,7 +14,7 @@ public:
   static myMap ErrorText;
 
 // Service method to fill a given byte array with Modbus MSB-first values. Returns number of bytes written.
-template <class T> uint16_t addValue(uint8_t *target, uint16_t targetLength, T v) {
+template <class T> static uint16_t addValue(uint8_t *target, uint16_t targetLength, T v) {
   uint16_t sz = sizeof(v);    // Size of value to be added
   uint16_t index = 0;         // Byte pointer in target
 
