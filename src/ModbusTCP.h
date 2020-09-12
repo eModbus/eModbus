@@ -51,6 +51,9 @@ public:
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
 
 protected:
+// makeHead: helper function to set up a MSB TCP header
+  bool makeHead(uint8_t *data, size_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN);
+
   // addToQueue: send freshly created request to queue
   bool addToQueue(TCPRequest *request);
 
@@ -58,10 +61,13 @@ protected:
   static void handleConnection(ModbusTCP *instance);
 
   // send: send request via Client connection
-  void send(Client& client, TCPRequest *request);
+  void send(TCPRequest *request);
 
   // receive: get response via Client connection
   TCPResponse* receive(TCPRequest *request);
+
+  // Create standard error response 
+  TCPResponse* errorResponse(Error e, TCPRequest *request);
 
   void isInstance() { return; }   // make class instantiable
   queue<TCPRequest *> requests;   // Queue to hold requests to be processed

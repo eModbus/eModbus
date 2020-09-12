@@ -70,6 +70,7 @@ enum Error : uint8_t {
   REQUEST_QUEUE_FULL     = 0xE8,
   ILLEGAL_IP_OR_PORT     = 0xE9,
   IP_CONNECTION_FAILED   = 0xEA,
+  TCP_HEAD_MISMATCH      = 0xEB,
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
 

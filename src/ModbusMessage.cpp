@@ -29,6 +29,7 @@ myMap ModbusMessage::ErrorText = {
   { REQUEST_QUEUE_FULL     , "Request queue full" },
   { ILLEGAL_IP_OR_PORT     , "Illegal host IP or port #" },
   { IP_CONNECTION_FAILED   , "IP connection failed" },
+  { TCP_HEAD_MISMATCH      , "TCP header differs in response" },
   { UNDEFINED_ERROR        , "Unspecified error" },
 };
 
