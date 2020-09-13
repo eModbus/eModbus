@@ -1,4 +1,6 @@
 #include "ModbusMessageRTU.h"
+#include <string.h>
+#include <Arduino.h>
 
 // calcCRC: calculate Modbus CRC16 on a given array of bytes
 uint16_t RTUCRC::calcCRC(uint8_t *data, size_t len) {
@@ -220,4 +222,22 @@ bool RTUResponse::isValidCRC() {
 // To be done by ModbusRTU after receiving a response. CRC shall be extracted from the response!
 void RTUResponse::setCRC(uint16_t crc) {
   CRC = crc;
+}
+
+// Test: Output CRC and message to Serial.
+void RTURequest::dump(const char *label) {
+  char buffer[80];
+
+  snprintf(buffer, 80, "%s CRC:%04X", label, CRC);
+  Serial.println(buffer);
+  ModbusMessage::dump("Data");
+}
+
+// Test: Output CRC and message to Serial.
+void RTUResponse::dump(const char *label) {
+  char buffer[80];
+
+  snprintf(buffer, 80, "%s CRC:%04X", label, CRC);
+  Serial.println(buffer);
+  ModbusMessage::dump("Data");
 }

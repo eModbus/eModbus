@@ -176,3 +176,21 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 // Default constructor for TCPResponse: call ModbusResponse constructor
 TCPResponse::TCPResponse(size_t dataLen) :
   ModbusResponse(dataLen) { }
+
+// Test: Output tcpHead and message to Serial.
+void TCPRequest::dump(const char *label) {
+  char buffer[80];
+
+  snprintf(buffer, 80, "%s TID:%04X PID:%04X len:%u", label, tcpHead.transactionID, tcpHead.protocolID, tcpHead.len);
+  Serial.println(buffer);
+  ModbusMessage::dump("Data");
+}
+
+// Test: Output tcpHead and message to Serial.
+void TCPResponse::dump(const char *label) {
+  char buffer[80];
+
+  snprintf(buffer, 80, "%s TID:%04X PID:%04X len:%u", label, tcpHead.transactionID, tcpHead.protocolID, tcpHead.len);
+  Serial.println(buffer);
+  ModbusMessage::dump("Data");
+}

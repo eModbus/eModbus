@@ -257,6 +257,8 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         // Get the response - if any
         TCPResponse *response = instance->receive(request);
 
+        response->dump("Response");
+
         // Did we get a normal response?
         if (response->getError()==SUCCESS) {
           // Yes. Do we have an onData handler registered?
@@ -331,12 +333,6 @@ void ModbusTCP::send(TCPRequest *request) {
   uint8_t head[6];
   if (makeHead(head, 6, request->tcpHead.transactionID, request->tcpHead.protocolID, request->tcpHead.len)) {
     request->dump("Request");
-    Serial.print("Head:");
-    for (uint8_t i=0; i < 6; ++i) {
-      Serial.print(" ");
-      Serial.print(head[i], HEX);
-    }
-    Serial.println("");
     // Write TCP header first
     MT_client.write(head, 6);
     // Request comes next

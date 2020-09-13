@@ -2,6 +2,8 @@
 #define _MODBUS_MESSAGE_TCP_H
 #include "ModbusMessage.h"
 #include <IPAddress.h>
+#include <string.h>
+#include <Arduino.h>
 
 // Struct describing the TCP header of Modbus packets
 struct ModbusTCPhead {
@@ -46,6 +48,8 @@ protected:
 
   void isInstance() { return; }       // Make class instantiable
   static Error isValidHost(IPAddress host, uint16_t port);    // Check host address
+
+  void dump(const char *label);   // Overloading ModbusMessage::dump()
 };
 
 class TCPResponse : public ModbusResponse {
@@ -56,6 +60,8 @@ protected:
 
   ModbusTCPhead tcpHead;       // Header structure for Modbus TCP packets
   void isInstance() { return; }       // Make class instantiable
+
+  void dump(const char *label);   // Overloading ModbusMessage::dump()
 };
 
 #endif
