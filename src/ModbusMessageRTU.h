@@ -51,7 +51,7 @@ class RTUResponse : public ModbusResponse {
   friend class ModbusRTU;
 protected:
   // Default constructor
-  RTUResponse(size_t dataLen, RTURequest *request);
+  RTUResponse(size_t dataLen);
 
   void isInstance() { return; }  // Make class instantiable
   bool isValidCRC();             // Check CRC and report back.

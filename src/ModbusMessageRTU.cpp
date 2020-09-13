@@ -204,8 +204,8 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
 }
 
 // Default constructor for RTUResponse: call ModbusResponse constructor
-RTUResponse::RTUResponse(size_t dataLen, RTURequest *request) :
-  ModbusResponse(dataLen, request) { }
+RTUResponse::RTUResponse(size_t dataLen) :
+  ModbusResponse(dataLen) { }
 
 // isValidCRC: check if CRC value matches CRC calculated over MM_data.
 // *** Note: assumption is made that ModbusRTU has already extracted the CRC from the received message!

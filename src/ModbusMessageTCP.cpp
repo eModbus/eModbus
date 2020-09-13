@@ -174,17 +174,5 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 }
 
 // Default constructor for TCPResponse: call ModbusResponse constructor
-TCPResponse::TCPResponse(size_t dataLen, TCPRequest *request) :
-  ModbusResponse(dataLen, request) { }
-
-// Check TCPhead for correct length and transactionID
-bool TCPResponse::isValidTCPhead() {
-  // Protocol ID untouched?
-  if (tcpHead.protocolID != 0x000) return false;
-  // transaction ID identical to that from the request?
-  if (tcpHead.transactionID != static_cast<TCPRequest *>(MRS_request)->tcpHead.transactionID) return false;
-  // length field correct?
-  if (tcpHead.len != MM_index) return false;
-  // All fine!
-  return true;
-}
+TCPResponse::TCPResponse(size_t dataLen) :
+  ModbusResponse(dataLen) { }

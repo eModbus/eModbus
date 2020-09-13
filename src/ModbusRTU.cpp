@@ -368,9 +368,9 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
       if(bufferPtr >= 5)
       {
         // Yes. Allocate response object - without CRC
-        response = new RTUResponse(bufferPtr - 2, request);
+        response = new RTUResponse(bufferPtr - 2);
         // Move gathered data into it
-        response->setData(bufferPtr - 2, buffer);
+        response->add(bufferPtr - 2, buffer);
         // Extract CRC value
         response->setCRC(buffer[bufferPtr - 2] | (buffer[bufferPtr - 1] << 8));
         // Check CRC - OK?
@@ -393,7 +393,7 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
       break;
     // ERROR_EXIT: We had an error. Prepare error return object
     case ERROR_EXIT:
-      response = new RTUResponse(3, request);
+      response = new RTUResponse(3);
       {
         response->add((uint8_t)request->getServerID());
         response->add((uint8_t)(request->getFunctionCode() | 0x80));

@@ -52,11 +52,10 @@ class TCPResponse : public ModbusResponse {
   friend class ModbusTCP;
 protected:
   // Default constructor
-  TCPResponse(size_t dataLen, TCPRequest *request);
+  TCPResponse(size_t dataLen);
 
   ModbusTCPhead tcpHead;       // Header structure for Modbus TCP packets
   void isInstance() { return; }       // Make class instantiable
-  bool isValidTCPhead();       // Check TCPhead for correct length and transactionID
 };
 
 #endif

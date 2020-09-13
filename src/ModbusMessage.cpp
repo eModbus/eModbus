@@ -407,9 +407,8 @@ Error ModbusRequest::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 // ModbusResponse class implementations
 // ****************************************
 // Default constructor
-ModbusResponse::ModbusResponse(size_t dataLen, ModbusRequest *request) :
+ModbusResponse::ModbusResponse(size_t dataLen) :
   ModbusMessage(dataLen),
-  MRS_request(request),
   MRS_error(SUCCESS) {}
 
 // getError() - returns error code
@@ -426,19 +425,6 @@ Error ModbusResponse::getError() {
   }
   return MRS_error;
 }
-
-  // setData: fill received data into MM_data as is
-  uint16_t ModbusResponse::setData(uint16_t dataLen, uint8_t *data) {
-    // Regardless waht was in MM_data before - discard it
-    MM_index = 0;
-    // Does data fit into MM_data?
-    if (dataLen <= MM_len) {
-      // Yes. Copy it.
-      memcpy(MM_data, data, dataLen);
-      MM_index = dataLen;
-    }
-    return MM_index;
-  }
 
   void ModbusMessage::dump(const char *header) {
     const uint16_t BUFLEN(128);

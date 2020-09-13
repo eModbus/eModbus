@@ -253,8 +253,10 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       if (instance->MT_client.connected()) {
         // Yes. Send the request via IP
         instance->send(request);
+
         // Get the response - if any
         TCPResponse *response = instance->receive(request);
+
         // Did we get a normal response?
         if (response->getError()==SUCCESS) {
           // Yes. Do we have an onData handler registered?
@@ -386,7 +388,7 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
     }
     else {
       // Looks good.
-      response = new TCPResponse(dataPtr - 6, request);
+      response = new TCPResponse(dataPtr - 6);
       response->add(dataPtr - 6, data + 6);
       response->tcpHead.transactionID = request->tcpHead.transactionID;
       response->tcpHead.protocolID = request->tcpHead.protocolID;
@@ -401,7 +403,7 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
 }
 
 TCPResponse* ModbusTCP::errorResponse(Error e, TCPRequest *request) {
-  TCPResponse *errResponse = new TCPResponse(3, request);
+  TCPResponse *errResponse = new TCPResponse(3);
   
   errResponse->add(request->getServerID());
   errResponse->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));
