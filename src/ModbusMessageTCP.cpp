@@ -2,7 +2,9 @@
 
 // Default constructor: call ModbusRequest constructor, then init TCP header
 TCPRequest::TCPRequest(IPAddress host, uint16_t port, size_t dataLen, uint32_t token) :
-  ModbusRequest(dataLen, token) { 
+  ModbusRequest(dataLen, token),
+  targetHost(host),
+  targetPort(port) { 
     tcpHead.transactionID = 0x0001;  // pro forma: will be set by ModbusTCP
     tcpHead.protocolID = 0x0000;     // constant Modbus value
     tcpHead.len = dataLen;           // same as packet size

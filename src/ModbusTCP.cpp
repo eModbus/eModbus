@@ -229,6 +229,10 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       // Yes. pull it.
       TCPRequest *request = instance->requests.front();
       // check if lastHost/lastPort!=host/port off the queued request
+      Serial.print("Target: ");
+      Serial.print(request->targetHost);
+      Serial.print("/");
+      Serial.println(request->targetPort);
       if (instance->MT_lastHost != request->targetHost || instance->MT_lastPort != request->targetPort) {
         // It is different. If client is connected, disconnect
         if (instance->MT_client.connected()) {
@@ -240,7 +244,9 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       // if client is disconnected (we will have to switch hosts)
       if (!instance->MT_client.connected()) {
         // It is disconnected. connect to host/port from queue
-        instance->MT_client.connect(request->targetHost, request->targetPort);
+        int retc = instance->MT_client.connect(request->targetHost, request->targetPort);
+        Serial.print("Connect returns ");
+        Serial.println(retc);
         delay(1);  // Give scheduler room to breathe
       }
       // Are we connected (again)?
@@ -297,14 +303,22 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
 // makeHead: helper function to set up a MSB TCP header
 bool ModbusTCP::makeHead(uint8_t *data, size_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN) {
   uint16_t headlong = 6;
+  uint16_t offs = 0;
+  uint16_t ptr = 0;
 
   if (dataLen < headlong) return false;   // Will not fit
   if (data == nullptr) return false;      // No data allocated?
 
-  headlong -= ModbusMessage::addValue(data, headlong, TID);
-  headlong -= ModbusMessage::addValue(data, headlong, PID);
-  headlong -= ModbusMessage::addValue(data, headlong, LEN);
+  offs = ModbusMessage::addValue(data + ptr, headlong, TID);
+  headlong -= offs;
+  ptr += offs;
+  offs = ModbusMessage::addValue(data + ptr, headlong, PID);
+  headlong -= offs;
+  ptr += offs;
+  offs = ModbusMessage::addValue(data + ptr, headlong, LEN);
+  headlong -= offs;
   // headlong should be 0 here!
+  if(headlong) return false;
   return true;
 }
 
@@ -314,6 +328,13 @@ void ModbusTCP::send(TCPRequest *request) {
   // Wait...: tcpHead is not yet in MSB order:
   uint8_t head[6];
   if (makeHead(head, 6, request->tcpHead.transactionID, request->tcpHead.protocolID, request->tcpHead.len)) {
+    request->dump("Request");
+    Serial.print("Head:");
+    for (uint8_t i=0; i < 6; ++i) {
+      Serial.print(" ");
+      Serial.print(head[i], HEX);
+    }
+    Serial.println("");
     // Write TCP header first
     MT_client.write(head, 6);
     // Request comes next
