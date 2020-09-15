@@ -1,7 +1,7 @@
 #include "ModbusMessageTCP.h"
 
 // Default constructor: call ModbusRequest constructor, then init TCP header
-TCPRequest::TCPRequest(IPAddress host, uint16_t port, size_t dataLen, uint32_t token) :
+TCPRequest::TCPRequest(IPAddress host, uint16_t port, uint16_t dataLen, uint32_t token) :
   ModbusRequest(dataLen, token),
   targetHost(host),
   targetPort(port) { 
@@ -174,7 +174,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 }
 
 // Default constructor for TCPResponse: call ModbusResponse constructor
-TCPResponse::TCPResponse(size_t dataLen) :
+TCPResponse::TCPResponse(uint16_t dataLen) :
   ModbusResponse(dataLen) { }
 
 // Test: Output tcpHead and message to Serial.

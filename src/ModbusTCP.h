@@ -52,7 +52,7 @@ public:
 
 protected:
 // makeHead: helper function to set up a MSB TCP header
-  bool makeHead(uint8_t *data, size_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN);
+  bool makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN);
 
   // addToQueue: send freshly created request to queue
   bool addToQueue(TCPRequest *request);

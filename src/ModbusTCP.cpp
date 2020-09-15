@@ -305,7 +305,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
 }
 
 // makeHead: helper function to set up a MSB TCP header
-bool ModbusTCP::makeHead(uint8_t *data, size_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN) {
+bool ModbusTCP::makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN) {
   uint16_t headlong = 6;
   uint16_t offs = 0;
   uint16_t ptr = 0;
@@ -349,7 +349,7 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
   uint32_t lastMicros = micros();     // Timer to check for end of packet
   const uint32_t EOT(20000);          // Time without data to state EOT
   bool hadData = false;               // flag data received
-  const size_t dataLen(300);          // Modbus Packet supposedly will fit (260<300)
+  const uint16_t dataLen(300);          // Modbus Packet supposedly will fit (260<300)
   uint8_t data[dataLen];              // Local buffer to collect received data
   uint16_t dataPtr = 0;               // Pointer into data
   TCPResponse *response = nullptr;    // Response structure to be returned

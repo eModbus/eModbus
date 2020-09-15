@@ -31,7 +31,7 @@ template <class T> static uint16_t addValue(uint8_t *target, uint16_t targetLeng
 
 protected:
   // Default Constructor - takes size of MM_data
-  ModbusMessage(size_t dataLen);
+  ModbusMessage(uint16_t dataLen);
   
   // Destructor - takes care of MM_data deletion
   virtual ~ModbusMessage();
@@ -52,7 +52,7 @@ protected:
   uint8_t   *data();
   
   // len() - return MM_index (used length of MM_data)
-  size_t    len();
+  uint16_t    len();
 
   // Get MM_data[0] (server ID) and MM_data[1] (function code)
   uint8_t getFunctionCode();  // returns 0 if MM_data is invalid/nullptr
@@ -63,7 +63,7 @@ protected:
   void dump(const char *header);
   
   uint8_t   *MM_data;            // Message data buffer
-  size_t    MM_len;              // Allocated length of MM_data
+  uint16_t    MM_len;              // Allocated length of MM_data
   uint16_t  MM_index;            // Pointer into MM_data
   
   // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0
@@ -92,7 +92,7 @@ protected:
 class ModbusRequest : public ModbusMessage {
 protected:
   // Default constructor
-  ModbusRequest(size_t dataLen, uint32_t token = 0);
+  ModbusRequest(uint16_t dataLen, uint32_t token = 0);
 
   // Get token
   uint32_t getToken();
@@ -131,7 +131,7 @@ protected:
 class ModbusResponse : public ModbusMessage {
 protected:
   // Default constructor
-  ModbusResponse(size_t dataLen);
+  ModbusResponse(uint16_t dataLen);
 
   // getError() - returns error code
   Error getError();

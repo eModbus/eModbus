@@ -11,7 +11,7 @@ public:
   friend class ModbusRTU;
 protected:
   RTUCRC() = delete;
-  static uint16_t calcCRC(uint8_t *data, size_t len);
+  static uint16_t calcCRC(uint8_t *data, uint16_t len);
 };
 
 class RTURequest : public ModbusRequest {
@@ -20,7 +20,7 @@ protected:
   uint16_t CRC;          // CRC16 value
 
   // Default constructor
-  RTURequest(size_t dataLen, uint32_t token = 0);
+  RTURequest(uint16_t dataLen, uint32_t token = 0);
 
   // Factory methods to create valid Modbus messages from the parameters
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -52,7 +52,7 @@ class RTUResponse : public ModbusResponse {
   friend class ModbusRTU;
 protected:
   // Default constructor
-  RTUResponse(size_t dataLen);
+  RTUResponse(uint16_t dataLen);
 
   void isInstance() { return; }  // Make class instantiable
   bool isValidCRC();             // Check CRC and report back.

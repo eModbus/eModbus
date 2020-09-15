@@ -22,7 +22,7 @@ protected:
   uint16_t  targetPort;        // 2 byte target port number
 
   // Default constructor
-  TCPRequest(IPAddress targetHost, uint16_t targetPort, size_t dataLen, uint32_t token = 0);
+  TCPRequest(IPAddress targetHost, uint16_t targetPort, uint16_t dataLen, uint32_t token = 0);
 
   // Factory methods to create valid Modbus messages from the parameters
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -56,7 +56,7 @@ class TCPResponse : public ModbusResponse {
   friend class ModbusTCP;
 protected:
   // Default constructor
-  TCPResponse(size_t dataLen);
+  TCPResponse(uint16_t dataLen);
 
   ModbusTCPhead tcpHead;       // Header structure for Modbus TCP packets
   void isInstance() { return; }       // Make class instantiable

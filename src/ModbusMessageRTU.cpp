@@ -3,7 +3,7 @@
 #include <Arduino.h>
 
 // calcCRC: calculate Modbus CRC16 on a given array of bytes
-uint16_t RTUCRC::calcCRC(uint8_t *data, size_t len) {
+uint16_t RTUCRC::calcCRC(uint8_t *data, uint16_t len) {
   // CRC16 pre-calculated tables
   const uint8_t crcHiTable[] = {
     0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81,
@@ -60,7 +60,7 @@ uint16_t RTUCRC::calcCRC(uint8_t *data, size_t len) {
 }
 
 // Default constructor: call ModbusRequest constructor, then init CRC
-RTURequest::RTURequest(size_t dataLen, uint32_t token) :
+RTURequest::RTURequest(uint16_t dataLen, uint32_t token) :
   ModbusRequest(dataLen, token),
   CRC(0) { }
 
@@ -206,7 +206,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
 }
 
 // Default constructor for RTUResponse: call ModbusResponse constructor
-RTUResponse::RTUResponse(size_t dataLen) :
+RTUResponse::RTUResponse(uint16_t dataLen) :
   ModbusResponse(dataLen) { }
 
 // isValidCRC: check if CRC value matches CRC calculated over MM_data.

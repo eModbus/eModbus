@@ -34,7 +34,7 @@ myMap ModbusMessage::ErrorText = {
 };
 
 // Default Constructor - takes size of MM_data to allocate memory
-ModbusMessage::ModbusMessage(size_t dataLen) :
+ModbusMessage::ModbusMessage(uint16_t dataLen) :
   MM_len(dataLen),
   MM_index(0) {
   MM_data = new uint8_t[dataLen];
@@ -101,7 +101,7 @@ uint8_t *ModbusMessage::data() {
 }
 
 // len() - return MM_index (used length of MM_data)
-size_t ModbusMessage::len() {
+uint16_t ModbusMessage::len() {
   // If we have a memory address and a length, return MM_index
   if (MM_data && MM_len) return MM_index;
   // else return zero
@@ -141,7 +141,7 @@ uint16_t ModbusMessage::add(uint16_t count, uint8_t *arrayOfBytes) {
 // ModbusRequest class implementations
 // ****************************************
 // Default constructor
-ModbusRequest::ModbusRequest(size_t dataLen, uint32_t token) :
+ModbusRequest::ModbusRequest(uint16_t dataLen, uint32_t token) :
   ModbusMessage(dataLen),
   MRQ_token(token) {}
 
@@ -407,7 +407,7 @@ Error ModbusRequest::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 // ModbusResponse class implementations
 // ****************************************
 // Default constructor
-ModbusResponse::ModbusResponse(size_t dataLen) :
+ModbusResponse::ModbusResponse(uint16_t dataLen) :
   ModbusMessage(dataLen),
   MRS_error(SUCCESS) {}
 
