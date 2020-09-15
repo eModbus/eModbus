@@ -49,7 +49,7 @@ protected:
   bool operator!=(const ModbusMessage& m);
   
   // data() - return address of MM_data or NULL
-  uint8_t   *data();
+  const uint8_t   *data();
   
   // len() - return MM_index (used length of MM_data)
   uint16_t    len();
@@ -63,7 +63,7 @@ protected:
   void dump(const char *header);
   
   uint8_t   *MM_data;            // Message data buffer
-  uint16_t    MM_len;              // Allocated length of MM_data
+  uint16_t    MM_len;            // Allocated length of MM_data
   uint16_t  MM_index;            // Pointer into MM_data
   
   // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0

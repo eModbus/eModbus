@@ -93,7 +93,7 @@ bool ModbusMessage::operator!=(const ModbusMessage& m) {
 }
 
 // data() - return address of MM_data or NULL
-uint8_t *ModbusMessage::data() {
+const uint8_t *ModbusMessage::data() {
   // If we have a memory address and a length, return MM_data
   if (MM_data && MM_len) return MM_data;
   // else return NULL

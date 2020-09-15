@@ -11,7 +11,7 @@ public:
   friend class ModbusRTU;
 protected:
   RTUCRC() = delete;
-  static uint16_t calcCRC(uint8_t *data, uint16_t len);
+  static uint16_t calcCRC(const uint8_t *data, uint16_t len);
 };
 
 class RTURequest : public ModbusRequest {
