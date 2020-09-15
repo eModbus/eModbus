@@ -6,32 +6,6 @@
 // ****************************************
 // ModbusMessage class implementations
 // ****************************************
-myMap ModbusMessage::ErrorText = {
-  { SUCCESS                , "Success" },
-  { ILLEGAL_FUNCTION       , "Illegal function code" },
-  { ILLEGAL_DATA_ADDRESS   , "Illegal data address" },
-  { ILLEGAL_DATA_VALUE     , "Illegal data value" },
-  { SERVER_DEVICE_FAILURE  , "Server device failure" },
-  { ACKNOWLEDGE            , "Acknowledge" },
-  { SERVER_DEVICE_BUSY     , "Server device busy" },
-  { NEGATIVE_ACKNOWLEDGE   , "Negative acknowledge" },
-  { MEMORY_PARITY_ERROR    , "Memory parity error" },
-  { GATEWAY_PATH_UNAVAIL   , "Gateway path unavailable" },
-  { GATEWAY_TARGET_NO_RESP , "Gateway target not responding" },
-  { TIMEOUT                , "Timeout" },
-  { INVALID_SERVER         , "Invalid server ID" },
-  { CRC_ERROR              , "RTU CRC error" },
-  { FC_MISMATCH            , "FC differs in response" },
-  { SERVER_ID_MISMATCH     , "Server ID differs in response" },
-  { PACKET_LENGTH_ERROR    , "Packet length error" },
-  { PARAMETER_COUNT_ERROR  , "Wrong # of parameters for FC" },
-  { PARAMETER_LIMIT_ERROR  , "Parameter value exceeds limits" },
-  { REQUEST_QUEUE_FULL     , "Request queue full" },
-  { ILLEGAL_IP_OR_PORT     , "Illegal host IP or port #" },
-  { IP_CONNECTION_FAILED   , "IP connection failed" },
-  { TCP_HEAD_MISMATCH      , "TCP header differs in response" },
-  { UNDEFINED_ERROR        , "Unspecified error" },
-};
 
 // Default Constructor - takes size of MM_data to allocate memory
 ModbusMessage::ModbusMessage(uint16_t dataLen) :
