@@ -177,7 +177,8 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 TCPResponse::TCPResponse(uint16_t dataLen) :
   ModbusResponse(dataLen) { }
 
-// Test: Output tcpHead and message to Serial.
+#ifdef TESTING
+// *************************** Test: Output tcpHead and message to Serial.
 void TCPRequest::dump(const char *label) {
   char buffer[80];
 
@@ -186,7 +187,7 @@ void TCPRequest::dump(const char *label) {
   ModbusMessage::dump("Data");
 }
 
-// Test: Output tcpHead and message to Serial.
+// *************************** Test: Output tcpHead and message to Serial.
 void TCPResponse::dump(const char *label) {
   char buffer[80];
 
@@ -194,3 +195,4 @@ void TCPResponse::dump(const char *label) {
   Serial.println(buffer);
   ModbusMessage::dump("Data");
 }
+#endif

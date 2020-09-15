@@ -21,6 +21,11 @@ void PhysicalInterface::onDataHandler(MBOnData handler) {
   onData = handler;
 }
 
+// onGenerateHandler: register callback for intercepting the finished message
+void PhysicalInterface::onGenerateHandler(MBOnGenerate handler) {
+  onGenerate = handler;
+}
+
 // onErrorHandler: register callback for error responses
 void PhysicalInterface::onErrorHandler(MBOnError handler) {
   onError = handler;

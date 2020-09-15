@@ -49,7 +49,11 @@ protected:
   void isInstance() { return; }       // Make class instantiable
   static Error isValidHost(IPAddress host, uint16_t port);    // Check host address
 
+
+#ifdef TESTING
+// ************************** Test *******************
   void dump(const char *label);   // Overloading ModbusMessage::dump()
+#endif
 };
 
 class TCPResponse : public ModbusResponse {
@@ -61,7 +65,10 @@ protected:
   ModbusTCPhead tcpHead;       // Header structure for Modbus TCP packets
   void isInstance() { return; }       // Make class instantiable
 
+#ifdef TESTING
+// ************************** Test *******************
   void dump(const char *label);   // Overloading ModbusMessage::dump()
+#endif
 };
 
 #endif

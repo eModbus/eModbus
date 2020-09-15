@@ -220,10 +220,18 @@ void ModbusRTU::handleConnection(ModbusRTU *instance) {
     if (!instance->requests.empty()) {
       // Yes. pull it.
       RTURequest *request = instance->requests.front();
+      // onGenerate handler registered?
+      if (instance->onGenerate) {
+        instance->onGenerate("Request ", request->data(), request->len(), request->getToken());
+      }
       // Send it via Serial
       instance->send(request);
       // Get the response - if any
       RTUResponse *response = instance->receive(request);
+      // onGenerate handler registered?
+      if (instance->onGenerate) {
+        instance->onGenerate("Response ", response->data(), response->len(), request->getToken());
+      }
       // Did we get a normal response?
       if (response->getError()==SUCCESS) {
         // Yes. Do we have an onData handler registered?
@@ -262,7 +270,6 @@ void ModbusRTU::send(RTURequest *request) {
   while (micros() - MR_lastMicros < MR_interval) delayMicroseconds(1);  // respect _interval
   // Toggle rtsPin, if necessary
   if (MR_rtsPin >= 0) digitalWrite(MR_rtsPin, HIGH);
-  request->dump("Request");        // ********* TEST *********
   MR_serial.write(request->data(), request->len());
   MR_serial.write(request->CRC & 0xFF);
   MR_serial.write((request->CRC >> 8) & 0xFF);
@@ -407,8 +414,6 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
       break;
     }
   }
-  response->dump("Response");  // ********* TEST ***********
-
   // Deallocate buffer
   delete[] buffer;
   MR_lastMicros = micros();

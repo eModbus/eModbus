@@ -224,6 +224,7 @@ void RTUResponse::setCRC(uint16_t crc) {
   CRC = crc;
 }
 
+#ifdef TESTING
 // Test: Output CRC and message to Serial.
 void RTURequest::dump(const char *label) {
   char buffer[80];
@@ -233,7 +234,7 @@ void RTURequest::dump(const char *label) {
   ModbusMessage::dump("Data");
 }
 
-// Test: Output CRC and message to Serial.
+// ********************** Test: Output CRC and message to Serial.
 void RTUResponse::dump(const char *label) {
   char buffer[80];
 
@@ -241,3 +242,4 @@ void RTUResponse::dump(const char *label) {
   Serial.println(buffer);
   ModbusMessage::dump("Data");
 }
+#endif

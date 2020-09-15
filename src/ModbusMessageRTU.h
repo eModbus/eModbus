@@ -45,7 +45,11 @@ protected:
   static RTURequest *createRTURequest(Error& returnCode, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
 
   void isInstance() { return; }        // Make class instantiable
+
+#ifdef TESTING
+// ************************** Test *******************
   void dump(const char *label);
+#endif
 };
 
 class RTUResponse : public ModbusResponse {
@@ -54,11 +58,15 @@ protected:
   // Default constructor
   RTUResponse(uint16_t dataLen);
 
+  uint16_t CRC;                  // CRC16 value
   void isInstance() { return; }  // Make class instantiable
   bool isValidCRC();             // Check CRC and report back.
   void setCRC(uint16_t crc);     // Set CRC value externally (as received)
+
+#ifdef TESTING
+// ************************** Test *******************
   void dump(const char *label);
-  uint16_t CRC;                  // CRC16 value
+#endif
 };
 
 #endif

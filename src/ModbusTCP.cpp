@@ -228,11 +228,20 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
     if (!instance->requests.empty()) {
       // Yes. pull it.
       TCPRequest *request = instance->requests.front();
+      // onGenerate handler registered?
+      if (instance->onGenerate) {
+        // Yes. Send request packet
+        instance->onGenerate("Request ", request->data(), request->len(), request->getToken());
+      }
       // check if lastHost/lastPort!=host/port off the queued request
+
+      // ******************** Test ****************
       Serial.print("Target: ");
       Serial.print(request->targetHost);
       Serial.print("/");
       Serial.println(request->targetPort);
+      Serial.flush();
+
       if (instance->MT_lastHost != request->targetHost || instance->MT_lastPort != request->targetPort) {
         // It is different. If client is connected, disconnect
         if (instance->MT_client.connected()) {
@@ -245,8 +254,11 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       if (!instance->MT_client.connected()) {
         // It is disconnected. connect to host/port from queue
         int retc = instance->MT_client.connect(request->targetHost, request->targetPort);
+
+      // ******************** Test ****************
         Serial.print("Connect returns ");
         Serial.println(retc);
+
         delay(1);  // Give scheduler room to breathe
       }
       // Are we connected (again)?
@@ -257,8 +269,11 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         // Get the response - if any
         TCPResponse *response = instance->receive(request);
 
-        response->dump("Response");
-
+        // onGenerate handler registered?
+        if (instance->onGenerate) {
+          // Yes. Send request packet
+          instance->onGenerate("Response ", response->data(), response->len(), request->getToken());
+        }
         // Did we get a normal response?
         if (response->getError()==SUCCESS) {
           // Yes. Do we have an onData handler registered?
@@ -332,7 +347,6 @@ void ModbusTCP::send(TCPRequest *request) {
   // Wait...: tcpHead is not yet in MSB order:
   uint8_t head[6];
   if (makeHead(head, 6, request->tcpHead.transactionID, request->tcpHead.protocolID, request->tcpHead.len)) {
-    request->dump("Request");
     // Write TCP header first
     MT_client.write(head, 6);
     // Request comes next

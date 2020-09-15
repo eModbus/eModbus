@@ -400,6 +400,8 @@ Error ModbusResponse::getError() {
   return MRS_error;
 }
 
+#ifdef TESTING
+// ******************* TEST *********************
   void ModbusMessage::dump(const char *header) {
     const uint16_t BUFLEN(128);
     char buffer[BUFLEN];
@@ -438,3 +440,4 @@ Error ModbusResponse::getError() {
     } 
     Serial.println(buffer);
   }
+#endif
