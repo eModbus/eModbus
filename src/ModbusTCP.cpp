@@ -242,6 +242,9 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       Serial.println(request->targetPort);
       Serial.flush();
 
+      // Empty the RX buffer - just in case...
+      while (instance->MT_client.available()) instance->MT_client.read();
+
       if (instance->MT_lastHost != request->targetHost || instance->MT_lastPort != request->targetPort) {
         // It is different. If client is connected, disconnect
         if (instance->MT_client.connected()) {
