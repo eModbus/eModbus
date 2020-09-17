@@ -256,7 +256,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       // if client is disconnected (we will have to switch hosts)
       if (!instance->MT_client.connected()) {
         // It is disconnected. connect to host/port from queue
-        int retc = instance->MT_client.connect(request->targetHost, request->targetPort);
+        instance->MT_client.connect(request->targetHost, request->targetPort);
 
         delay(1);  // Give scheduler room to breathe
       }
