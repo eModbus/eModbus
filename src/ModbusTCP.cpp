@@ -222,6 +222,8 @@ bool ModbusTCP::addToQueue(TCPRequest *request) {
 // handleConnection: worker task
 // This was created in begin() to handle the queue entries
 void ModbusTCP::handleConnection(ModbusTCP *instance) {
+  uint32_t lastRequest = millis();
+
   // Loop forever - or until task is killed
   while (1) {
     // Do we have a reuest in queue?
@@ -233,18 +235,10 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         // Yes. Send request packet
         instance->onGenerate("Request ", request->data(), request->len(), request->getToken());
       }
-      // check if lastHost/lastPort!=host/port off the queued request
-
-      // ******************** Test ****************
-      Serial.print("Target: ");
-      Serial.print(request->targetHost);
-      Serial.print("/");
-      Serial.println(request->targetPort);
-      Serial.flush();
-
       // Empty the RX buffer - just in case...
       while (instance->MT_client.available()) instance->MT_client.read();
 
+      // check if lastHost/lastPort!=host/port off the queued request
       if (instance->MT_lastHost != request->targetHost || instance->MT_lastPort != request->targetPort) {
         // It is different. If client is connected, disconnect
         if (instance->MT_client.connected()) {
@@ -253,14 +247,16 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
           delay(1);  // Give scheduler room to breathe
         }
       }
+      else {
+        // it is the same host/port. Give it some slack to get ready again
+        while (millis() - lastRequest < 100) {
+          delay(1);
+        }
+      }
       // if client is disconnected (we will have to switch hosts)
       if (!instance->MT_client.connected()) {
         // It is disconnected. connect to host/port from queue
         int retc = instance->MT_client.connect(request->targetHost, request->targetPort);
-
-      // ******************** Test ****************
-        Serial.print("Connect returns ");
-        Serial.println(retc);
 
         delay(1);  // Give scheduler room to breathe
       }
@@ -315,6 +311,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       }
       // Delete RTURequest and RTUResponse objects
       delete request;   // object created from addRequest()
+      lastRequest = millis();
     }
     else {
       delay(1);  // Give scheduler room to breathe
@@ -363,8 +360,6 @@ void ModbusTCP::send(TCPRequest *request) {
 // receive: get response via Client connection
 TCPResponse* ModbusTCP::receive(TCPRequest *request) {
   uint32_t lastMillis = millis();     // Timer to check for timeout
-  uint32_t lastMicros = micros();     // Timer to check for end of packet
-  const uint32_t EOT(20000);          // Time without data to state EOT
   bool hadData = false;               // flag data received
   const uint16_t dataLen(300);          // Modbus Packet supposedly will fit (260<300)
   uint8_t data[dataLen];              // Local buffer to collect received data
@@ -372,7 +367,7 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
   TCPResponse *response = nullptr;    // Response structure to be returned
 
   // wait for packet data, overflow or timeout
-  while (millis() - lastMillis < timeOutValue && dataPtr < dataLen) {
+  while (millis() - lastMillis < timeOutValue && dataPtr < dataLen && !hadData) {
     // Is there data waiting?
     if (MT_client.available()) {
       // Yes. catch as much as is there and fits into buffer
@@ -382,12 +377,9 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
       // Register data received
       hadData = true;
       // Rewind EOT and timeout timers
-      lastMicros = micros();
       lastMillis = millis();
     }
     delay(1); // Give scheduler room to breathe
-    // If we have got data and the EOT timer has struck, bail out
-    if (hadData && micros() - lastMicros > EOT) break;
   }
   // Did we get some data?
   if (hadData) {
