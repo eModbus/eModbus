@@ -8,7 +8,8 @@ ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
   MT_lastPort(0),
   MT_targetHost(IPAddress(0, 0, 0, 0)),
   MT_targetPort(0),
-  MT_qLimit(queueLimit) { }
+  MT_qLimit(queueLimit),
+  MT_sameHostInterval(50) { }
 
 // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
 ModbusTCP::ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit) :
@@ -18,7 +19,8 @@ ModbusTCP::ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t que
   MT_lastPort(0),
   MT_targetHost(host),
   MT_targetPort(port),
-  MT_qLimit(queueLimit) { }
+  MT_qLimit(queueLimit),
+  MT_sameHostInterval(50) { }
 
 // Destructor: clean up queue, task etc.
 ModbusTCP::~ModbusTCP() {
@@ -42,8 +44,11 @@ ModbusTCP::~ModbusTCP() {
 
 // begin: start worker task
 void ModbusTCP::begin(int coreID) {
+  // Create unique task name
+  char taskName[12];
+  snprintf(taskName, 12, "Modbus%02XTCP", instanceCounter);
   // Start task to handle the queue
-  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, "ModbusTCP", 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
+  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
 }
 
 // Switch target host (if necessary)
@@ -53,6 +58,11 @@ bool ModbusTCP::setTarget(IPAddress host, uint16_t port) {
   MT_targetPort = port;
   if (MT_targetHost == MT_lastHost && MT_targetPort == MT_lastPort) return false;
   return true;
+}
+
+// Set pause time between two consecutive requests to the same target host
+void ModbusTCP::setSameHostInterval(uint32_t intervalMS) {
+  MT_sameHostInterval = intervalMS;
 }
 
 // Methods to set up requests
@@ -222,14 +232,19 @@ bool ModbusTCP::addToQueue(TCPRequest *request) {
 // handleConnection: worker task
 // This was created in begin() to handle the queue entries
 void ModbusTCP::handleConnection(ModbusTCP *instance) {
+  const uint8_t RETRIES(2);
+  uint8_t retryCounter = RETRIES;
+  bool doNotPop;
   uint32_t lastRequest = millis();
 
   // Loop forever - or until task is killed
   while (1) {
-    // Do we have a reuest in queue?
+    // Do we have a request in queue?
     if (!instance->requests.empty()) {
       // Yes. pull it.
       TCPRequest *request = instance->requests.front();
+      doNotPop = false;
+
       // onGenerate handler registered?
       if (instance->onGenerate) {
         // Yes. Send request packet
@@ -249,7 +264,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       }
       else {
         // it is the same host/port. Give it some slack to get ready again
-        while (millis() - lastRequest < 100) {
+        while (millis() - lastRequest < instance->MT_sameHostInterval) {
           delay(1);
         }
       }
@@ -283,10 +298,16 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         }
         else {
           // No, something went wrong. All we have is an error
-          // Do we have an onError handler?
-          if(instance->onError) {
-            // Yes. Forward the error code to it
-            instance->onError(response->getError(), request->getToken());
+          if (response->getError() == TIMEOUT && retryCounter--) {
+            Serial.println("Retry on timeout...");
+            doNotPop = true;
+          }
+          else {
+            // Do we have an onError handler?
+            if(instance->onError) {
+              // Yes. Forward the error code to it
+              instance->onError(response->getError(), request->getToken());
+            }
           }
         }
         //   set lastHost/lastPort tp host/port
@@ -295,22 +316,33 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         delete response;  // object created in receive()
       }
       else {
-        // Oops. Connection failed - report error.
-        // Do we have an onError handler?
-        if(instance->onError) {
-          // Yes. Forward the error code to it
-          instance->onError(IP_CONNECTION_FAILED, request->getToken());
+        // Oops. Connection failed
+        // Retry, if attempts are left or report error.
+        if (retryCounter--) {
+          instance->MT_client.stop();
+          delay(10);
+          Serial.println("Retry on connect failure...");
+          doNotPop = true;
+        }
+        else {
+          // Do we have an onError handler?
+          if(instance->onError) {
+            // Yes. Forward the error code to it
+            instance->onError(IP_CONNECTION_FAILED, request->getToken());
+          }
         }
       }
       // Clean-up time. 
+      if (!doNotPop)
       {
         // Safely lock the queue
         lock_guard<mutex> lockGuard(instance->qLock);
         // Remove the front queue entry
         instance->requests.pop();
+        retryCounter = RETRIES;
+        // Delete request
+        delete request;   // object created from addRequest()
       }
-      // Delete RTURequest and RTUResponse objects
-      delete request;   // object created from addRequest()
       lastRequest = millis();
     }
     else {

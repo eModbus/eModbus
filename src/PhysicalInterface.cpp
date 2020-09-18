@@ -1,12 +1,14 @@
 #include "PhysicalInterface.h"
 
+uint16_t PhysicalInterface::instanceCounter = 0;
+
 // Default constructor: set the default timeout to 2000ms, zero out all other 
 PhysicalInterface::PhysicalInterface(uint32_t TOV = 2000) :
   messageCount(0),
   worker(NULL),
   timeOutValue(TOV),
   onData(nullptr),
-  onError(nullptr) { }
+  onError(nullptr) { instanceCounter++; }
 
 // setTimeOut: set/change the default interface timeout
 bool PhysicalInterface::setTimeOut(uint32_t TOV) {

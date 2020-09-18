@@ -28,6 +28,9 @@ public:
   // Switch target host (if necessary)
   bool setTarget(IPAddress host, uint16_t port);
 
+  // Set pause time between two consecutive requests to the same target host
+  void setSameHostInterval(uint32_t intervalMs);
+
   // Methods to set up requests
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token = 0);
@@ -78,6 +81,7 @@ protected:
   IPAddress MT_targetHost;        // target host for next request(s) to be processed
   uint16_t MT_targetPort;         // target port for next request(s) to be processed
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
+  uint32_t MT_sameHostInterval;   // Time in ms to wait between consecutive connections to the same target host
 };
 
 #endif

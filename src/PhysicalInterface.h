@@ -23,9 +23,10 @@ protected:
   uint32_t messageCount;           // Number of requests generated. Used for transactionID in TCPhead
   TaskHandle_t worker;             // Interface instance worker task
   uint32_t timeOutValue;           // Interface default timeout
-  MBOnData onData;                // Response data handler
-  MBOnGenerate onGenerate;                // Response data handler
-  MBOnError onError;              // Error response handler
+  MBOnData onData;                 // Response data handler
+  MBOnGenerate onGenerate;         // Response data handler
+  MBOnError onError;               // Error response handler
+  static uint16_t instanceCounter; // Number of PhysicalInterfaces created
 };
 
 #endif
