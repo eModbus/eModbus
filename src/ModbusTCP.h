@@ -5,11 +5,13 @@
 #include "PhysicalInterface.h"
 #include "Client.h"
 #include <queue>
+#include <vector>
 #include <mutex>
 
 using std::queue;
 using std::mutex;
 using std::lock_guard;
+using std::vector;
 
 class ModbusTCP : public PhysicalInterface {
 public:
@@ -34,24 +36,31 @@ public:
   // Methods to set up requests
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token = 0);
+  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode);
   
   // 2. one uint16_t parameter (FC 0x18)
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token = 0);
+  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1);
   
   // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token = 0);
+  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2);
   
   // 4. three uint16_t parameters (FC 0x16)
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token = 0);
+  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3);
   
   // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token = 0);
+  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords);
   
   // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
+  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes);
 
   // 7. generic constructor for preformatted data ==> count is counting bytes!
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
+  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
 
 protected:
 // makeHead: helper function to set up a MSB TCP header
@@ -71,6 +80,9 @@ protected:
 
   // Create standard error response 
   TCPResponse* errorResponse(Error e, TCPRequest *request);
+
+  // Move complete message data including tcpHead into a std::vector
+  vector<uint8_t> vectorize(uint16_t transactionID, TCPRequest *request, Error err);
 
   void isInstance() { return; }   // make class instantiable
   queue<TCPRequest *> requests;   // Queue to hold requests to be processed

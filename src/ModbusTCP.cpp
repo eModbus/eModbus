@@ -86,7 +86,24 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t tok
 
   return rc;
 }
+
+vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode) {
+  Error rc = SUCCESS;       // Return code from generating the request
+  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+
+  // Create request, if valid
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode);
+
+  // Put it in the return std::vector
+  rv = vectorize(transactionID, r, rc);
   
+  // Delete request again, if one was created
+  if (r) delete r;
+
+  // Move back vector contents
+  return rv;
+}
+
 // 2. one uint16_t parameter (FC 0x18)
 Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
   Error rc = SUCCESS;        // Return value
@@ -108,6 +125,23 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
+vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1) {
+  Error rc = SUCCESS;       // Return code from generating the request
+  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+
+  // Create request, if valid
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1);
+
+  // Put it in the return std::vector
+  rv = vectorize(transactionID, r, rc);
+  
+  // Delete request again, if one was created
+  if (r) delete r;
+
+  // Move back vector contents
+  return rv;
+}
+  
 // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
 Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
   Error rc = SUCCESS;        // Return value
@@ -127,6 +161,23 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   }
 
   return rc;
+}
+  
+vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
+  Error rc = SUCCESS;       // Return code from generating the request
+  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+
+  // Create request, if valid
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1, p2);
+
+  // Put it in the return std::vector
+  rv = vectorize(transactionID, r, rc);
+  
+  // Delete request again, if one was created
+  if (r) delete r;
+
+  // Move back vector contents
+  return rv;
 }
 
 // 4. three uint16_t parameters (FC 0x16)
@@ -150,6 +201,23 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
+vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
+  Error rc = SUCCESS;       // Return code from generating the request
+  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+
+  // Create request, if valid
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1, p2, p3);
+
+  // Put it in the return std::vector
+  rv = vectorize(transactionID, r, rc);
+  
+  // Delete request again, if one was created
+  if (r) delete r;
+
+  // Move back vector contents
+  return rv;
+}
+  
 // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
 Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
   Error rc = SUCCESS;        // Return value
@@ -169,6 +237,23 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   }
 
   return rc;
+}
+  
+vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
+  Error rc = SUCCESS;       // Return code from generating the request
+  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+
+  // Create request, if valid
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1, p2, count, arrayOfWords);
+
+  // Put it in the return std::vector
+  rv = vectorize(transactionID, r, rc);
+  
+  // Delete request again, if one was created
+  if (r) delete r;
+
+  // Move back vector contents
+  return rv;
 }
   
 // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
@@ -191,6 +276,23 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
 
   return rc;
 }
+  
+vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
+  Error rc = SUCCESS;       // Return code from generating the request
+  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+
+  // Create request, if valid
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1, p2, count, arrayOfBytes);
+
+  // Put it in the return std::vector
+  rv = vectorize(transactionID, r, rc);
+  
+  // Delete request again, if one was created
+  if (r) delete r;
+
+  // Move back vector contents
+  return rv;
+}
 
 // 7. generic constructor for preformatted data ==> count is counting bytes!
 Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
@@ -212,6 +314,23 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
 
   return rc;
 }
+  
+vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
+  Error rc = SUCCESS;       // Return code from generating the request
+  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+
+  // Create request, if valid
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, count, arrayOfBytes);
+
+  // Put it in the return std::vector
+  rv = vectorize(transactionID, r, rc);
+  
+  // Delete request again, if one was created
+  if (r) delete r;
+
+  // Move back vector contents
+  return rv;
+}
 
 // addToQueue: send freshly created request to queue
 bool ModbusTCP::addToQueue(TCPRequest *request) {
@@ -228,6 +347,34 @@ bool ModbusTCP::addToQueue(TCPRequest *request) {
 
   return rc;
 }
+
+  // Move complete message data including tcpHead into a std::vector
+  vector<uint8_t> ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request, Error err) {
+    vector<uint8_t> rv;       /// Returned std::vector
+
+    // Was the message generated?
+    if (err != SUCCESS) {
+      // No. Return the Error code only - vector size is 1
+      rv.reserve(1);
+      rv.push_back(err);
+    }
+    // If it was successful - did we get a message?
+    else if (request) {
+      // Yes, obviously. 
+      // Resize the vector to take tcpHead (6 bytes) + message proper
+      rv.reserve(request->len() + 6);
+      rv.resize(request->len() + 6);
+
+      // Do a fast (non-C++-...) copy
+      uint8_t *cp = rv.data();
+      // Copy in TCP header
+      makeHead(cp, 6, transactionID, request->tcpHead.protocolID, request->tcpHead.len);
+      // Copy in message contents
+      memcpy(cp + 6, request->data(), request->len());
+    }
+    // Bring back the vector
+    return rv;
+  }
 
 // handleConnection: worker task
 // This was created in begin() to handle the queue entries
