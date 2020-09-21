@@ -2,25 +2,21 @@
 
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
 ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
-  PhysicalInterface(2000),
+  PhysicalInterface(DEFAULTTIMEOUT),
   MT_client(client),
-  MT_lastHost(IPAddress(0, 0, 0, 0)),
-  MT_lastPort(0),
-  MT_targetHost(IPAddress(0, 0, 0, 0)),
-  MT_targetPort(0),
-  MT_qLimit(queueLimit),
-  MT_sameHostInterval(50) { }
+  MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_target(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_qLimit(queueLimit)
+  { }
 
 // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
 ModbusTCP::ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit) :
-  PhysicalInterface(2000),
+  PhysicalInterface(DEFAULTTIMEOUT),
   MT_client(client),
-  MT_lastHost(IPAddress(0, 0, 0, 0)),
-  MT_lastPort(0),
-  MT_targetHost(host),
-  MT_targetPort(port),
-  MT_qLimit(queueLimit),
-  MT_sameHostInterval(50) { }
+  MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_target(host, port, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_qLimit(queueLimit)
+  { }
 
 // Destructor: clean up queue, task etc.
 ModbusTCP::~ModbusTCP() {
@@ -53,16 +49,13 @@ void ModbusTCP::begin(int coreID) {
 
 // Switch target host (if necessary)
 // Return true, if host/port is different from last host/port used
-bool ModbusTCP::setTarget(IPAddress host, uint16_t port) {
-  MT_targetHost = host;
-  MT_targetPort = port;
-  if (MT_targetHost == MT_lastHost && MT_targetPort == MT_lastPort) return false;
+bool ModbusTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout, uint32_t interval) {
+  MT_target.host = host;
+  MT_target.port = port;
+  MT_target.timeout = timeout;
+  MT_target.interval = interval;
+  if (MT_target.host == MT_lastTarget.host && MT_target.port == MT_lastTarget.port) return false;
   return true;
-}
-
-// Set pause time between two consecutive requests to the same target host
-void ModbusTCP::setSameHostInterval(uint32_t intervalMS) {
-  MT_sameHostInterval = intervalMS;
 }
 
 // Methods to set up requests
@@ -71,7 +64,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t tok
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_targetHost, MT_targetPort, serverID, functionCode, token);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, token);
 
   // Add it to the queue, if valid
   if (r) {
@@ -90,9 +83,10 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t tok
 vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode) {
   Error rc = SUCCESS;       // Return code from generating the request
   vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, serverID, functionCode);
 
   // Put it in the return std::vector
   rv = vectorize(transactionID, r, rc);
@@ -109,7 +103,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_targetHost, MT_targetPort, serverID, functionCode, p1, token);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, p1, token);
 
   // Add it to the queue, if valid
   if (r) {
@@ -128,9 +122,10 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
 vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1) {
   Error rc = SUCCESS;       // Return code from generating the request
   vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, serverID, functionCode, p1);
 
   // Put it in the return std::vector
   rv = vectorize(transactionID, r, rc);
@@ -147,7 +142,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_targetHost, MT_targetPort, serverID, functionCode, p1, p2, token);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, p1, p2, token);
 
   // Add it to the queue, if valid
   if (r) {
@@ -166,9 +161,10 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
 vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
   Error rc = SUCCESS;       // Return code from generating the request
   vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1, p2);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, serverID, functionCode, p1, p2);
 
   // Put it in the return std::vector
   rv = vectorize(transactionID, r, rc);
@@ -185,7 +181,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_targetHost, MT_targetPort, serverID, functionCode, p1, p2, p3, token);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, p1, p2, p3, token);
 
   // Add it to the queue, if valid
   if (r) {
@@ -204,9 +200,10 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
 vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
   Error rc = SUCCESS;       // Return code from generating the request
   vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1, p2, p3);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, serverID, functionCode, p1, p2, p3);
 
   // Put it in the return std::vector
   rv = vectorize(transactionID, r, rc);
@@ -223,7 +220,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_targetHost, MT_targetPort, serverID, functionCode, p1, p2, count, arrayOfWords, token);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, p1, p2, count, arrayOfWords, token);
 
   // Add it to the queue, if valid
   if (r) {
@@ -242,9 +239,10 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
 vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
   Error rc = SUCCESS;       // Return code from generating the request
   vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1, p2, count, arrayOfWords);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, serverID, functionCode, p1, p2, count, arrayOfWords);
 
   // Put it in the return std::vector
   rv = vectorize(transactionID, r, rc);
@@ -261,7 +259,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_targetHost, MT_targetPort, serverID, functionCode, p1, p2, count, arrayOfBytes, token);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, p1, p2, count, arrayOfBytes, token);
 
   // Add it to the queue, if valid
   if (r) {
@@ -280,9 +278,10 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
 vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
   vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, p1, p2, count, arrayOfBytes);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, serverID, functionCode, p1, p2, count, arrayOfBytes);
 
   // Put it in the return std::vector
   rv = vectorize(transactionID, r, rc);
@@ -299,7 +298,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_targetHost, MT_targetPort, serverID, functionCode, count, arrayOfBytes, token);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, count, arrayOfBytes, token);
 
   // Add it to the queue, if valid
   if (r) {
@@ -318,9 +317,10 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
 vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
   vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
-  TCPRequest *r = TCPRequest::createTCPRequest(rc, 99, 99, serverID, functionCode, count, arrayOfBytes);
+  TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, serverID, functionCode, count, arrayOfBytes);
 
   // Put it in the return std::vector
   rv = vectorize(transactionID, r, rc);
@@ -411,16 +411,22 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       TCPRequest *request = instance->requests.front();
       doNotPop = false;
 
-      // onGenerate handler registered?
-      if (instance->onGenerate) {
-        // Yes. Send request packet
-        instance->onGenerate("Request ", request->data(), request->len(), request->getToken());
-      }
+/*
+      Serial.printf("Target: %d.%d.%d.%d/%d Timeout=%d Interval=%d\n", 
+        request->target.host[0], 
+        request->target.host[1], 
+        request->target.host[2], 
+        request->target.host[3], 
+        request->target.port, 
+        request->target.timeout, 
+        request->target.interval);
+*/
+
       // Empty the RX buffer - just in case...
       while (instance->MT_client.available()) instance->MT_client.read();
 
       // check if lastHost/lastPort!=host/port off the queued request
-      if (instance->MT_lastHost != request->targetHost || instance->MT_lastPort != request->targetPort) {
+      if (instance->MT_lastTarget.host != request->target.host || instance->MT_lastTarget.port != request->target.port) {
         // It is different. If client is connected, disconnect
         if (instance->MT_client.connected()) {
           // Is connected - cut it
@@ -430,14 +436,14 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
       }
       else {
         // it is the same host/port. Give it some slack to get ready again
-        while (millis() - lastRequest < instance->MT_sameHostInterval) {
+        while (millis() - lastRequest < request->target.interval) {
           delay(1);
         }
       }
       // if client is disconnected (we will have to switch hosts)
       if (!instance->MT_client.connected()) {
         // It is disconnected. connect to host/port from queue
-        instance->MT_client.connect(request->targetHost, request->targetPort);
+        instance->MT_client.connect(request->target.host, request->target.port);
 
         delay(1);  // Give scheduler room to breathe
       }
@@ -449,11 +455,6 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         // Get the response - if any
         TCPResponse *response = instance->receive(request);
 
-        // onGenerate handler registered?
-        if (instance->onGenerate) {
-          // Yes. Send request packet
-          instance->onGenerate("Response ", response->data(), response->len(), request->getToken());
-        }
         // Did we get a normal response?
         if (response->getError()==SUCCESS) {
           // Yes. Do we have an onData handler registered?
@@ -477,8 +478,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
           }
         }
         //   set lastHost/lastPort tp host/port
-        instance->MT_lastHost = request->targetHost;
-        instance->MT_lastPort = request->targetPort;
+        instance->MT_lastTarget = request->target;
         delete response;  // object created in receive()
       }
       else {
@@ -565,7 +565,7 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
   TCPResponse *response = nullptr;    // Response structure to be returned
 
   // wait for packet data, overflow or timeout
-  while (millis() - lastMillis < timeOutValue && dataPtr < dataLen && !hadData) {
+  while (millis() - lastMillis < request->target.timeout && dataPtr < dataLen && !hadData) {
     // Is there data waiting?
     if (MT_client.available()) {
       // Yes. catch as much as is there and fits into buffer

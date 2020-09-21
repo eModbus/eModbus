@@ -223,18 +223,10 @@ void ModbusRTU::handleConnection(ModbusRTU *instance) {
     if (!instance->requests.empty()) {
       // Yes. pull it.
       RTURequest *request = instance->requests.front();
-      // onGenerate handler registered?
-      if (instance->onGenerate) {
-        instance->onGenerate("Request ", request->data(), request->len(), request->getToken());
-      }
       // Send it via Serial
       instance->send(request);
       // Get the response - if any
       RTUResponse *response = instance->receive(request);
-      // onGenerate handler registered?
-      if (instance->onGenerate) {
-        instance->onGenerate("Response ", response->data(), response->len(), request->getToken());
-      }
       // Did we get a normal response?
       if (response->getError()==SUCCESS) {
         // Yes. Do we have an onData handler registered?

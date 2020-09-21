@@ -1,36 +1,36 @@
 #include "ModbusMessageTCP.h"
 
 // Default constructor: call ModbusRequest constructor, then init TCP header
-TCPRequest::TCPRequest(IPAddress host, uint16_t port, uint16_t dataLen, uint32_t token) :
+TCPRequest::TCPRequest(TargetHost target, uint16_t dataLen, uint32_t token) :
   ModbusRequest(dataLen, token),
-  targetHost(host),
-  targetPort(port) { 
+  target(target)
+  { 
     tcpHead.transactionID = 0x0001;  // pro forma: will be set by ModbusTCP
     tcpHead.protocolID = 0x0000;     // constant Modbus value
     tcpHead.len = dataLen;           // same as packet size
   }
 
 // Helper function to check IP address and port for validity
-Error TCPRequest::isValidHost(IPAddress host, uint16_t port) {
-  if(port == 0) return ILLEGAL_IP_OR_PORT;
-  if(host == IPAddress(0, 0, 0, 0)) return ILLEGAL_IP_OR_PORT;
-  if(host[3] == 255) return ILLEGAL_IP_OR_PORT; // Most probably a broadcast address.
+Error TCPRequest::isValidHost(TargetHost target) {
+  if(target.port == 0) return ILLEGAL_IP_OR_PORT;
+  if(target.host == IPAddress(0, 0, 0, 0)) return ILLEGAL_IP_OR_PORT;
+  if(target.host[3] == 255) return ILLEGAL_IP_OR_PORT; // Most probably a broadcast address.
   return SUCCESS;
 }
 
 // Factory methods to create valid Modbus messages from the parameters
 // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint16_t port, uint8_t serverID, uint8_t functionCode, uint32_t token) {
+TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, uint8_t serverID, uint8_t functionCode, uint32_t token) {
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
-  returnCode = isValidHost(host, port);
+  returnCode = isValidHost(target);
   if(returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode);
     // No error? 
     if (returnCode == SUCCESS)
     {
       // Yes, all fine. Create new TCPRequest instance
-      returnPtr = new TCPRequest(host, port, 2, token);
+      returnPtr = new TCPRequest(target, 2, token);
       returnPtr->add(serverID);
       returnPtr->add(functionCode);
     }
@@ -39,17 +39,17 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 }
 
 // 2. one uint16_t parameter (FC 0x18)
-TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint16_t port, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
+TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
-  returnCode = isValidHost(host, port);
+  returnCode = isValidHost(target);
   if(returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1);
     // No error? 
     if (returnCode == SUCCESS)
     {
       // Yes, all fine. Create new TCPRequest instance
-      returnPtr = new TCPRequest(host, port, 4, token);
+      returnPtr = new TCPRequest(target, 4, token);
       returnPtr->add(serverID);
       returnPtr->add(functionCode);
       returnPtr->add(p1);
@@ -59,17 +59,17 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 }
 
 // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint16_t port, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
+TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
-  returnCode = isValidHost(host, port);
+  returnCode = isValidHost(target);
   if(returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1, p2);
     // No error? 
     if (returnCode == SUCCESS)
     {
       // Yes, all fine. Create new TCPRequest instance
-      returnPtr = new TCPRequest(host, port, 6, token);
+      returnPtr = new TCPRequest(target, 6, token);
       returnPtr->add(serverID);
       returnPtr->add(functionCode);
       returnPtr->add(p1);
@@ -80,17 +80,17 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 }
 
 // 4. three uint16_t parameters (FC 0x16)
-TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint16_t port, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token) {
+TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token) {
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
-  returnCode = isValidHost(host, port);
+  returnCode = isValidHost(target);
   if(returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1, p2, p3);
     // No error? 
     if (returnCode == SUCCESS)
     {
       // Yes, all fine. Create new TCPRequest instance
-      returnPtr = new TCPRequest(host, port, 8, token);
+      returnPtr = new TCPRequest(target, 8, token);
       returnPtr->add(serverID);
       returnPtr->add(functionCode);
       returnPtr->add(p1);
@@ -102,17 +102,17 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 }
 
 // 5. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of words (FC 0x10)
-TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint16_t port, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
+TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
-  returnCode = isValidHost(host, port);
+  returnCode = isValidHost(target);
   if(returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1, p2, count, arrayOfWords);
     // No error? 
     if (returnCode == SUCCESS)
     {
       // Yes, all fine. Create new TCPRequest instance
-      returnPtr = new TCPRequest(host, port, 7 + count, token);
+      returnPtr = new TCPRequest(target, 7 + count, token);
       returnPtr->add(serverID);
       returnPtr->add(functionCode);
       returnPtr->add(p1);
@@ -127,17 +127,17 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 }
 
 // 6. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of bytes (FC 0x0f)
-TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint16_t port, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token) {
+TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token) {
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
-  returnCode = isValidHost(host, port);
+  returnCode = isValidHost(target);
   if(returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1, p2, count, arrayOfBytes);
     // No error? 
     if (returnCode == SUCCESS)
     {
       // Yes, all fine. Create new TCPRequest instance
-      returnPtr = new TCPRequest(host, port, 7 + count, token);
+      returnPtr = new TCPRequest(target, 7 + count, token);
       returnPtr->add(serverID);
       returnPtr->add(functionCode);
       returnPtr->add(p1);
@@ -152,17 +152,17 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint
 }
 
 // 7. generic constructor for preformatted data ==> count is counting bytes!
-TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, IPAddress host, uint16_t port, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
+TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
-  returnCode = isValidHost(host, port);
+  returnCode = isValidHost(target);
   if(returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, count, arrayOfBytes);
     // No error? 
     if (returnCode == SUCCESS)
     {
       // Yes, all fine. Create new TCPRequest instance
-      returnPtr = new TCPRequest(host, port, 2 + count, token);
+      returnPtr = new TCPRequest(target, 2 + count, token);
       returnPtr->add(serverID);
       returnPtr->add(functionCode);
       for (uint8_t i = 0; i < count; ++i) {

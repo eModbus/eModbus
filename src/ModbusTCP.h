@@ -13,6 +13,9 @@ using std::mutex;
 using std::lock_guard;
 using std::vector;
 
+#define TARGETHOSTINTERVAL 10
+#define DEFAULTTIMEOUT 2000
+
 class ModbusTCP : public PhysicalInterface {
 public:
   // Constructor takes reference to Client (EthernetClient or WiFiClient)
@@ -28,10 +31,7 @@ public:
   void begin(int coreID = -1);
 
   // Switch target host (if necessary)
-  bool setTarget(IPAddress host, uint16_t port);
-
-  // Set pause time between two consecutive requests to the same target host
-  void setSameHostInterval(uint32_t intervalMs);
+  bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = DEFAULTTIMEOUT, uint32_t interval = TARGETHOSTINTERVAL);
 
   // Methods to set up requests
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -91,12 +91,9 @@ protected:
   queue<TCPRequest *> requests;   // Queue to hold requests to be processed
   mutex qLock;                    // Mutex to protect queue
   Client& MT_client;              // Client reference for Internet connections (EthernetClient or WifiClient)
-  IPAddress MT_lastHost;          // target host from previous request processed - to keep connection open if host/port stays the same
-  uint16_t MT_lastPort;           // target port from previous request processed - to keep connection open if host/port stays the same
-  IPAddress MT_targetHost;        // target host for next request(s) to be processed
-  uint16_t MT_targetPort;         // target port for next request(s) to be processed
+  TargetHost MT_lastTarget;       // last used server
+  TargetHost MT_target;           // Description of target server
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
-  uint32_t MT_sameHostInterval;   // Time in ms to wait between consecutive connections to the same target host
 };
 
 #endif
