@@ -376,6 +376,25 @@ bool ModbusTCP::addToQueue(TCPRequest *request) {
     return rv;
   }
 
+// Method to generate an error response - properly enveloped for TCP
+vector<uint8_t> ModbusTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
+  vector<uint8_t> rv;       // Returned std::vector
+  
+  rv.reserve(9);            // 6 bytes TCP header plus serverID, functionCode and error code
+  rv.resize(9);
+
+  // Copy in TCP header
+  uint8_t *cp = rv.data();
+  makeHead(cp, 6, transactionID, 0, 3);
+
+  // Add payload
+  rv[6] = serverID;
+  rv[7] = (functionCode | 0x80);
+  rv[8] = errorCode;
+
+  return rv;
+}
+
 // handleConnection: worker task
 // This was created in begin() to handle the queue entries
 void ModbusTCP::handleConnection(ModbusTCP *instance) {

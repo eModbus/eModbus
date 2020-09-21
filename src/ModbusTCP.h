@@ -62,6 +62,9 @@ public:
   Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
   vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
 
+  // Method to generate an error response - properly enveloped for TCP
+  vector<uint8_t> generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode);
+
 protected:
 // makeHead: helper function to set up a MSB TCP header
   bool makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN);
