@@ -9,9 +9,9 @@ public:
   friend class RTURequest;
   friend class RTUResponse;
   friend class ModbusRTU;
+  static uint16_t calcCRC(const uint8_t *data, uint16_t len);
 protected:
   RTUCRC() = delete;
-  static uint16_t calcCRC(const uint8_t *data, uint16_t len);
 };
 
 class RTURequest : public ModbusRequest {

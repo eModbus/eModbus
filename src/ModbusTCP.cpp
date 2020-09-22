@@ -354,33 +354,33 @@ bool ModbusTCP::addToQueue(TCPRequest *request) {
   return rc;
 }
 
-  // Move complete message data including tcpHead into a std::vector
-  vector<uint8_t> ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request, Error err) {
-    vector<uint8_t> rv;       /// Returned std::vector
+// Move complete message data including tcpHead into a std::vector
+vector<uint8_t> ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request, Error err) {
+  vector<uint8_t> rv;       /// Returned std::vector
 
-    // Was the message generated?
-    if (err != SUCCESS) {
-      // No. Return the Error code only - vector size is 1
-      rv.reserve(1);
-      rv.push_back(err);
-    }
-    // If it was successful - did we get a message?
-    else if (request) {
-      // Yes, obviously. 
-      // Resize the vector to take tcpHead (6 bytes) + message proper
-      rv.reserve(request->len() + 6);
-      rv.resize(request->len() + 6);
-
-      // Do a fast (non-C++-...) copy
-      uint8_t *cp = rv.data();
-      // Copy in TCP header
-      makeHead(cp, 6, transactionID, request->tcpHead.protocolID, request->tcpHead.len);
-      // Copy in message contents
-      memcpy(cp + 6, request->data(), request->len());
-    }
-    // Bring back the vector
-    return rv;
+  // Was the message generated?
+  if (err != SUCCESS) {
+    // No. Return the Error code only - vector size is 1
+    rv.reserve(1);
+    rv.push_back(err);
   }
+  // If it was successful - did we get a message?
+  else if (request) {
+    // Yes, obviously. 
+    // Resize the vector to take tcpHead (6 bytes) + message proper
+    rv.reserve(request->len() + 6);
+    rv.resize(request->len() + 6);
+
+    // Do a fast (non-C++-...) copy
+    uint8_t *cp = rv.data();
+    // Copy in TCP header
+    makeHead(cp, 6, transactionID, request->tcpHead.protocolID, request->tcpHead.len);
+    // Copy in message contents
+    memcpy(cp + 6, request->data(), request->len());
+  }
+  // Bring back the vector
+  return rv;
+}
 
 // Method to generate an error response - properly enveloped for TCP
 vector<uint8_t> ModbusTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
