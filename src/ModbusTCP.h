@@ -30,8 +30,11 @@ public:
   // begin: start worker task
   void begin(int coreID = -1);
 
+  // Set default timeout value (and interval)
+  void setTimeout(uint32_t timeout, uint32_t interval = TARGETHOSTINTERVAL);
+
   // Switch target host (if necessary)
-  bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = DEFAULTTIMEOUT, uint32_t interval = TARGETHOSTINTERVAL);
+  bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
 
   // Methods to set up requests
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -93,6 +96,8 @@ protected:
   Client& MT_client;              // Client reference for Internet connections (EthernetClient or WifiClient)
   TargetHost MT_lastTarget;       // last used server
   TargetHost MT_target;           // Description of target server
+  uint32_t MT_defaultTimeout;     // Standard timeout value taken if no dedicated was set
+  uint32_t MT_defaultInterval;    // Standard interval value taken if no dedicated was set
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
 };
 

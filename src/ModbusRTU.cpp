@@ -2,12 +2,13 @@
 
 // Constructor takes Serial reference and optional DE/RE pin
 ModbusRTU::ModbusRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit) :
-  PhysicalInterface(2000),
+  PhysicalInterface(),
   MR_serial(serial),
   MR_lastMicros(micros()),
   MR_interval(2000),
   MR_rtsPin(rtsPin),
-  MR_qLimit(queueLimit) {
+  MR_qLimit(queueLimit),
+  MR_timeoutValue(DEFAULTTIMEOUT) {
 }
 
 // Destructor: clean up queue, task etc.
@@ -52,6 +53,11 @@ void ModbusRTU::begin(int coreID) {
   // since the calculated interval will be below 1000µs!
   // f.i. 115200bd ==> interval=304µs
   if (MR_interval < 1000) MR_interval = 1000;  // minimum of 1msec interval
+}
+
+// setTimeOut: set/change the default interface timeout
+void ModbusRTU::setTimeout(uint32_t TOV) {
+  MR_timeoutValue = TOV;
 }
 
 // Methods to set up requests
@@ -316,7 +322,7 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
         state = IN_PACKET;
         MR_lastMicros = micros();
       } else {
-        if (millis() - TimeOut >= timeOutValue) {
+        if (millis() - TimeOut >= MR_timeoutValue) {
           errorCode = TIMEOUT;
           state = ERROR_EXIT;
         }

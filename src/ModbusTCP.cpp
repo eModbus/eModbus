@@ -2,7 +2,7 @@
 
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
 ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
-  PhysicalInterface(DEFAULTTIMEOUT),
+  PhysicalInterface(),
   MT_client(client),
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_target(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
@@ -11,7 +11,7 @@ ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
 
 // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
 ModbusTCP::ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit) :
-  PhysicalInterface(DEFAULTTIMEOUT),
+  PhysicalInterface(),
   MT_client(client),
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_target(host, port, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
@@ -47,13 +47,19 @@ void ModbusTCP::begin(int coreID) {
   xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
 }
 
+// Set default timeout value (and interval)
+void ModbusTCP::setTimeout(uint32_t timeout, uint32_t interval) {
+  MT_defaultTimeout = timeout;
+  MT_defaultInterval = interval;
+}
+
 // Switch target host (if necessary)
 // Return true, if host/port is different from last host/port used
 bool ModbusTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout, uint32_t interval) {
   MT_target.host = host;
   MT_target.port = port;
-  MT_target.timeout = timeout;
-  MT_target.interval = interval;
+  MT_target.timeout = timeout ? timeout : MT_defaultTimeout;
+  MT_target.interval = interval ? interval : MT_defaultInterval;
   if (MT_target.host == MT_lastTarget.host && MT_target.port == MT_lastTarget.port) return false;
   return true;
 }

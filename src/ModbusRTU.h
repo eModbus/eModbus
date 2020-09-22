@@ -10,6 +10,8 @@ using std::queue;
 using std::mutex;
 using std::lock_guard;
 
+#define DEFAULTTIMEOUT 2000
+
 class ModbusRTU : public PhysicalInterface {
 public:
   // Constructor takes Serial reference and optional DE/RE pin and queue limit
@@ -20,6 +22,9 @@ public:
 
   // begin: start worker task
   void begin(int coreID = -1);
+
+  // Set default timeout value for interface
+  void setTimeout(uint32_t TOV);
 
   // Methods to set up requests
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -57,13 +62,14 @@ protected:
   RTUResponse* receive(RTURequest *request);
 
   void isInstance() { return; }   // make class instantiable
-  queue<RTURequest *> requests;     // Queue to hold requests to be processed
+  queue<RTURequest *> requests;   // Queue to hold requests to be processed
   mutex qLock;                    // Mutex to protect queue
   HardwareSerial& MR_serial;      // Ptr to the serial interface used
   uint32_t MR_lastMicros;         // Microseconds since last bus activity
   uint32_t MR_interval;           // Modbus RTU bus quiet time
   int8_t MR_rtsPin;               // GPIO pin to toggle RS485 DE/RE line. -1 if none.
   uint16_t MR_qLimit;             // Maximum number of requests to hold in the queue
+  uint32_t MR_timeoutValue;       // Interface default timeout
 
 };
 
