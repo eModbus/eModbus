@@ -19,7 +19,7 @@ using std::vector;
 class ModbusTCP : public PhysicalInterface {
 public:
   // Constructor takes reference to Client (EthernetClient or WiFiClient)
-  ModbusTCP(Client& client, uint16_t queueLimit = 100);
+  explicit ModbusTCP(Client& client, uint16_t queueLimit = 100);
 
   // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
   ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit = 100);

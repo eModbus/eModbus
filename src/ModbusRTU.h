@@ -17,7 +17,7 @@ using std::vector;
 class ModbusRTU : public PhysicalInterface {
 public:
   // Constructor takes Serial reference and optional DE/RE pin and queue limit
-  ModbusRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);
+  explicit ModbusRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.
   ~ModbusRTU();

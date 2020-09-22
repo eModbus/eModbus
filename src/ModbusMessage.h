@@ -3,7 +3,7 @@
 #include "ModbusTypeDefs.h"
 #include "ModbusError.h"
 
-using namespace ModbusClient;
+using ModbusClient::Error;
 
 // Definition of the classes for MODBUS messages - Request and Response
 // all classes are abstract, a concrete class has to be derived from these.
@@ -28,7 +28,7 @@ template <class T> static uint16_t addValue(uint8_t *target, uint16_t targetLeng
 
 protected:
   // Default Constructor - takes size of MM_data
-  ModbusMessage(uint16_t dataLen);
+  explicit ModbusMessage(uint16_t dataLen);
   
   // Destructor - takes care of MM_data deletion
   virtual ~ModbusMessage();
@@ -91,7 +91,7 @@ protected:
 class ModbusRequest : public ModbusMessage {
 protected:
   // Default constructor
-  ModbusRequest(uint16_t dataLen, uint32_t token = 0);
+  explicit ModbusRequest(uint16_t dataLen, uint32_t token = 0);
 
   // Get token
   uint32_t getToken();
@@ -130,7 +130,7 @@ protected:
 class ModbusResponse : public ModbusMessage {
 protected:
   // Default constructor
-  ModbusResponse(uint16_t dataLen);
+  explicit ModbusResponse(uint16_t dataLen);
 
   // getError() - returns error code
   Error getError();

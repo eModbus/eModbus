@@ -328,7 +328,7 @@ bool ModbusRTU::addToQueue(RTURequest *request) {
   bool rc = false;
   // Did we get one?
   if (request) {
-    if(requests.size()<MR_qLimit) {
+    if (requests.size()<MR_qLimit) {
       // Yes. Safely lock queue and push request to queue
       rc = true;
       lock_guard<mutex> lockGuard(qLock);
@@ -348,9 +348,8 @@ vector<uint8_t> ModbusRTU::vectorize(RTURequest *request, Error err) {
     // No. Return the Error code only - vector size is 1
     rv.reserve(1);
     rv.push_back(err);
-  }
   // If it was successful - did we get a message?
-  else if (request) {
+  } else if (request) {
     // Yes, obviously. 
     // Resize the vector to take message proper plus CRC (2 bytes)
     rv.reserve(request->len() + 2);
@@ -406,15 +405,14 @@ void ModbusRTU::handleConnection(ModbusRTU *instance) {
       // Did we get a normal response?
       if (response->getError()==SUCCESS) {
         // Yes. Do we have an onData handler registered?
-        if(instance->onData) {
+        if (instance->onData) {
           // Yes. call it
           instance->onData(response->getServerID(), response->getFunctionCode(), response->data(), response->len(), request->getToken());
         }
-      }
-      else {
+      } else {
         // No, something went wrong. All we have is an error
         // Do we have an onError handler?
-        if(instance->onError) {
+        if (instance->onError) {
           // Yes. Forward the error code to it
           instance->onError(response->getError(), request->getToken());
         }
@@ -429,8 +427,7 @@ void ModbusRTU::handleConnection(ModbusRTU *instance) {
       // Delete RTURequest and RTUResponse objects
       delete request;   // object created from addRequest()
       delete response;  // object created in receive()
-    }
-    else {
+    } else {
       delay(1);
     }
   }
@@ -543,7 +540,7 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
     // DATA_READ: successfully gathered some data. Prepare return object.
     case DATA_READ:
       // Did we get a sensible buffer length?
-      if(bufferPtr >= 5)
+      if (bufferPtr >= 5)
       {
         // Yes. Allocate response object - without CRC
         response = new RTUResponse(bufferPtr - 2);
@@ -552,18 +549,16 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
         // Extract CRC value
         response->setCRC(buffer[bufferPtr - 2] | (buffer[bufferPtr - 1] << 8));
         // Check CRC - OK?
-        if(response->isValidCRC()) {
+        if (response->isValidCRC()) {
           // Yes, move on
           state = FINISHED;
-        }
-        else {
+        } else {
           // No! Delete received response, set error code and proceed to ERROR_EXIT.
           delete response;
           errorCode = CRC_ERROR;
           state = ERROR_EXIT;
         }
-      }
-      else {
+      } else {
         // No, packet was too short for anything usable. Return error
         errorCode = PACKET_LENGTH_ERROR;
         state = ERROR_EXIT;

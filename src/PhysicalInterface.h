@@ -2,7 +2,8 @@
 #define _PHYSICAL_INTERFACE_H
 #include "ModbusTypeDefs.h"
 
-using namespace ModbusClient;
+using ModbusClient::MBOnData;
+using ModbusClient::MBOnError;
 
 extern "C" {
 #include <freertos/FreeRTOS.h>

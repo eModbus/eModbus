@@ -23,4 +23,3 @@ void PhysicalInterface::onErrorHandler(MBOnError handler) {
 uint32_t PhysicalInterface::getMessageCount() {
   return messageCount;
 }
-  

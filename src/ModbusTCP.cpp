@@ -1,4 +1,4 @@
-#include "ModbusTCP.h"
+ #include "ModbusTCP.h"
 
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
 ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
@@ -343,7 +343,7 @@ bool ModbusTCP::addToQueue(TCPRequest *request) {
   bool rc = false;
   // Did we get one?
   if (request) {
-    if(requests.size()<MT_qLimit) {
+    if (requests.size()<MT_qLimit) {
       // Yes. Safely lock queue and push request to queue
       rc = true;
       lock_guard<mutex> lockGuard(qLock);
@@ -363,9 +363,8 @@ vector<uint8_t> ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request
     // No. Return the Error code only - vector size is 1
     rv.reserve(1);
     rv.push_back(err);
-  }
   // If it was successful - did we get a message?
-  else if (request) {
+  } else if (request) {
     // Yes, obviously. 
     // Resize the vector to take tcpHead (6 bytes) + message proper
     rv.reserve(request->len() + 6);
@@ -439,8 +438,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
           instance->MT_client.stop();
           delay(1);  // Give scheduler room to breathe
         }
-      }
-      else {
+      } else {
         // it is the same host/port. Give it some slack to get ready again
         while (millis() - lastRequest < request->target.interval) {
           delay(1);
@@ -464,20 +462,18 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         // Did we get a normal response?
         if (response->getError()==SUCCESS) {
           // Yes. Do we have an onData handler registered?
-          if(instance->onData) {
+          if (instance->onData) {
             // Yes. call it
             instance->onData(response->getServerID(), response->getFunctionCode(), response->data(), response->len(), request->getToken());
           }
-        }
-        else {
+        } else {
           // No, something went wrong. All we have is an error
           if (response->getError() == TIMEOUT && retryCounter--) {
             Serial.println("Retry on timeout...");
             doNotPop = true;
-          }
-          else {
+          } else {
             // Do we have an onError handler?
-            if(instance->onError) {
+            if (instance->onError) {
               // Yes. Forward the error code to it
               instance->onError(response->getError(), request->getToken());
             }
@@ -486,8 +482,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         //   set lastHost/lastPort tp host/port
         instance->MT_lastTarget = request->target;
         delete response;  // object created in receive()
-      }
-      else {
+      } else {
         // Oops. Connection failed
         // Retry, if attempts are left or report error.
         if (retryCounter--) {
@@ -495,10 +490,9 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
           delay(10);
           Serial.println("Retry on connect failure...");
           doNotPop = true;
-        }
-        else {
+        } else {
           // Do we have an onError handler?
-          if(instance->onError) {
+          if (instance->onError) {
             // Yes. Forward the error code to it
             instance->onError(IP_CONNECTION_FAILED, request->getToken());
           }
@@ -516,8 +510,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         delete request;   // object created from addRequest()
       }
       lastRequest = millis();
-    }
-    else {
+    } else {
       delay(1);  // Give scheduler room to breathe
     }
   }
@@ -541,7 +534,7 @@ bool ModbusTCP::makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t
   offs = ModbusMessage::addValue(data + ptr, headlong, LEN);
   headlong -= offs;
   // headlong should be 0 here!
-  if(headlong) return false;
+  if (headlong) return false;
   return true;
 }
 
@@ -591,11 +584,10 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
     uint8_t head[6];
     makeHead(head, 6, request->tcpHead.transactionID, request->tcpHead.protocolID, dataPtr - 6);
     // First transactionID and protocolID shall be identical, Are they?
-    if(memcmp(head, data, 6)) {
+    if (memcmp(head, data, 6)) {
       // No. return Error response
       response = errorResponse(TCP_HEAD_MISMATCH, request);
-    }
-    else {
+    } else {
       // Looks good.
       response = new TCPResponse(dataPtr - 6);
       response->add(dataPtr - 6, data + 6);
@@ -603,8 +595,7 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
       response->tcpHead.protocolID = request->tcpHead.protocolID;
       response->tcpHead.len = dataPtr - 6;
     }
-  }
-  else {
+  } else {
     // No, timeout must have struck
     response = errorResponse(TIMEOUT, request);
   }

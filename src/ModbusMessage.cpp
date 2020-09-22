@@ -416,21 +416,21 @@ Error ModbusResponse::getError() {
     // Calculate number of bytes fitting into remainder of buffer
     maxByte = BUFLEN / byteLen;
     // If more than needed, reduce accordingly
-    if(MM_index<maxByte) maxByte = MM_index;
+    if (MM_index<maxByte) maxByte = MM_index;
 
     // May we print at least a single byte?
-    if(maxByte>0)
+    if (maxByte>0)
     {
       char *cp = buffer;
       // For each byte...
-      for(uint16_t i=0; i<maxByte; ++i)
+      for (uint16_t i=0; i<maxByte; ++i)
       {
         // ...print it, plus...
-        sprintf(cp, "%02X", MM_data[i]);
+        snprintf(cp, BUFLEN - (cp - buffer), "%02X", MM_data[i]);
         outLen += 2;
         cp += 2;
         // .. a separator, if it is defined and another byte is to follow
-        if(i<maxByte-1)
+        if (i<maxByte-1)
         {
           *cp++ = ' ';
           outLen++;

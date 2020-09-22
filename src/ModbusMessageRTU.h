@@ -20,7 +20,7 @@ protected:
   uint16_t CRC;          // CRC16 value
 
   // Default constructor
-  RTURequest(uint16_t dataLen, uint32_t token = 0);
+  explicit RTURequest(uint16_t dataLen, uint32_t token = 0);
 
   // Factory methods to create valid Modbus messages from the parameters
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -56,7 +56,7 @@ class RTUResponse : public ModbusResponse {
   friend class ModbusRTU;
 protected:
   // Default constructor
-  RTUResponse(uint16_t dataLen);
+  explicit RTUResponse(uint16_t dataLen);
 
   uint16_t CRC;                  // CRC16 value
   void isInstance() { return; }  // Make class instantiable

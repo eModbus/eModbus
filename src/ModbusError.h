@@ -2,16 +2,17 @@
 #define _MODBUS_ERROR_H
 #include "ModbusTypeDefs.h"
 
-using namespace ModbusClient;
+using namespace ModbusClient;  // NOLINT
 
 class ModbusError {
 public:
   // Constructor with error code
-  inline ModbusError(Error e) : err(e) {}
+  inline explicit ModbusError(Error e) : err(e) {}
   // Empty constructor defaults to 0
   inline ModbusError() : err(SUCCESS) {}
-  // Assignment operator
+  // Assignment operators
   inline ModbusError& operator=(const ModbusError& e) { err = e.err; return *this; }
+  inline ModbusError& operator=(const Error e) { err = e; return *this; }
   // Copy constructor
   inline ModbusError(const ModbusError& m) : err(m.err) {}
   // Equality comparison

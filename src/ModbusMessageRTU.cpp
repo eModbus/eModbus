@@ -154,7 +154,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     returnPtr->add(p1);
     returnPtr->add(p2);
     returnPtr->add(count);
-    for(uint8_t i = 0; i < (count >> 1); ++i) {
+    for (uint8_t i = 0; i < (count >> 1); ++i) {
       returnPtr->add(arrayOfWords[i]);
     }
     returnPtr->CRC = RTUCRC::calcCRC(returnPtr->MM_data, returnPtr->MM_index);
@@ -177,7 +177,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     returnPtr->add(p1);
     returnPtr->add(p2);
     returnPtr->add(count);
-    for(uint8_t i = 0; i < count; ++i) {
+    for (uint8_t i = 0; i < count; ++i) {
       returnPtr->add(arrayOfBytes[i]);
     }
     returnPtr->CRC = RTUCRC::calcCRC(returnPtr->MM_data, returnPtr->MM_index);

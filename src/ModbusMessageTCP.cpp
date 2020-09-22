@@ -12,9 +12,9 @@ TCPRequest::TCPRequest(TargetHost target, uint16_t dataLen, uint32_t token) :
 
 // Helper function to check IP address and port for validity
 Error TCPRequest::isValidHost(TargetHost target) {
-  if(target.port == 0) return ILLEGAL_IP_OR_PORT;
-  if(target.host == IPAddress(0, 0, 0, 0)) return ILLEGAL_IP_OR_PORT;
-  if(target.host[3] == 255) return ILLEGAL_IP_OR_PORT; // Most probably a broadcast address.
+  if (target.port == 0) return ILLEGAL_IP_OR_PORT;
+  if (target.host == IPAddress(0, 0, 0, 0)) return ILLEGAL_IP_OR_PORT;
+  if (target.host[3] == 255) return ILLEGAL_IP_OR_PORT; // Most probably a broadcast address.
   return SUCCESS;
 }
 
@@ -24,7 +24,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = isValidHost(target);
-  if(returnCode == SUCCESS) {
+  if (returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode);
     // No error? 
     if (returnCode == SUCCESS)
@@ -43,7 +43,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = isValidHost(target);
-  if(returnCode == SUCCESS) {
+  if (returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1);
     // No error? 
     if (returnCode == SUCCESS)
@@ -63,7 +63,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = isValidHost(target);
-  if(returnCode == SUCCESS) {
+  if (returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1, p2);
     // No error? 
     if (returnCode == SUCCESS)
@@ -84,7 +84,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = isValidHost(target);
-  if(returnCode == SUCCESS) {
+  if (returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1, p2, p3);
     // No error? 
     if (returnCode == SUCCESS)
@@ -106,7 +106,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = isValidHost(target);
-  if(returnCode == SUCCESS) {
+  if (returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1, p2, count, arrayOfWords);
     // No error? 
     if (returnCode == SUCCESS)
@@ -118,7 +118,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
       returnPtr->add(p1);
       returnPtr->add(p2);
       returnPtr->add(count);
-      for(uint8_t i = 0; i < (count >> 1); ++i) {
+      for (uint8_t i = 0; i < (count >> 1); ++i) {
         returnPtr->add(arrayOfWords[i]);
       }
     }
@@ -131,7 +131,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = isValidHost(target);
-  if(returnCode == SUCCESS) {
+  if (returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, p1, p2, count, arrayOfBytes);
     // No error? 
     if (returnCode == SUCCESS)
@@ -143,7 +143,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
       returnPtr->add(p1);
       returnPtr->add(p2);
       returnPtr->add(count);
-      for(uint8_t i = 0; i < count; ++i) {
+      for (uint8_t i = 0; i < count; ++i) {
         returnPtr->add(arrayOfBytes[i]);
       }
     }
@@ -156,7 +156,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
   TCPRequest *returnPtr = nullptr;
   // Check parameter for validity
   returnCode = isValidHost(target);
-  if(returnCode == SUCCESS) {
+  if (returnCode == SUCCESS) {
     returnCode = checkData(serverID, functionCode, count, arrayOfBytes);
     // No error? 
     if (returnCode == SUCCESS)

@@ -89,7 +89,7 @@ class TCPResponse : public ModbusResponse {
   friend class ModbusTCP;
 protected:
   // Default constructor
-  TCPResponse(uint16_t dataLen);
+  explicit TCPResponse(uint16_t dataLen);
 
   ModbusTCPhead tcpHead;       // Header structure for Modbus TCP packets
   void isInstance() { return; }       // Make class instantiable
