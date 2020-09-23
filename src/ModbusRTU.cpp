@@ -1,3 +1,7 @@
+// =================================================================================================
+// ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
+//               MIT license - see license.md for details
+// =================================================================================================
 #include "ModbusRTU.h"
 
 // Constructor takes Serial reference and optional DE/RE pin

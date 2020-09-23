@@ -1,3 +1,7 @@
+// =================================================================================================
+// ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
+//               MIT license - see license.md for details
+// =================================================================================================
 #ifndef _MODBUS_TCP_H
 #define _MODBUS_TCP_H
 #include <Arduino.h>
@@ -6,7 +10,7 @@
 #include "Client.h"
 #include <queue>
 #include <vector>
-#include <mutex>
+#include <mutex>                    // NOLINT
 
 using std::queue;
 using std::mutex;

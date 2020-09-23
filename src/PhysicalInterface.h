@@ -1,3 +1,7 @@
+// =================================================================================================
+// ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
+//               MIT license - see license.md for details
+// =================================================================================================
 #ifndef _PHYSICAL_INTERFACE_H
 #define _PHYSICAL_INTERFACE_H
 #include "ModbusTypeDefs.h"

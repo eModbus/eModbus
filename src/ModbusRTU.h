@@ -1,10 +1,14 @@
+// =================================================================================================
+// ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
+//               MIT license - see license.md for details
+// =================================================================================================
 #ifndef _MODBUS_RTU_H
 #define _MODBUS_RTU_H
 #include "ModbusMessageRTU.h"
 #include "PhysicalInterface.h"
 #include "HardwareSerial.h"
 #include <queue>
-#include <mutex>
+#include <mutex>                  // NOLINT
 #include <vector>
 
 using std::queue;
