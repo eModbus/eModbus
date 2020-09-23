@@ -124,7 +124,7 @@ void setup() {
 
 // Else the request is processed in the background task and the onData/onError handler functions will get the result.
 //
-// The output on the Serial Monitor will be (depending on your WiFi and Modbus the data will be different):
+// The output on the Serial Monitor will be (depending on your network and Modbus the data will be different):
 //     __ OK __
 //     Resetting Wiz W5500 Ethernet Board...  Done.
 //     My IP address: 192.168.178.81
