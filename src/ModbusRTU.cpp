@@ -81,9 +81,9 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t tok
   return rc;
 }
 
-vector<uint8_t> ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode) {
+RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  RTUMessage rv;       // Returned std::vector with the message or error code
 
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode);
@@ -118,9 +118,9 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
 
-vector<uint8_t> ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1) {
+RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  RTUMessage rv;       // Returned std::vector with the message or error code
 
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1);
@@ -156,9 +156,9 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
     
 }
 
-vector<uint8_t> ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
+RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  RTUMessage rv;       // Returned std::vector with the message or error code
 
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, p2);
@@ -194,9 +194,9 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
     
 }
 
-vector<uint8_t> ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
+RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  RTUMessage rv;       // Returned std::vector with the message or error code
 
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, p2, p3);
@@ -232,9 +232,9 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
     
 }
 
-vector<uint8_t> ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
+RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  RTUMessage rv;       // Returned std::vector with the message or error code
 
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, p2, count, arrayOfWords);
@@ -269,9 +269,9 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
 
-vector<uint8_t> ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
+RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  RTUMessage rv;       // Returned std::vector with the message or error code
 
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, p1, p2, count, arrayOfBytes);
@@ -306,9 +306,9 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
   return rc;
 }
 
-vector<uint8_t> ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
+RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  RTUMessage rv;       // Returned std::vector with the message or error code
 
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, count, arrayOfBytes);
@@ -340,8 +340,8 @@ bool ModbusRTU::addToQueue(RTURequest *request) {
 }
 
 // Move complete message data including CRC into a std::vector
-vector<uint8_t> ModbusRTU::vectorize(RTURequest *request, Error err) {
-  vector<uint8_t> rv;       /// Returned std::vector
+RTUMessage ModbusRTU::vectorize(RTURequest *request, Error err) {
+  RTUMessage rv;       /// Returned std::vector
 
   // Was the message generated?
   if (err != SUCCESS) {
@@ -367,8 +367,8 @@ vector<uint8_t> ModbusRTU::vectorize(RTURequest *request, Error err) {
 }
 
 // Method to generate an error response - properly enveloped for TCP
-vector<uint8_t> ModbusRTU::generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode) {
-  vector<uint8_t> rv;       // Returned std::vector
+RTUMessage ModbusRTU::generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode) {
+  RTUMessage rv;       // Returned std::vector
   
   rv.reserve(5);            // 6 bytes TCP header plus serverID, functionCode and error code
   rv.resize(5);

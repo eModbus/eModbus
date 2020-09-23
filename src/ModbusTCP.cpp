@@ -86,9 +86,9 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t tok
   return rc;
 }
 
-vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode) {
+TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
@@ -125,9 +125,9 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1) {
+TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
@@ -164,9 +164,9 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
+TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
@@ -203,9 +203,9 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
+TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
@@ -242,9 +242,9 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
+TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
@@ -281,9 +281,9 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
+TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
@@ -320,9 +320,9 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
   return rc;
 }
   
-vector<uint8_t> ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
+TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
-  vector<uint8_t> rv;       // Returned std::vector with the message or error code
+  TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
   // Create request, if valid
@@ -355,8 +355,8 @@ bool ModbusTCP::addToQueue(TCPRequest *request) {
 }
 
 // Move complete message data including tcpHead into a std::vector
-vector<uint8_t> ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request, Error err) {
-  vector<uint8_t> rv;       /// Returned std::vector
+TCPMessage ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request, Error err) {
+  TCPMessage rv;       /// Returned std::vector
 
   // Was the message generated?
   if (err != SUCCESS) {
@@ -382,8 +382,8 @@ vector<uint8_t> ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request
 }
 
 // Method to generate an error response - properly enveloped for TCP
-vector<uint8_t> ModbusTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
-  vector<uint8_t> rv;       // Returned std::vector
+TCPMessage ModbusTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
+  TCPMessage rv;       // Returned std::vector
   
   rv.reserve(9);            // 6 bytes TCP header plus serverID, functionCode and error code
   rv.resize(9);
