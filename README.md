@@ -79,8 +79,9 @@ void setup() {
 
 // Start ModbusRTU background task
   RS485.begin();
+}
 ```
-The only thing missing are the requests now. In ``loop()`` you will trigger these like seen below - here a "read holding register" request is sent to server #1, requesting one data word at address 10. Please disregard the ``token`` value of 0x12345678 for now, it will be explained below:
+The only thing missing are the requests now. In ``loop()`` you will trigger these like seen below - here a "read holding register" request is sent to server #1, requesting one data word at address 10. Please disregard the ``token`` value of 0x12345678 for now, it will be explained further below:
 ```
 Error err = RS485.addRequest(1, READ_HOLD_REGISTER, 10, 1, 0x12345678);
   if (err!=SUCCESS) {
