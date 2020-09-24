@@ -338,6 +338,7 @@ bool ModbusRTU::addToQueue(RTURequest *request) {
       lock_guard<mutex> lockGuard(qLock);
       requests.push(request);
     }
+    messageCount++;
   }
 
   return rc;
