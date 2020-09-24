@@ -253,7 +253,7 @@ The ``arrayOfBytes`` has to contain prepared data MSB first, as it is copied unc
 To help setting up such an ``arrayOfBytes``, the library provides a service function:
 
 #### ``uint16_t addValue(uint8_t *target, uint16_t targetLength, T v)``
-This service function takes the integral value provided as parameter ``v`` and will write it, MSB first, to the ``uint8_t`` array pointed to by ``target``. If ``targetLength`` does not indicate enough space left, the copy is not made.
+This service function takes the integral value of type ``T`` provided as parameter ``v`` and will write it, MSB first, to the ``uint8_t`` array pointed to by ``target``. If ``targetLength`` does not indicate enough space left, the copy is not made.
 
 In any case the function will return the number of bytes written. A typical application may look like:
 ```
@@ -270,79 +270,83 @@ remaining -= addValue(buffer + 24 - remaining, remaining, l);
 After the code is run ``buffer`` will contain ``04 04 FC DE AD BE EF`` and ``remaining`` will be 17.
 
 ### ModbusRTU API elements
-// Constructor takes Serial reference and optional DE/RE pin and queue limit
-  explicit ModbusRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);
+#### ``ModbusRTU(HardwareSerial& serial)``, ``ModbusRTU(HardwareSerial& serial, int8_t rtsPin)`` and ``ModbusRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit)``
+These are the constructor variants for an instance of the ``ModbusRTU`` type. The parameters are:
+- ``serial``: a reference to a Serial interface the Modbus is conncted to (mostly by a RS485 adaptor). This Serial interface must be configured to match the baud rate, data and stop bits and parity of the Modbus.
+- ``rtsPin``: some RS485 adaptors have "DE/RE" lines to control the half duplex communication. When writing to the bus, the lines have to be set accordingly. DE and RE usually have opposite logic levels, so that they can be connected to a single GPIO that is set to HIGH for writing and LOW for reading. This will be done by the library, if a GPIO pin number is given for ``rtsPin``. Use ``-1`` as value if you do not need this GPIO (usually with RS485 adaptors doing auto half duplex themselves).
+- ``queueLimit``: this specifies the number of requests that may be placed on the worker task's queue. If you exceed this number by issueing another request while the queue is full, the ``addRequest`` call will return with a ``REQUEST_QUEUE_FULL`` error. The default value built in is 100. **Note:** while the queue holds pointers to the requests only, the requests need memory as well. If you choose a ``queueLimit`` too large, you may encounter "out of memory" conditions!
 
-  // Set default timeout value for interface
-  void setTimeout(uint32_t TOV);
+#### ``void setTimeout(uint32_t TOV)``
+This call lets you define the time for stating a response timeout. ``TOV`` is defined in milliseconds. when the worker task is waiting for a response from a server, and the specified number of milliseconds has passed without data arriving, the worker task gives up on that and will return a ``TIMEOUT`` error response instead.
 
-  // Methods to set up requests
-  RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode);
-  
-  RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1);
-  
-  RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2);
-  
-  RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3);
-  
-  RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords);
-  
-  RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes);
+**Note:** this timeout is blocking the worker task. Nothing else will be done until the timeout has occured. Worse, the worker will retry the failing request two more times! So the ``TOV`` value in effect can block the worker up to three times the time you specified, if a server is dead. 
+Too short timeout values on the other hand may miss slow servers' responses, so choose your value with care...
 
-  RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
+#### Message generating calls (no communication)
+If you need Modbus messages properly formatted for other reasons (interfaces not covered by this lib, documentation purposes etc.), there is a set of calls that will take the same parameters as the ``addRequest`` calls, do the parameter checks all the same, but will not put the requests on the worker task's queue to be sent to the bus, but return the message to your call.
 
-  // Method to generate an error response - properly enveloped for TCP
-  RTUMessage generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode);
+The messages will also contain the trailing CRC16 bytes Modbus RTU is requiring. 
+The message data is returned as a ``RTUMessage`` data object, that internally is a ``std::vector<uint8_t>`` and may be used as a ``vector``, using iterators, ``size()``, ``data()`` etc.
 
+The first seven ``generateRequest`` calls are siblings of the respective seven ``addRequest`` calls, leaving out the ``token`` parameter not needed here:
+- ``RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode)``
+- ``RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1)``
+- ``RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2)``
+- ``RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3)``
+- ``RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords)``
+- ``RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes)``
+- ``RTUMessage generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes)``
+
+There is one more ``generate`` call to create a properly formed error response message:
+
+``RTUMessage generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode)``
+
+The ``errorCode`` parameter takes an ``Error`` value as defined above. The resulting message returned also will have the correct CRC16 data added to it.
+
+#### ``RTUCRC::calcCRC16(uint8_t *data, uint16_t len)``
+This is a convenient method to calculate a CRC16 value for a given block of bytes. ``*data`` points to this block, ``len`` gives the number of bytes to consider.
+The call will return the 16-bit CRC16 value.
 
 ### ModbusTCP API elements
- // Constructor takes reference to Client (EthernetClient or WiFiClient)
-  explicit ModbusTCP(Client& client, uint16_t queueLimit = 100);
+#### ``ModbusTCP(Client& client)`` and ``ModbusTCP(Client& client, uint16_t queueLimit)``
+The first set of constructors does take a ``client`` reference parameter, that may be any interface instance supporting the methods defined in ``Client.h``, f.i. an ``EthernetClient`` or a ``WiFiClient`` instance.
+This interface will be used to send the Modbus TCP requests and receive the respective TCP responses.
 
-  // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
-  ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit = 100);
+The optional ``queueLimit`` parameter lets you define the maximum number of requests the worker task's queue will accept. The default is 100; please see the remarks to this parameter in the ModbusRTU section.
 
-  // Destructor: clean up queue, task etc.
-  ~ModbusTCP();
+#### ``ModbusTCP(Client& client, IPAddress host, uint16_t port)`` and ``ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit)``
+Alternatively you may give the initial target host IP address and port number to be used for communications. This can be sensible if you have to set up a ModbusTCP client dedicated to one single target host.
 
-  // begin: start worker task
-  void begin(int coreID = -1);
+The ``queueLimit`` parameter is the same as explained above.
 
-  // Set default timeout value (and interval)
-  void setTimeout(uint32_t timeout, uint32_t interval = TARGETHOSTINTERVAL);
+#### ``void setTimeout(uint32_t timeout)`` and ``void setTimeout(uint32_t timeout, uint32_t interval)`` 
+Similar to the ModbusRTU timeout, you may specify a time in milliseconds that will determine if a ``TIMEOUT`` error occurred. The worker task will wait the specified time without data arriving to then state a timeout and return the error response for it. The default value is 2000 - 2 seconds.
 
-  // Switch target host (if necessary)
-  bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
+**Note:** the caveat for the ModbusRTU timeout applies here as well. The timeout will block the worker task up to three times its value, as two retries are attempted by the worker by sending the request again and waiting for a response. 
 
-  // Methods to set up requests
-  // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode);
-  
-  // 2. one uint16_t parameter (FC 0x18)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1);
-  
-  // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2);
-  
-  // 4. three uint16_t parameters (FC 0x16)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3);
-  
-  // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords);
-  
-  // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes);
+The optional ``interval`` parameter also is given in milliseconds and specifies the time to wait for the worker between two consecutive requests to the same target host. Some servers will need some milliseconds to recover from a previous request; this interval prevents sending another request prematurely. 
 
-  // 7. generic constructor for preformatted data ==> count is counting bytes!
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
+**Note:** the interval is also applied for each attempt to send a request, it will add to the timeout! To give an example: ``timeout=2000`` and ``interval=200`` will result in 6600ms inactivity, if the target host notoriously does not answer.
 
-  // Method to generate an error response - properly enveloped for TCP
-  TCPMessage generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode);
+#### ``bool setTarget(IPAddress host, uint16_t port [, uint32_t timeout [, uint32_t interval]]``
+This function is necessary at least once to set the target host IP address and port number (unless that has been done with the constructor already). All requests will be directed to that host/port, until another ``setTarget()`` call is issued.
 
+The optional ``timeout`` and ``interval`` parameters will let you override the standards set with the ``setTimeout()`` method **for just those requests sent from now on to the targeted host/port**. The next ``setTarget()`` will return to the standard values, if not specified differently again.
+
+#### Message generating calls (no communication)
+The ModbusTCP ``generate`` calls are identical in function to those described in the ModbusRTU section, with the following differences:
+
+- as first parameter, the ``generate`` calls are requiring a 16-bit ``transactionID`` transaction identification. This will be used as part of the TCP header block prefixed to the message proper, as Modbus TCP mandates.
+If sent as a request, the TCP response shall return the same transaction identifier in its TCP header.
+- the messages generated will be returned as a ``TCPMessage`` object instance. While this as well is a ``std::vector<uint8_t>`` internally, it has the 6-byte TCP header additionally (and no CRC16, of course, as that is for RTU only).
+
+The calls are:
+- ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode)``
+- ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1)``
+- ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2)``
+- ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3)``
+- ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords)``
+- ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes)``
+- ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes)``
+- ``TCPMessage generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode)``
+For a description please see the related calls above in the ModbusRTU section and the ``addRequest`` call descriptions in the common section.
