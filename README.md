@@ -276,6 +276,10 @@ remaining -= addValue(buffer + 24 - remaining, remaining, l);
 After the code is run ``buffer`` will contain ``04 04 FC DE AD BE EF`` and ``remaining`` will be 17.
 
 ### ModbusRTU API elements
+You will have to have the following include line in your code to make the ``ModbusRTU`` API available:
+```
+#include "ModbusRTU.h"
+```
 #### ``ModbusRTU(HardwareSerial& serial)``, ``ModbusRTU(HardwareSerial& serial, int8_t rtsPin)`` and ``ModbusRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit)``
 These are the constructor variants for an instance of the ``ModbusRTU`` type. The parameters are:
 - ``serial``: a reference to a Serial interface the Modbus is conncted to (mostly by a RS485 adaptor). This Serial interface must be configured to match the baud rate, data and stop bits and parity of the Modbus.
@@ -314,6 +318,10 @@ This is a convenient method to calculate a CRC16 value for a given block of byte
 The call will return the 16-bit CRC16 value.
 
 ### ModbusTCP API elements
+You will have to have the following include line in your code to make the ``ModbusTCP`` API available:
+```
+#include "ModbusTCP.h"
+```
 #### ``ModbusTCP(Client& client)`` and ``ModbusTCP(Client& client, uint16_t queueLimit)``
 The first set of constructors does take a ``client`` reference parameter, that may be any interface instance supporting the methods defined in ``Client.h``, f.i. an ``EthernetClient`` or a ``WiFiClient`` instance.
 This interface will be used to send the Modbus TCP requests and receive the respective TCP responses.
