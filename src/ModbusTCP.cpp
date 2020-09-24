@@ -529,13 +529,13 @@ bool ModbusTCP::makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t
   if (dataLen < headlong) return false;   // Will not fit
   if (data == nullptr) return false;      // No data allocated?
 
-  offs = ModbusMessage::addValue(data + ptr, headlong, TID);
+  offs = addValue(data + ptr, headlong, TID);
   headlong -= offs;
   ptr += offs;
-  offs = ModbusMessage::addValue(data + ptr, headlong, PID);
+  offs = addValue(data + ptr, headlong, PID);
   headlong -= offs;
   ptr += offs;
-  offs = ModbusMessage::addValue(data + ptr, headlong, LEN);
+  offs = addValue(data + ptr, headlong, LEN);
   headlong -= offs;
   // headlong should be 0 here!
   if (headlong) return false;
