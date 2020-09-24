@@ -3,6 +3,12 @@ This is a library to provide Modbus client (formely known as master) functionali
 
 Modbus communication is done in separate tasks, so Modbus requests are non-blocking. Callbacks are provided to receive the responses asynchronously.
 
+This has been developed by enthusiasts, so do not expect any bullet-proof, industry deployable, guaranteed software. **See the license** to learn about liabilities etc. You are at your own!
+
+We do welcome any ideas, suggestions, bug reports or questions, though. Please use the "Issues"" tab to report these!
+
+Have fun!
+
 ## Requirements
 The library was developed for and on ESP32 MCUs in the Arduino core development environment. In principle it should run in any environment providing these resources:
 - Arduino core functions - Serial interfaces, ``millis()``, ``delay()`` etc.
