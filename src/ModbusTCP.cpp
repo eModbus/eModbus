@@ -388,19 +388,24 @@ TCPMessage ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request, Err
 // Method to generate an error response - properly enveloped for TCP
 TCPMessage ModbusTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
   TCPMessage rv;       // Returned std::vector
-  
-  rv.reserve(9);            // 6 bytes TCP header plus serverID, functionCode and error code
-  rv.resize(9);
 
-  // Copy in TCP header
-  uint8_t *cp = rv.data();
-  makeHead(cp, 6, transactionID, 0, 3);
+  Error rc = TCPRequest::checkServerFC(serverID, functionCode);
+  if (rc != SUCCESS) {
+    rv.reserve(1);
+    rv.push_back(rc);
+  } else {
+    rv.reserve(9);            // 6 bytes TCP header plus serverID, functionCode and error code
+    rv.resize(9);
 
-  // Add payload
-  rv[6] = serverID;
-  rv[7] = (functionCode | 0x80);
-  rv[8] = errorCode;
+    // Copy in TCP header
+    uint8_t *cp = rv.data();
+    makeHead(cp, 6, transactionID, 0, 3);
 
+    // Add payload
+    rv[6] = serverID;
+    rv[7] = (functionCode | 0x80);
+    rv[8] = errorCode;
+  }
   return rv;
 }
 

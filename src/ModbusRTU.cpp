@@ -374,23 +374,29 @@ RTUMessage ModbusRTU::vectorize(RTURequest *request, Error err) {
 // Method to generate an error response - properly enveloped for TCP
 RTUMessage ModbusRTU::generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode) {
   RTUMessage rv;       // Returned std::vector
-  
-  rv.reserve(5);            // 6 bytes TCP header plus serverID, functionCode and error code
-  rv.resize(5);
 
-  // Copy in TCP header
-  uint8_t *cp = rv.data();
+  Error rc = RTURequest::checkServerFC(serverID, functionCode);
 
-  // Write payload
-  *cp++ = serverID;
-  *cp++ = (functionCode | 0x80);
-  *cp++ = errorCode;
-  
-  // Calculate CRC16 and add it in
-  uint16_t crc = RTUCRC::calcCRC(rv.data(), 3);
-  *cp++ = (crc & 0xFF);
-  *cp++ = ((crc >> 8) & 0xFF);
+  if (rc != SUCCESS) {
+    rv.reserve(1);
+    rv.push_back(rc);
+  } else {
+    rv.reserve(5);            // 6 bytes TCP header plus serverID, functionCode and error code
+    rv.resize(5);
 
+    // Copy in TCP header
+    uint8_t *cp = rv.data();
+
+    // Write payload
+    *cp++ = serverID;
+    *cp++ = (functionCode | 0x80);
+    *cp++ = errorCode;
+    
+    // Calculate CRC16 and add it in
+    uint16_t crc = RTUCRC::calcCRC(rv.data(), 3);
+    *cp++ = (crc & 0xFF);
+    *cp++ = ((crc >> 8) & 0xFF);
+  }
   return rv;
 }
 
