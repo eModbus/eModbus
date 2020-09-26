@@ -235,7 +235,7 @@ Error ModbusRequest::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
       if ((p2 > 0x7d) || (p2 == 0)) returnCode = PARAMETER_LIMIT_ERROR;
       break;
     case 0x05:
-      if ((p2 != 0) && (p2 != 0xff)) returnCode = PARAMETER_LIMIT_ERROR;
+      if ((p2 != 0) && (p2 != 0xff00)) returnCode = PARAMETER_LIMIT_ERROR;
       break;
     // case 0x06: all values are acceptable for p1 and p2
     [[fallthrough]] case 0x07:
