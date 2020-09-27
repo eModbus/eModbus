@@ -9,6 +9,15 @@ We do welcome any ideas, suggestions, bug reports or questions, though. Please u
 
 Have fun!
 
+## Table of Contents
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Basic use](#-basic-use)
+- [API description](#-api-description)
+  - [Common concepts](#-common-concepts)
+  - [ModbusRTU API elements](#-modbusrtu-api-elements)
+  - [ModbusTCP API elements](#-modbustcp-api-elements)
+
 ## Requirements
 The library was developed for and on ESP32 MCUs in the Arduino core development environment. In principle it should run in any environment providing these resources:
 - Arduino core functions - Serial interfaces, ``millis()``, ``delay()`` etc.
