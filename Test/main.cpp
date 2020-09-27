@@ -5,20 +5,22 @@
 #include <Arduino.h>
 #include "ModbusRTU.h"
 #include "ModbusTCP.h"
-#include <Wifi.h>
 #include <vector>
 using std::vector;
+
+#include "TCPstub.h"
 
 #define STRINGIFY(x) #x
 #define LNO(x) "line " STRINGIFY(x) " "
 
 // Test prerequisites
-WiFiClient wc;
-ModbusTCP TestTCP(wc);                 // ModbusTCP test instance. Will never be started with begin()!
+TCPstub stub;
+ModbusTCP TestTCP(stub);               // ModbusTCP test instance.
 ModbusRTU TestRTU(Serial);             // ModbusRTU test instance. Will never be started with begin()!
 uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
 uint16_t testsPassed = 0;              // Global passed test cases counter. Incremented in testOutput().
 bool printPassed = true;               // If true, testOutput will print passed tests as well.
+TestMap testCases;
 
 // testOutput:  takes the test function name called, the test case name and expected and recieved messages,
 // compares both and prints out the result.
@@ -273,6 +275,11 @@ bool TCP08(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
+void handleData(uint8_t serverID, uint8_t FC, const uint8_t *data, uint16_t len, uint32_t token) 
+{
+  Serial.printf("SID: %3d, FC=%02X, Token=%08X, len=%d\n", serverID, FC, token, len);
+}
+
 // setup() called once at startup. 
 // We will do all test here to have them run once
 void setup()
@@ -497,6 +504,29 @@ void setup()
 
   // Print summary.
   Serial.printf("Tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+  IPAddress testHost = IPAddress(192, 166, 1, 1);
+  TestTCP.onDataHandler(&handleData);
+  TestTCP.begin();
+
+  stub.begin(&testCases, testHost, 502);
+
+  Serial.printf("connect() returns %d\n", stub.connect(testHost, 502));
+  Serial.printf("connected() returns %d\n", stub.connected());
+
+  if (stub.connected()) {
+    TestTCP.setTarget(testHost, 502);
+    Error e = TestTCP.addRequest(1, 0x03, 1, 24, 0xDEADBEEF);
+    Serial.printf("%02X\n", e);
+
+    delay(100);
+    while (stub.available()) {
+      Serial.printf("%02X ", stub.read());
+    }
+    Serial.println();
+    stub.stop();
+    Serial.printf("connected() returns %d\n", stub.connected());
+  }
 }
 
 void loop() {
