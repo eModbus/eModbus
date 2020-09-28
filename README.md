@@ -112,7 +112,7 @@ Following we will first describe the API elements independent from the protocol 
 Internally the Modbus message contents for requests and responses are held separately from the elements the protocols will require. Hence several API elements are common to both protocols.
 
 #### ``void onDataHandler(MBOnData handler)``
-This is the interface to register a callback function to be called when a responce was received. The only parameter is a pointer to a function with this signature:
+This is the interface to register a callback function to be called when a response was received. The only parameter is a pointer to a function with this signature:
 ```
 void func(uint8_t serverID, uint8_t functionCode, const uint8_t *data, uint16_t data_length, uint32_t token);
 ```
@@ -171,7 +171,7 @@ The parameters are
   };
 - the ``token`` value as described in the ``onDataHandler`` section above.
 
-The Library is providing a separate wrapper class ``ModbusError`` that can be assigned or initialized with any ``ModbusClient::Error`` code and will produce a readable error text message if used in ``const char *`` context. See above in **Basic use** an example of how to apply it.
+The Library is providing a separate wrapper class ``ModbusError`` that can be assigned or initialized with any ``ModbusClient::Error`` code and will produce a readable error text message if used in ``const char *`` context. See above in [**Basic use**](#basic-use) an example of how to apply it.
   
 #### ``uint32_t getMessageCount()``
 Each request that got successfully enqueued is counted. By calling ``getMessageCount()`` you will be able to read the number accumulated so far.
@@ -188,7 +188,7 @@ The second form of ``begin()`` allows you to choose a CPU core for the worker ta
 ### Setting up requests
 The function calls to create requests to be sent to servers will take care of the function codes defined by the Modbus standard, in terms of parameter and parameter limits checking, but will also accept other function codes from the user-defined or reserved range of codes. For these non-standard codes no parameter checks can be made, so it is up to you to have them correct!
 
-Any ``addRequest`` call will take the same ``serverID`` and ``functionCode`` parameters as #1 and #2, plus the ``token`` value as last parameter.
+Any ``addRequest`` call will take the same ``serverID`` and ``functionCode`` parameters as first and second, plus the ``token`` value as last parameter.
 ``serverID`` must not be 0 and ``functionCode`` has to be below 128, according to the Modbus standard.
 
 There are 7 different ``addRequest`` calls, covering most of the Modbus standard function codes with their parameter lists.
