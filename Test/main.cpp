@@ -15,12 +15,13 @@ using std::vector;
 
 // Test prerequisites
 TCPstub stub;
-ModbusTCP TestTCP(stub);               // ModbusTCP test instance.
+ModbusTCP TestTCP(stub, 2);               // ModbusTCP test instance.
 ModbusRTU TestRTU(Serial);             // ModbusRTU test instance. Will never be started with begin()!
 uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
 uint16_t testsPassed = 0;              // Global passed test cases counter. Incremented in testOutput().
 bool printPassed = true;               // If true, testOutput will print passed tests as well.
-TestMap testCases;
+TidMap testCasesByTID;
+TokenMap testCasesByToken;
 
 // testOutput:  takes the test function name called, the test case name and expected and recieved messages,
 // compares both and prints out the result.
@@ -277,7 +278,32 @@ bool TCP08(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error
 
 void handleData(uint8_t serverID, uint8_t FC, const uint8_t *data, uint16_t len, uint32_t token) 
 {
-  Serial.printf("SID: %3d, FC=%02X, Token=%08X, len=%d\n", serverID, FC, token, len);
+  // Look for the token in the TestCase map
+  auto tc = testCasesByToken.find(token);
+  if (tc != testCasesByToken.end()) {
+    // Get a handier pointer for the TestCase found
+    TestCase *myTest(tc->second);
+    vector<uint8_t> response;
+    response.reserve(len);
+    response.resize(len);
+    memcpy(response.data(), data, len);
+    testOutput(myTest->testname, myTest->name, myTest->expected, response);
+  } else {
+    Serial.printf("Could not find test case for token %08X\n", token);
+  }
+}
+
+void handleError(Error err, uint32_t token)
+{
+  // Look for the token in the TestCase map
+  auto tc = testCasesByToken.find(token);
+  if (tc != testCasesByToken.end()) {
+    // Get a handier pointer for the TestCase found
+    TestCase *myTest(tc->second);
+    testOutput(myTest->testname, myTest->name, myTest->expected, { err });
+  } else {
+    Serial.printf("Could not find test case for token %08X\n", token);
+  }
 }
 
 // setup() called once at startup. 
@@ -503,29 +529,64 @@ void setup()
   // ******************************************************************************
 
   // Print summary.
-  Serial.printf("Tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+  Serial.printf("Generate messages tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
+
+  // ******************************************************************************
+  // Tests using the complete turnaround next. TCP is simulated by TCPstub stub!
+  // ******************************************************************************
+
+  printPassed = true;
+
+  // Some prerequisites 
   IPAddress testHost = IPAddress(192, 166, 1, 1);
+  IPAddress testHost2 = IPAddress(26, 183, 4, 22);
+
+  // Register onData and onError handlers
   TestTCP.onDataHandler(&handleData);
+  TestTCP.onErrorHandler(&handleError);
+
+  // Start ModbusTCP background task
   TestTCP.begin();
 
-  stub.begin(&testCases, testHost, 502);
+  // Start TCP stub with initial identity testhost:502
+  // testCasesByTID is the map to find the matching test case in the worker task
+  stub.begin(&testCasesByTID, testHost, 502);
 
-  Serial.printf("connect() returns %d\n", stub.connect(testHost, 502));
-  Serial.printf("connected() returns %d\n", stub.connected());
+  // ****************************************************************************************
+  // Example test case.
+  // Setting a different identity is optional, target should be set to avoid confusion
+  TestTCP.setTarget(testHost, 502, 2000, 200);
+  stub.setIdentity(testHost, 502);
 
-  if (stub.connected()) {
-    TestTCP.setTarget(testHost, 502);
-    Error e = TestTCP.addRequest(1, 0x03, 1, 24, 0xDEADBEEF);
-    Serial.printf("%02X\n", e);
+  // Define new TestCase object. This is holding all data the TCPstub worker and the
+  // onData and onError handlers will need to reagrd the correct test case.
+  TestCase *tc = new TestCase { 
+    // getMessageCount will be used internally to generate the transaction ID, so get a copy
+    .transactionID = (uint16_t)(TestTCP.getMessageCount() & 0xFFFF),
+    // The token value _must_ be different for each test case!!!
+    .token = 0xDEADBEEF,
+    // The worker can be made to delay its response by the time given here
+    .delayTime = 0,
+    // function and test case name to be printed with the result.
+    .name = LNO(__LINE__),
+    .testname = "Example test case",
+    // A vector of the response the worker shall return
+    .response = makeVector("01 04 08 00 00 11 11 22 22 33 33"),
+    // A vector of the expected data arriving in onData/onError
+    .expected = makeVector("01 03 08 00 00 11 11 22 22 33 33")
+  };
 
-    delay(100);
-    while (stub.available()) {
-      Serial.printf("%02X ", stub.read());
-    }
-    Serial.println();
-    stub.stop();
-    Serial.printf("connected() returns %d\n", stub.connected());
+  // Now create an entry in both reference maps (by TID and by token) for the test case
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+
+  // Finally execute the test call
+  Error e = TestTCP.addRequest(1, 0x03, 1, 4, tc->token);
+  // Did the call immediately return an error?
+  if (e != SUCCESS) {
+    // Yes, give it to the test result examiner
+    testOutput(tc->testname, tc->name, tc->expected, { e });
   }
 }
 

@@ -9,19 +9,19 @@
 TCPstub::TCPstub() :
   myIP(IPAddress(0, 0, 0, 0)),
   myPort(0),
-  worker(0),
+  worker(nullptr),
   tm(nullptr) { }
 
 TCPstub::TCPstub(TCPstub& t) :
   myIP(t.myIP),
   myPort(t.myPort),
-  worker(0),
+  worker(nullptr),
   tm(nullptr) { }
 
 TCPstub::TCPstub(IPAddress ip, uint16_t port) :
   myIP(ip),
   myPort(port),
-  worker(0),
+  worker(nullptr),
   tm(nullptr) { }
 
 // Destructor
@@ -40,7 +40,7 @@ TCPstub& TCPstub::operator=(TCPstub& t) {
   // if we had a worker task running, kill it
   if (worker) {
     vTaskDelete(worker);
-    worker = 0;
+    worker = nullptr;
   }
   // We may not take over the test case map!
   tm = nullptr;
@@ -125,19 +125,19 @@ int TCPstub::peek() {
 void TCPstub::stop() {
   if (worker) {
     vTaskDelete(worker);
-    worker = 0;
+    worker = nullptr;
   }
 }
 
 // Special stub methods
 // begin connects the TCPstub to a test case map and optionally sets the identity
-bool TCPstub::begin(TestMap *mp) {
+bool TCPstub::begin(TidMap *mp) {
   tm = mp;
   if (tm && myIP && myPort) return true;
   return false;    
 }
 
-bool TCPstub::begin(TestMap *mp, IPAddress ip, uint16_t port) {
+bool TCPstub::begin(TidMap *mp, IPAddress ip, uint16_t port) {
   tm = mp;
   setIdentity(ip, port);
   if (tm && myIP && myPort) return true;
@@ -152,17 +152,65 @@ void TCPstub::setIdentity(IPAddress ip, uint16_t port) {
 
 // handleConnection: worker task method
 void TCPstub::workerTask(TCPstub *instance) {
-  Serial.println("worker task started");
-
-  // For now, copy inQueue to outQueue
   while (1) {
-    if (!instance->inQueue.empty()) {
-      // Serial.print(instance->inQueue.front(), HEX);
-      // Safely lock access
-      lock_guard<mutex> lockIn(instance->inLock);
-      lock_guard<mutex> lockOut(instance->outLock);
-      instance->outQueue.push(instance->inQueue.front());
-      instance->inQueue.pop();
+    // Do we have at least 6 bytes in the inQueue (TCP header)?
+    if (instance->inQueue.size() >= 6) {
+      // Yes. This should be led in by the transactionID. To read it, lock the queue
+      uint16_t tid = 0;
+      uint8_t TCPhead[6];
+      {
+        lock_guard<mutex> lockIn(instance->inLock);
+        for (uint8_t i = 0; i < 6; ++i) {
+          TCPhead[i] = instance->inQueue.front();
+          instance->inQueue.pop();
+        }
+
+        // Whatever follows, will be discarded - we have the response in the test case
+        while (!instance->inQueue.empty()) {
+          instance->inQueue.pop();
+        }
+      }
+      // Get the TID
+      tid = ((TCPhead[0] << 8) & 0xFF) | (TCPhead[1] & 0xFF);
+
+      // Look for the tid in the TestCase map
+      auto tc = (*instance->tm).find(tid);
+      if (tc != (*instance->tm).end()) {
+        // Get a handier pointer for the TEstCase found
+        TestCase *myTest(tc->second);
+
+        // Does the test case prescribe an initial delay?
+        if (myTest->delayTime) {
+          // Yes. idle until time has passed
+          uint32_t startTime = millis();
+          while (millis() - startTime <= myTest->delayTime) {
+            delay(1);
+          }
+        }
+        // Do we have to send a response?
+        if (!myTest->response.empty()) {
+          // Yes, we do. Lock the outQueue, since we ar egoing to write to it
+          lock_guard<mutex> lockOut(instance->outLock);
+
+          // Set the response size in the TCP header
+          TCPhead[4] = (myTest->response.size() << 8) & 0xFF;
+          TCPhead[5] = myTest->response.size() & 0xFF;
+
+          // Write the TCP header
+          for (uint8_t i = 0; i < 6; ++i) {
+            instance->outQueue.push(TCPhead[i]);
+          }
+
+          // Now write the response
+          uint8_t *cp = myTest->response.data();
+          size_t cnt = myTest->response.size();
+          while (cnt--) {
+            instance->outQueue.push(*cp++);
+          }
+        }
+      } else {
+        Serial.printf("No test case for TID %04X\n", tid);
+      }
     } else {
       delay(1);
     }

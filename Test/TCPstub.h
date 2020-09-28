@@ -8,7 +8,7 @@
 #include <map>
 #include <vector>
 #include <queue>
-#include <mutex>
+#include <mutex>      // NOLINT
 
 using std::mutex;
 using std::lock_guard;
@@ -26,13 +26,17 @@ extern "C" {
 // These will be <map>ped to the transactionID for the TCPstub worker to identify the request
 struct TestCase {
   uint16_t transactionID;        // For easy reference, again the transactionID
+  uint32_t token;                // For reference as well
   uint32_t delayTime;            // A time in ms to wait before the response is sent
+  const char *name;              // Name of the test function
+  const char *testname;          // Name of the test case
   vector<uint8_t> response;      // byte sequence of the response
   vector<uint8_t> expected;      // byte sequence to be expected in onError/onData handlers
 };
 
-// Short name for the test cases' map
-using TestMap = std::map<uint16_t, TestCase *>;
+// Short names for the test cases' maps
+using TidMap = std::map<uint16_t, TestCase *>;
+using TokenMap = std::map<uint32_t, TestCase *>;
 
 class TCPstub : public Client {
 public:
@@ -74,8 +78,8 @@ public:
 
 // Special stub methods
   // begin connects the TCPstub to a test case map and optionally sets the identity
-  bool begin(TestMap* mp);
-  bool begin(TestMap* mp, IPAddress ip, uint16_t port);
+  bool begin(TidMap* mp);
+  bool begin(TidMap* mp, IPAddress ip, uint16_t port);
 
   // setIdentity changes the simulated host/port
   void setIdentity(IPAddress ip, uint16_t port);
@@ -84,7 +88,7 @@ protected:
   IPAddress myIP;
   uint16_t  myPort;
   TaskHandle_t worker;
-  TestMap* tm;
+  TidMap* tm;
   queue<uint8_t> inQueue;
   queue<uint8_t> outQueue;
   mutex inLock;
