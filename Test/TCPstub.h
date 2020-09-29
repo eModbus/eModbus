@@ -32,6 +32,8 @@ struct TestCase {
   const char *testname;          // Name of the test case
   vector<uint8_t> response;      // byte sequence of the response
   vector<uint8_t> expected;      // byte sequence to be expected in onError/onData handlers
+  bool stopAfterResponding;      // if true, worker will kill itself after answering (simulate server disconnect)
+  bool fakeTransactionID;        // if true, stub will use a wrong TID in response
 };
 
 // Short names for the test cases' maps

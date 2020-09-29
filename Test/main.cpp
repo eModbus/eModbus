@@ -572,9 +572,13 @@ void setup()
     .name = LNO(__LINE__),
     .testname = "Example test case",
     // A vector of the response the worker shall return
-    .response = makeVector("01 04 08 00 00 11 11 22 22 33 33"),
+    .response = makeVector("01 03 08 00 00 11 11 22 22 33 33"),
     // A vector of the expected data arriving in onData/onError
-    .expected = makeVector("01 03 08 00 00 11 11 22 22 33 33")
+    .expected = makeVector("01 03 08 00 00 11 11 22 22 33 33"),
+    // flag to order stub to disconnect after responding
+    .stopAfterResponding = false,
+    // flag to order stub to respond with a wrong TID
+    .fakeTransactionID = true
   };
 
   // Now create an entry in both reference maps (by TID and by token) for the test case

@@ -176,7 +176,7 @@ void TCPstub::workerTask(TCPstub *instance) {
       // Look for the tid in the TestCase map
       auto tc = (*instance->tm).find(tid);
       if (tc != (*instance->tm).end()) {
-        // Get a handier pointer for the TEstCase found
+        // Get a handier pointer for the TestCase found
         TestCase *myTest(tc->second);
 
         // Does the test case prescribe an initial delay?
@@ -191,6 +191,11 @@ void TCPstub::workerTask(TCPstub *instance) {
         if (!myTest->response.empty()) {
           // Yes, we do. Lock the outQueue, since we ar egoing to write to it
           lock_guard<mutex> lockOut(instance->outLock);
+
+          // Are we asked to fake the transaction ID?
+          if (myTest->fakeTransactionID == true) {
+            TCPhead[0] += 13;
+          }
 
           // Set the response size in the TCP header
           TCPhead[4] = (myTest->response.size() << 8) & 0xFF;
@@ -207,6 +212,11 @@ void TCPstub::workerTask(TCPstub *instance) {
           while (cnt--) {
             instance->outQueue.push(*cp++);
           }
+        }
+        // Are we to stop ourselves after response has been sent?
+        if (myTest->stopAfterResponding == true) {
+          instance->worker = nullptr;
+          vTaskDelete(NULL);
         }
       } else {
         Serial.printf("No test case for TID %04X\n", tid);
