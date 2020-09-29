@@ -121,6 +121,10 @@ int TCPstub::peek() {
   return byte;
 }
 
+// flush has no meaning in the stub yet
+void TCPstub::flush() {
+}
+
 // stop will kill the worker task
 void TCPstub::stop() {
   if (worker) {

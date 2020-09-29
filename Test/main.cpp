@@ -534,13 +534,22 @@ void setup()
 
   // ******************************************************************************
   // Tests using the complete turnaround next. TCP is simulated by TCPstub stub!
+  //
+  // ATTENTION: the request queue limit has ben set to >>> 2 <<< entries only for
+  //            test reasons. Better have a "delay(1000);" after each test to not
+  //            flood it!
   // ******************************************************************************
+
+  // Restart test case and tests passed counter
+  testsExecuted = 0;
+  testsPassed = 0;
 
   printPassed = true;
 
   // Some prerequisites 
   IPAddress testHost = IPAddress(192, 166, 1, 1);
   IPAddress testHost2 = IPAddress(26, 183, 4, 22);
+  uint32_t Token = 1;
 
   // Register onData and onError handlers
   TestTCP.onDataHandler(&handleData);
@@ -549,36 +558,48 @@ void setup()
   // Start ModbusTCP background task
   TestTCP.begin();
 
-  // Start TCP stub with initial identity testhost:502
+  // Start TCP stub
   // testCasesByTID is the map to find the matching test case in the worker task
-  stub.begin(&testCasesByTID, testHost, 502);
+  stub.begin(&testCasesByTID);
 
   // ****************************************************************************************
   // Example test case.
-  // Setting a different identity is optional, target should be set to avoid confusion
-  TestTCP.setTarget(testHost, 502, 2000, 200);
+  
+  // Set the host/port the stub shall simulate
   stub.setIdentity(testHost, 502);
 
+  // Set the target host/port the request shall be directed to
+  TestTCP.setTarget(testHost, 502, 2000, 200);
+
   // Define new TestCase object. This is holding all data the TCPstub worker and the
-  // onData and onError handlers will need to reagrd the correct test case.
+  // onData and onError handlers will need to regard the correct test case.
+
   TestCase *tc = new TestCase { 
-    // getMessageCount will be used internally to generate the transaction ID, so get a copy
-    .transactionID = (uint16_t)(TestTCP.getMessageCount() & 0xFFFF),
-    // The token value _must_ be different for each test case!!!
-    .token = 0xDEADBEEF,
-    // The worker can be made to delay its response by the time given here
-    .delayTime = 0,
-    // function and test case name to be printed with the result.
+
+    // function and/or source line number and test case name to be printed with the result.
     .name = LNO(__LINE__),
-    .testname = "Example test case",
+    .testname = "Simple 0x03 request",
+    
+    // getMessageCount will be used internally to generate the transaction ID, so get a copy
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    
+    // The token value _must_ be different for each test case!!!
+    .token = Token++,
+    
     // A vector of the response the worker shall return
     .response = makeVector("01 03 08 00 00 11 11 22 22 33 33"),
+    
     // A vector of the expected data arriving in onData/onError
     .expected = makeVector("01 03 08 00 00 11 11 22 22 33 33"),
+    
+    // The worker can be made to delay its response by the time given here
+    .delayTime = 0,
+    
     // flag to order stub to disconnect after responding
     .stopAfterResponding = false,
+
     // flag to order stub to respond with a wrong TID
-    .fakeTransactionID = true
+    .fakeTransactionID = false
   };
 
   // Now create an entry in both reference maps (by TID and by token) for the test case
@@ -592,6 +613,209 @@ void setup()
     // Yes, give it to the test result examiner
     testOutput(tc->testname, tc->name, tc->expected, { e });
   }
+  // Delay a bit to get the request queue accepting again (see ATTENTION! above)
+  delay(1000);
+
+  // Template to copy & paste
+  /* ------------- 21 lines below -------------------------------------------------
+  stub.setIdentity(testHost, 502);
+  TestTCP.setTarget(testHost, 502, 2000, 200);
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "EDIT THIS!",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("EDIT THIS!"),
+    .expected = makeVector("EDIT THIS!"),
+    .delayTime = 0,                             // <=== change, if needed!
+    .stopAfterResponding = false,               // <=== change, if needed!
+    .fakeTransactionID = false                  // <=== change, if needed!
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  //          vvvvvvv EDIT THIS! vvvvvvvvvvvvvvvvv
+  e = TestTCP.addRequest(1, 0x03, 1, 4, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+    ------------------------------------------------------------------------------- */
+
+  // ******************************************************************************
+  // Write test cases below this line!
+  // ******************************************************************************
+
+// Case to test timeout handling. The stub is asked to delay the response by 3 seconds
+  stub.setIdentity(testHost, 502);
+  TestTCP.setTarget(testHost, 502, 500, 200);
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Forced timeout!",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 07"),
+    .expected = makeVector("E0"),
+    .delayTime = 3000,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  // Wait for secure timeout end
+  delay(10000);
+
+  // Send response with wrong transaction ID
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Wrong transaction ID in response",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 07"),
+    .expected = makeVector("EB"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = true
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+  // Send response with wrong server ID
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Wrong server ID in response",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("2F 03 06 11 22 33 44 55 66"),
+    .expected = makeVector("E4"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x03, 1, 3, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+  // Send response with wrong function code
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Wrong FC in response",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 04 06 11 22 33 44 55 66"),
+    .expected = makeVector("E3"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x03, 1, 3, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+  // Stub will not respond at all - another timeout constellation
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "No answer from server",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = { },
+    .expected = makeVector("E0"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x03, 1, 3, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  // Wait for secure timeout end
+  delay(4000);
+
+  // Provoke full request queue by sending 3 requests without delay.
+  // The third shall get the REQUEST_QUEUE_FULL error
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Request queue full - pre 1",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 07 2B"),
+    .expected = makeVector("01 07 2B"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // Second call immediately following
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Request queue full - pre 2",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 07 2B"),
+    .expected = makeVector("01 07 2B"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // Third and final. This should catch the error
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Request queue full",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 07 2B"),
+    .expected = makeVector("E8"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+
+  // ******************************************************************************
+  // Write test cases above this line!
+  // ******************************************************************************
+
+  // Print summary. We will have to wait a bit to get all test cases executed!
+  delay(2000);
+  Serial.printf("TCP loop stub tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 }
 
 void loop() {

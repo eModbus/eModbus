@@ -23,15 +23,15 @@ extern "C" {
 }
 
 // Struct holding the data for a test case
-// These will be <map>ped to the transactionID for the TCPstub worker to identify the request
+// These will be mapped to the transactionID for the TCPstub worker to identify the request
 struct TestCase {
-  uint16_t transactionID;        // For easy reference, again the transactionID
-  uint32_t token;                // For reference as well
-  uint32_t delayTime;            // A time in ms to wait before the response is sent
   const char *name;              // Name of the test function
   const char *testname;          // Name of the test case
+  uint16_t transactionID;        // For easy reference, again the transactionID
+  uint32_t token;                // For reference as well
   vector<uint8_t> response;      // byte sequence of the response
   vector<uint8_t> expected;      // byte sequence to be expected in onError/onData handlers
+  uint32_t delayTime;            // A time in ms to wait before the response is sent
   bool stopAfterResponding;      // if true, worker will kill itself after answering (simulate server disconnect)
   bool fakeTransactionID;        // if true, stub will use a wrong TID in response
 };
@@ -68,8 +68,8 @@ public:
   int read(uint8_t *buf, size_t size);
   int peek();
 
-  // flush makes no sense, so let it do nothing
-  inline void flush() { }
+  // flush will kill the worker task, empty the queues and restart the worker
+  void flush();
 
   // stop will kill the worker task
   void stop();
