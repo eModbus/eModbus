@@ -434,7 +434,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         request->target.port, 
         request->target.timeout, 
         request->target.interval);
-*/
+        */
 
       // Empty the RX buffer - just in case...
       while (instance->MT_client.available()) instance->MT_client.read();
@@ -592,10 +592,16 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
     // Yes. check it for validity
     uint8_t head[6];
     makeHead(head, 6, request->tcpHead.transactionID, request->tcpHead.protocolID, dataPtr - 6);
-    // First transactionID and protocolID shall be identical, Are they?
+    // First transactionID and protocolID shall be identical, length has to match the remainder. Are they?
     if (memcmp(head, data, 6)) {
       // No. return Error response
       response = errorResponse(TCP_HEAD_MISMATCH, request);
+      // If the server id does not match that of the request, report error
+    } else if (data[6] != request->getServerID()) {
+      response = errorResponse(SERVER_ID_MISMATCH, request);
+      // If the function code does not match that of the request, report error
+    } else if ((data[7] & 0x7F) != request->getFunctionCode()) {
+      response = errorResponse(FC_MISMATCH, request);
     } else {
       // Looks good.
       response = new TCPResponse(dataPtr - 6);
