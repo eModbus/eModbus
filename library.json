@@ -1,0 +1,43 @@
+{
+  "name": "ModbusClient",
+  "version": "0.0.1",
+  "keywords": "Arduino, ESP32, Modbus, RTU, ModbusRTU, ModbusTCP",
+  "description": "ModbusRTU and ModbusTCP client for ESP32",
+  "homepage": "https://github.com/___xxx___/ModbusClient",
+  "license": "MIT",
+  "authors": {
+    {
+      "name": "Bert Melis",
+      "url": "https://github.com/bertmelis",
+      "maintainer": true
+    },
+    {
+      "name": "Michael Harwerth",
+      "url": "https://github.com/Miq1"
+      "maintainer": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/___xxx___/ModbusClient",
+    "branch": "master"
+  },
+  "export": {
+    "include":
+    [
+        "src/*.cpp",
+        "src/*.h",
+        "examples/*",
+        "Test/*",
+        ".gitignore",
+        "README.md",
+        "license.md",
+        "keywords.txt",
+        "library.properties"
+    ]
+  }
+  "frameworks": "arduino",
+  "platforms": [
+    "espressif32"
+  ]
+}
