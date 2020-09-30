@@ -560,14 +560,25 @@ RTUResponse* ModbusRTU::receive(RTURequest *request) {
         // Extract CRC value
         response->setCRC(buffer[bufferPtr - 2] | (buffer[bufferPtr - 1] << 8));
         // Check CRC - OK?
-        if (response->isValidCRC()) {
-          // Yes, move on
-          state = FINISHED;
-        } else {
+        if (!response->isValidCRC()) {
           // No! Delete received response, set error code and proceed to ERROR_EXIT.
           delete response;
           errorCode = CRC_ERROR;
           state = ERROR_EXIT;
+          // If the server id does not match that of the request, report error
+        } else if (response->getServerID() != request->getServerID()) {
+          // No! Delete received response, set error code and proceed to ERROR_EXIT.
+          delete response;
+          errorCode = SERVER_ID_MISMATCH;
+          state = ERROR_EXIT;
+          // If the function code does not match that of the request, report error
+        } else if ((response->getFunctionCode() & 0x7F) != request->getFunctionCode()) {
+          delete response;
+          errorCode = FC_MISMATCH;
+          state = ERROR_EXIT;
+        } else {
+          // Yes, move on
+          state = FINISHED;
         }
       } else {
         // No, packet was too short for anything usable. Return error
