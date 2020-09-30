@@ -10,6 +10,8 @@ ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
   MT_client(client),
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_target(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_defaultTimeout(DEFAULTTIMEOUT),
+  MT_defaultInterval(TARGETHOSTINTERVAL),
   MT_qLimit(queueLimit)
   { }
 
@@ -19,6 +21,8 @@ ModbusTCP::ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t que
   MT_client(client),
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_target(host, port, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_defaultTimeout(DEFAULTTIMEOUT),
+  MT_defaultInterval(TARGETHOSTINTERVAL),
   MT_qLimit(queueLimit)
   { }
 
@@ -478,7 +482,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         } else {
           // No, something went wrong. All we have is an error
           if (response->getError() == TIMEOUT && retryCounter--) {
-            Serial.println("Retry on timeout...");
+            // Serial.println("Retry on timeout...");
             doNotPop = true;
           } else {
             // Do we have an onError handler?
@@ -497,7 +501,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
         if (retryCounter--) {
           instance->MT_client.stop();
           delay(10);
-          Serial.println("Retry on connect failure...");
+          // Serial.println("Retry on connect failure...");
           doNotPop = true;
         } else {
           // Do we have an onError handler?

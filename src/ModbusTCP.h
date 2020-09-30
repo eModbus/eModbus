@@ -35,7 +35,7 @@ public:
   void begin(int coreID = -1);
 
   // Set default timeout value (and interval)
-  void setTimeout(uint32_t timeout, uint32_t interval = TARGETHOSTINTERVAL);
+  void setTimeout(uint32_t timeout = DEFAULTTIMEOUT, uint32_t interval = TARGETHOSTINTERVAL);
 
   // Switch target host (if necessary)
   bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
