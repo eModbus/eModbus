@@ -315,11 +315,17 @@ void setup()
   while (!Serial) {}
   Serial.println("__ OK __");
 
-  printPassed = false;          // Omit passed tests in output
+  Serial.println("-----> Some timeout tests may take a while. Wait patiently for 'All finished.'");
 
   // ******************************************************************************
   // Write test cases below this line!
   // ******************************************************************************
+
+  // Restart test case and tests passed counter
+  testsExecuted = 0;
+  testsPassed = 0;
+
+  printPassed = false;          // Omit passed tests in output
 
   // TCP test prerequisites
   uint16_t transactionID = 0x4711;
@@ -529,7 +535,7 @@ void setup()
   // ******************************************************************************
 
   // Print summary.
-  Serial.printf("Generate messages tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+  Serial.printf("----->    Generate messages tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
 
   // ******************************************************************************
@@ -544,7 +550,7 @@ void setup()
   testsExecuted = 0;
   testsPassed = 0;
 
-  printPassed = true;
+  printPassed = false;
 
   // Some prerequisites 
   IPAddress testHost = IPAddress(192, 166, 1, 1);
@@ -808,6 +814,133 @@ void setup()
   }
   delay(1000);
 
+  // Simulate Server not responding (host/port different from stub's identity)
+  TestTCP.setTarget(testHost2, 502);
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Server not responding",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 07 2B"),
+    .expected = makeVector("EA"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+  // Server returns undefined error code
+  TestTCP.setTarget(testHost, 502);
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Unknown error code",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 87 46"),
+    .expected = makeVector("46"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+  // Host switch sequence (requires re-connect())
+  // testHost2, testHost2, testHost, testHost2
+  // testHost2 is simulated to stop-after-response, so a re-connect has to be done each time
+  TestTCP.setTarget(testHost2, 502);
+  stub.setIdentity(testHost2, 502);
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "testHost2 stop after response(1)",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 87 01"),
+    .expected = makeVector("01"),
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "testHost2 stop after response(2)",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 87 02"),
+    .expected = makeVector("02"),
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+  TestTCP.setTarget(testHost, 502, 2000, 200);
+  stub.setIdentity(testHost, 502);
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "testHost interlude",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 87 11"),
+    .expected = makeVector("11"),
+    .delayTime = 0,
+    .stopAfterResponding = false,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
+  TestTCP.setTarget(testHost2, 502);
+  stub.setIdentity(testHost2, 502);
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "testHost2 stop after response(3)",
+    .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = makeVector("01 87 03"),
+    .expected = makeVector("03"),
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByTID[tc->transactionID] = tc;
+  testCasesByToken[tc->token] = tc;
+  e = TestTCP.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(1000);
+
 
   // ******************************************************************************
   // Write test cases above this line!
@@ -815,7 +948,9 @@ void setup()
 
   // Print summary. We will have to wait a bit to get all test cases executed!
   delay(2000);
-  Serial.printf("TCP loop stub tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+  Serial.printf("----->    TCP loop stub tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+  Serial.println("All finished.");
 }
 
 void loop() {
