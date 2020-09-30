@@ -50,11 +50,21 @@ TCPstub& TCPstub::operator=(TCPstub& t) {
 // Client.h method set
 // Connect will check the identity and only start the worker task if it is matching
 int TCPstub::connect(IPAddress ip, uint16_t port) {
+  /*
+  Serial.print("Identity: ");
+  Serial.print(myIP);
+  Serial.print("/");
+  Serial.print(myPort);
+  Serial.print(" - connect requests ");
+  Serial.print(ip);
+  Serial.print("/");
+  Serial.println(port);
+  */
   if (ip == myIP && port == myPort) {
     // if we do not have a worker already running
     if (!worker) {
       // Start task to handle the queue
-      xTaskCreatePinnedToCore((TaskFunction_t)&workerTask, "TCPstub", 4096, this, 5, &worker, 1);
+      xTaskCreatePinnedToCore((TaskFunction_t)&workerTask, "TCPstub", 4096, this, 6, &worker, 1);
     }
     return 0;
   }
@@ -131,6 +141,13 @@ void TCPstub::stop() {
     vTaskDelete(worker);
     worker = nullptr;
   }
+  // Delete inQueue, if anything is still in it
+  if (!inQueue.empty()) {
+    lock_guard<mutex> Lin(inLock);
+    while (!inQueue.empty()) {
+      inQueue.pop();
+    }
+  }
 }
 
 // Special stub methods
@@ -164,15 +181,18 @@ void TCPstub::workerTask(TCPstub *instance) {
       uint8_t TCPhead[6];
       {
         lock_guard<mutex> lockIn(instance->inLock);
-        for (uint8_t i = 0; i < 6; ++i) {
-          TCPhead[i] = instance->inQueue.front();
-          instance->inQueue.pop();
-        }
-
-        // Whatever follows, will be discarded - we have the response in the test case
+        uint16_t i = 0;
+        // Serial.print("Read  ");
+        // Keep the TCPhead and discard the rest.
         while (!instance->inQueue.empty()) {
+          uint8_t byte = instance->inQueue.front();
+          if (i < 6) {
+            TCPhead[i++] = byte;
+          }
           instance->inQueue.pop();
+          // Serial.printf("%02X ", byte);
         }
+        // Serial.println();
       }
       // Get the TID
       tid = ((TCPhead[0] << 8) & 0xFF) | (TCPhead[1] & 0xFF);
@@ -205,17 +225,22 @@ void TCPstub::workerTask(TCPstub *instance) {
           TCPhead[4] = (myTest->response.size() << 8) & 0xFF;
           TCPhead[5] = myTest->response.size() & 0xFF;
 
+          // Serial.print("Write ");
           // Write the TCP header
           for (uint8_t i = 0; i < 6; ++i) {
             instance->outQueue.push(TCPhead[i]);
+            // Serial.printf("%02X ", TCPhead[i]);
           }
 
           // Now write the response
           uint8_t *cp = myTest->response.data();
           size_t cnt = myTest->response.size();
           while (cnt--) {
-            instance->outQueue.push(*cp++);
+            instance->outQueue.push(*cp);
+            // Serial.printf("%02X ", *cp);
+            cp++;
           }
+          // Serial.println();
         }
         // Are we to stop ourselves after response has been sent?
         if (myTest->stopAfterResponding == true) {
