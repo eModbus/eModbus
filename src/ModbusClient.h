@@ -27,7 +27,7 @@ protected:
   TaskHandle_t worker;             // Interface instance worker task
   MBOnData onData;                 // Response data handler
   MBOnError onError;               // Error response handler
-  static uint16_t instanceCounter; // Number of PhysicalInterfaces created
+  static uint16_t instanceCounter; // Number of ModbusClients created
 };
 
 #endif
