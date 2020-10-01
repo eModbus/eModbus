@@ -6,13 +6,13 @@
 #define _MODBUS_CLIENT_H
 #include "ModbusTypeDefs.h"
 
-using Modbus::MBOnData;
-using Modbus::MBOnError;
-
 extern "C" {
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 }
+
+typedef void (*MBOnData) (uint8_t serverID, uint8_t functionCode, const uint8_t *data, uint16_t data_length, uint32_t token);
+typedef void (*MBOnError) (Modbus::Error, uint32_t token);
 
 class ModbusClient {
 public:
