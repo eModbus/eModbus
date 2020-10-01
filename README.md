@@ -15,8 +15,8 @@ Have fun!
 - [Basic use](#basic-use)
 - [API description](#api-description)
   - [Common concepts](#common-concepts)
-  - [ModbusRTU API elements](#modbusrtu-api-elements)
-  - [ModbusTCP API elements](#modbustcp-api-elements)
+  - [ModbusClientRTU API elements](#modbusclientrtu-api-elements)
+  - [ModbusClientTCP API elements](#modbusclienttcp-api-elements)
 
 ## Requirements
 The library was developed for and on ESP32 MCUs in the Arduino core development environment. In principle it should run in any environment providing these resources:
@@ -52,11 +52,11 @@ If you are using the Arduino IDE, you will want to copy the library folder into 
 To get up and running you will need to put only a few lines in your code. *We will be using the RTU variant here* to show an example.
 First you have to pull the matching header file:
 ```
-#include "ModbusRTU.h"
+#include "ModbusClientRTU.h"
 ```
-For ModbusRTU a Serial interface is required, that connects to your RS485 adaptor. This is given as parameter to the ``ModbusRTU`` constructor:
+For ModbusClientRTU a Serial interface is required, that connects to your RS485 adaptor. This is given as parameter to the ``ModbusClientRTU`` constructor:
 ```
-ModbusRTU RS485(Serial2);
+ModbusClientRTU RS485(Serial2);
 ```
 Next we will define a callback function for data responses coming in. This will print out a hexadecimal dump line with the response data:
 ```
@@ -87,12 +87,12 @@ void setup() {
 // Set up Serial2 connected to Modbus RTU
   Serial2.begin(19200, SERIAL_8N1);
 
-// Set up ModbusRTU client.
+// Set up ModbusClientRTU client.
 // - provide onData and onError handler functions
   RS485.onDataHandler(&handleData);
   RS485.onErrorHandler(&handleError);
 
-// Start ModbusRTU background task
+// Start ModbusClientRTU background task
   RS485.begin();
 }
 ```
@@ -181,7 +181,7 @@ Please note that this count is instance-specific, so any ModbusClient instance y
 #### ``void begin()`` and ``void begin(int coreID)``
 This is the most important call to get a ModbusClient instance to work. It will open the request queue and start the background worker task to process the queued requests.
 
-The second form of ``begin()`` allows you to choose a CPU core for the worker task to run (on multi-core systems as the ESP32 only, of course). This is advisable in particular for the ``ModbusRTU`` client, as the handling of the RS485 Modbus is a little time-critical and will profit from having its own core to run.
+The second form of ``begin()`` allows you to choose a CPU core for the worker task to run (on multi-core systems as the ESP32 only, of course). This is advisable in particular for the ``ModbusClientRTU`` client, as the handling of the RS485 Modbus is a little time-critical and will profit from having its own core to run.
 
 **Note:** The worker task is running forever or until the ModbusClient instance is killed that started it. The destructor will take care of all requests still on the queue and remove those, then will stop the running worker task.
 
@@ -284,13 +284,13 @@ remaining -= addValue(buffer + 24 - remaining, remaining, l);
 ```
 After the code is run ``buffer`` will contain ``04 04 FC DE AD BE EF`` and ``remaining`` will be 17.
 
-### ModbusRTU API elements
-You will have to have the following include line in your code to make the ``ModbusRTU`` API available:
+### ModbusClientRTU API elements
+You will have to have the following include line in your code to make the ``ModbusClientRTU`` API available:
 ```
-#include "ModbusRTU.h"
+#include "ModbusClientRTU.h"
 ```
-#### ``ModbusRTU(HardwareSerial& serial)``, ``ModbusRTU(HardwareSerial& serial, int8_t rtsPin)`` and ``ModbusRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit)``
-These are the constructor variants for an instance of the ``ModbusRTU`` type. The parameters are:
+#### ``ModbusClientRTU(HardwareSerial& serial)``, ``ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin)`` and ``ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit)``
+These are the constructor variants for an instance of the ``ModbusClientRTU`` type. The parameters are:
 - ``serial``: a reference to a Serial interface the Modbus is conncted to (mostly by a RS485 adaptor). This Serial interface must be configured to match the baud rate, data and stop bits and parity of the Modbus.
 - ``rtsPin``: some RS485 adaptors have "DE/RE" lines to control the half duplex communication. When writing to the bus, the lines have to be set accordingly. DE and RE usually have opposite logic levels, so that they can be connected to a single GPIO that is set to HIGH for writing and LOW for reading. This will be done by the library, if a GPIO pin number is given for ``rtsPin``. Use ``-1`` as value if you do not need this GPIO (usually with RS485 adaptors doing auto half duplex themselves).
 - ``queueLimit``: this specifies the number of requests that may be placed on the worker task's queue. If you exceed this number by issueing another request while the queue is full, the ``addRequest`` call will return with a ``REQUEST_QUEUE_FULL`` error. The default value built in is 100. **Note:** while the queue holds pointers to the requests only, the requests need memory as well. If you choose a ``queueLimit`` too large, you may encounter "out of memory" conditions!
@@ -326,26 +326,26 @@ The ``errorCode`` parameter takes an ``Error`` value as defined above. The resul
 This is a convenient method to calculate a CRC16 value for a given block of bytes. ``*data`` points to this block, ``len`` gives the number of bytes to consider.
 The call will return the 16-bit CRC16 value.
 
-### ModbusTCP API elements
-You will have to have the following include line in your code to make the ``ModbusTCP`` API available:
+### ModbusClientTCP API elements
+You will have to have the following include line in your code to make the ``ModbusClientTCP`` API available:
 ```
-#include "ModbusTCP.h"
+#include "ModbusClientTCP.h"
 ```
-#### ``ModbusTCP(Client& client)`` and ``ModbusTCP(Client& client, uint16_t queueLimit)``
+#### ``ModbusClientTCP(Client& client)`` and ``ModbusClientTCP(Client& client, uint16_t queueLimit)``
 The first set of constructors does take a ``client`` reference parameter, that may be any interface instance supporting the methods defined in ``Client.h``, f.i. an ``EthernetClient`` or a ``WiFiClient`` instance.
 This interface will be used to send the Modbus TCP requests and receive the respective TCP responses.
 
-The optional ``queueLimit`` parameter lets you define the maximum number of requests the worker task's queue will accept. The default is 100; please see the remarks to this parameter in the ModbusRTU section.
+The optional ``queueLimit`` parameter lets you define the maximum number of requests the worker task's queue will accept. The default is 100; please see the remarks to this parameter in the ModbusClientRTU section.
 
-#### ``ModbusTCP(Client& client, IPAddress host, uint16_t port)`` and ``ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit)``
-Alternatively you may give the initial target host IP address and port number to be used for communications. This can be sensible if you have to set up a ModbusTCP client dedicated to one single target host.
+#### ``ModbusClientTCP(Client& client, IPAddress host, uint16_t port)`` and ``ModbusClientTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit)``
+Alternatively you may give the initial target host IP address and port number to be used for communications. This can be sensible if you have to set up a ModbusClientTCP client dedicated to one single target host.
 
 The ``queueLimit`` parameter is the same as explained above.
 
 #### ``void setTimeout(uint32_t timeout)`` and ``void setTimeout(uint32_t timeout, uint32_t interval)`` 
-Similar to the ModbusRTU timeout, you may specify a time in milliseconds that will determine if a ``TIMEOUT`` error occurred. The worker task will wait the specified time without data arriving to then state a timeout and return the error response for it. The default value is 2000 - 2 seconds.
+Similar to the ModbusClientRTU timeout, you may specify a time in milliseconds that will determine if a ``TIMEOUT`` error occurred. The worker task will wait the specified time without data arriving to then state a timeout and return the error response for it. The default value is 2000 - 2 seconds.
 
-**Note:** the caveat for the ModbusRTU timeout applies here as well. The timeout will block the worker task up to three times its value, as two retries are attempted by the worker by sending the request again and waiting for a response. 
+**Note:** the caveat for the ModbusClientRTU timeout applies here as well. The timeout will block the worker task up to three times its value, as two retries are attempted by the worker by sending the request again and waiting for a response. 
 
 The optional ``interval`` parameter also is given in milliseconds and specifies the time to wait for the worker between two consecutive requests to the same target host. Some servers will need some milliseconds to recover from a previous request; this interval prevents sending another request prematurely. 
 
@@ -357,7 +357,7 @@ This function is necessary at least once to set the target host IP address and p
 The optional ``timeout`` and ``interval`` parameters will let you override the standards set with the ``setTimeout()`` method **for just those requests sent from now on to the targeted host/port**. The next ``setTarget()`` will return to the standard values, if not specified differently again.
 
 #### Message generating calls (no communication)
-The ModbusTCP ``generate`` calls are identical in function to those described in the ModbusRTU section, with the following differences:
+The ModbusClientTCP ``generate`` calls are identical in function to those described in the ModbusClientRTU section, with the following differences:
 
 - as first parameter, the ``generate`` calls are requiring a 16-bit ``transactionID`` transaction identification. This will be used as part of the TCP header block prefixed to the message proper, as Modbus TCP mandates.
 If sent as a request, the TCP response shall return the same transaction identifier in its TCP header.
@@ -372,4 +372,4 @@ The calls are:
 - ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes)``
 - ``TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes)``
 - ``TCPMessage generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode)``
-For a description please see the related calls above in the ModbusRTU section and the ``addRequest`` call descriptions in the common section.
+For a description please see the related calls above in the ModbusClientRTU section and the ``addRequest`` call descriptions in the common section.
