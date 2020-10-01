@@ -2,10 +2,10 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
-#include "ModbusRTU.h"
+#include "ModbusClientRTU.h"
 
 // Constructor takes Serial reference and optional DE/RE pin
-ModbusRTU::ModbusRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit) :
+ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit) :
   ModbusClient(),
   MR_serial(serial),
   MR_lastMicros(micros()),
@@ -16,7 +16,7 @@ ModbusRTU::ModbusRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit)
 }
 
 // Destructor: clean up queue, task etc.
-ModbusRTU::~ModbusRTU() {
+ModbusClientRTU::~ModbusClientRTU() {
   // Clean up queue
   {
     // Safely lock access
@@ -36,7 +36,7 @@ ModbusRTU::~ModbusRTU() {
 }
 
 // begin: start worker task
-void ModbusRTU::begin(int coreID) {
+void ModbusClientRTU::begin(int coreID) {
   // If rtsPin is >=0, the RS485 adapter needs send/receive toggle
   if (MR_rtsPin >= 0) {
     pinMode(MR_rtsPin, OUTPUT);
@@ -60,13 +60,13 @@ void ModbusRTU::begin(int coreID) {
 }
 
 // setTimeOut: set/change the default interface timeout
-void ModbusRTU::setTimeout(uint32_t TOV) {
+void ModbusClientRTU::setTimeout(uint32_t TOV) {
   MR_timeoutValue = TOV;
 }
 
 // Methods to set up requests
 // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token) {
+Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -85,7 +85,7 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t tok
   return rc;
 }
 
-RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode) {
+RTUMessage ModbusClientRTU::generateRequest(uint8_t serverID, uint8_t functionCode) {
   Error rc = SUCCESS;       // Return code from generating the request
   RTUMessage rv;       // Returned std::vector with the message or error code
 
@@ -103,7 +103,7 @@ RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode) {
 }
 
 // 2. one uint16_t parameter (FC 0x18)
-Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
+Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -122,7 +122,7 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
 
-RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1) {
+RTUMessage ModbusClientRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1) {
   Error rc = SUCCESS;       // Return code from generating the request
   RTUMessage rv;       // Returned std::vector with the message or error code
 
@@ -140,7 +140,7 @@ RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, ui
 }
 
 // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
+Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -160,7 +160,7 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
     
 }
 
-RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
+RTUMessage ModbusClientRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
   Error rc = SUCCESS;       // Return code from generating the request
   RTUMessage rv;       // Returned std::vector with the message or error code
 
@@ -178,7 +178,7 @@ RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, ui
 }
 
 // 4. three uint16_t parameters (FC 0x16)
-Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token) {
+Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -198,7 +198,7 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
     
 }
 
-RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
+RTUMessage ModbusClientRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
   Error rc = SUCCESS;       // Return code from generating the request
   RTUMessage rv;       // Returned std::vector with the message or error code
 
@@ -216,7 +216,7 @@ RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, ui
 }
 
 // 5. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of words (FC 0x10)
-Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
+Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -236,7 +236,7 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
     
 }
 
-RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
+RTUMessage ModbusClientRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
   Error rc = SUCCESS;       // Return code from generating the request
   RTUMessage rv;       // Returned std::vector with the message or error code
 
@@ -254,7 +254,7 @@ RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, ui
 }
 
 // 6. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of bytes (FC 0x0f)
-Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token) {
+Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -273,7 +273,7 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
 
-RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
+RTUMessage ModbusClientRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
   RTUMessage rv;       // Returned std::vector with the message or error code
 
@@ -291,7 +291,7 @@ RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, ui
 }
 
 // 7. generic constructor for preformatted data ==> count is counting bytes!
-Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
+Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -310,7 +310,7 @@ Error ModbusRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
   return rc;
 }
 
-RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
+RTUMessage ModbusClientRTU::generateRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
   RTUMessage rv;       // Returned std::vector with the message or error code
 
@@ -328,7 +328,7 @@ RTUMessage ModbusRTU::generateRequest(uint8_t serverID, uint8_t functionCode, ui
 }
 
 // addToQueue: send freshly created request to queue
-bool ModbusRTU::addToQueue(RTURequest *request) {
+bool ModbusClientRTU::addToQueue(RTURequest *request) {
   bool rc = false;
   // Did we get one?
   if (request) {
@@ -345,7 +345,7 @@ bool ModbusRTU::addToQueue(RTURequest *request) {
 }
 
 // Move complete message data including CRC into a std::vector
-RTUMessage ModbusRTU::vectorize(RTURequest *request, Error err) {
+RTUMessage ModbusClientRTU::vectorize(RTURequest *request, Error err) {
   RTUMessage rv;       /// Returned std::vector
 
   // Was the message generated?
@@ -372,7 +372,7 @@ RTUMessage ModbusRTU::vectorize(RTURequest *request, Error err) {
 }
 
 // Method to generate an error response - properly enveloped for TCP
-RTUMessage ModbusRTU::generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode) {
+RTUMessage ModbusClientRTU::generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode) {
   RTUMessage rv;       // Returned std::vector
 
   Error rc = RTURequest::checkServerFC(serverID, functionCode);
@@ -402,7 +402,7 @@ RTUMessage ModbusRTU::generateErrorResponse(uint8_t serverID, uint8_t functionCo
 
 // handleConnection: worker task
 // This was created in begin() to handle the queue entries
-void ModbusRTU::handleConnection(ModbusRTU *instance) {
+void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
   // Loop forever - or until task is killed
   while (1) {
     // Do we have a reuest in queue?
@@ -445,7 +445,7 @@ void ModbusRTU::handleConnection(ModbusRTU *instance) {
 }
 
 // send: send request via Serial
-void ModbusRTU::send(RTURequest *request) {
+void ModbusClientRTU::send(RTURequest *request) {
   while (micros() - MR_lastMicros < MR_interval) delayMicroseconds(1);  // respect _interval
   // Toggle rtsPin, if necessary
   if (MR_rtsPin >= 0) digitalWrite(MR_rtsPin, HIGH);
@@ -459,7 +459,7 @@ void ModbusRTU::send(RTURequest *request) {
 }
 
 // receive: get response via Serial
-RTUResponse* ModbusRTU::receive(RTURequest *request) {
+RTUResponse* ModbusClientRTU::receive(RTURequest *request) {
   // Allocate initial buffer size
   const uint16_t BUFBLOCKSIZE(128);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];

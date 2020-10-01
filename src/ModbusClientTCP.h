@@ -2,8 +2,8 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
-#ifndef _MODBUS_TCP_H
-#define _MODBUS_TCP_H
+#ifndef _MODBUS_CLIENT_TCP_H
+#define _MODBUS_CLIENT_TCP_H
 #include <Arduino.h>
 #include "ModbusMessageTCP.h"
 #include "ModbusClient.h"
@@ -20,16 +20,16 @@ using TCPMessage = std::vector<uint8_t>;
 #define TARGETHOSTINTERVAL 10
 #define DEFAULTTIMEOUT 2000
 
-class ModbusTCP : public ModbusClient {
+class ModbusClientTCP : public ModbusClient {
 public:
   // Constructor takes reference to Client (EthernetClient or WiFiClient)
-  explicit ModbusTCP(Client& client, uint16_t queueLimit = 100);
+  explicit ModbusClientTCP(Client& client, uint16_t queueLimit = 100);
 
   // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
-  ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit = 100);
+  ModbusClientTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.
-  ~ModbusTCP();
+  ~ModbusClientTCP();
 
   // begin: start worker task
   void begin(int coreID = -1);
@@ -80,7 +80,7 @@ protected:
   bool addToQueue(TCPRequest *request);
 
   // handleConnection: worker task method
-  static void handleConnection(ModbusTCP *instance);
+  static void handleConnection(ModbusClientTCP *instance);
 
   // send: send request via Client connection
   void send(TCPRequest *request);

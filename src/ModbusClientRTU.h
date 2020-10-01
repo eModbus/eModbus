@@ -2,8 +2,8 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
-#ifndef _MODBUS_RTU_H
-#define _MODBUS_RTU_H
+#ifndef _MODBUS_CLIENT_RTU_H
+#define _MODBUS_CLIENT_RTU_H
 #include "ModbusMessageRTU.h"
 #include "ModbusClient.h"
 #include "HardwareSerial.h"
@@ -18,13 +18,13 @@ using RTUMessage = std::vector<uint8_t>;
 
 #define DEFAULTTIMEOUT 2000
 
-class ModbusRTU : public ModbusClient {
+class ModbusClientRTU : public ModbusClient {
 public:
   // Constructor takes Serial reference and optional DE/RE pin and queue limit
-  explicit ModbusRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);
+  explicit ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.
-  ~ModbusRTU();
+  ~ModbusClientRTU();
 
   // begin: start worker task
   void begin(int coreID = -1);
@@ -69,7 +69,7 @@ protected:
   bool addToQueue(RTURequest *request);
 
   // handleConnection: worker task method
-  static void handleConnection(ModbusRTU *instance);
+  static void handleConnection(ModbusClientRTU *instance);
 
   // send: send request via Serial
   void send(RTURequest *request);

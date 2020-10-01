@@ -47,7 +47,7 @@ struct TargetHost {
 };
 
 class TCPRequest : public ModbusRequest {
-  friend class ModbusTCP;
+  friend class ModbusClientTCP;
   friend class ModbusTCPasync;
   friend class TCPResponse;
 protected:
@@ -90,7 +90,7 @@ protected:
 };
 
 class TCPResponse : public ModbusResponse {
-  friend class ModbusTCP;
+  friend class ModbusClientTCP;
 protected:
   // Default constructor
   explicit TCPResponse(uint16_t dataLen);

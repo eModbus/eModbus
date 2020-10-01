@@ -3,8 +3,8 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include <Arduino.h>
-#include "ModbusRTU.h"
-#include "ModbusTCP.h"
+#include "ModbusClientRTU.h"
+#include "ModbusClientTCP.h"
 #include <vector>
 using std::vector;
 
@@ -15,8 +15,8 @@ using std::vector;
 
 // Test prerequisites
 TCPstub stub;
-ModbusTCP TestTCP(stub, 2);               // ModbusTCP test instance.
-ModbusRTU TestRTU(Serial);             // ModbusRTU test instance. Will never be started with begin()!
+ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance.
+ModbusClientRTU TestRTU(Serial);             // ModbusClientRTU test instance. Will never be started with begin()!
 uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
 uint16_t testsPassed = 0;              // Global passed test cases counter. Incremented in testOutput().
 bool printPassed = true;               // If true, testOutput will print passed tests as well.
@@ -109,169 +109,169 @@ vector<uint8_t> makeVector(const char *text) {
 // underlying generateRequest() function. The "XXX08()" functions will call generateErrorResponse() instead
 //
 // The last three calling arguments always are:
-// interface: a reference to the used ModbusTCP or ModbusRTU instance
+// interface: a reference to the used ModbusClientTCP or ModbusClientRTU instance
 // name: pointer to a char array holding the test case description
 // expected: the byte sequence, that normally should result from the call. There are two variants for each
 //           of the test functions, one accepting the sequence as a vector<uint8_t>, the other will expect a char array
 //           with hexadecimal digits like ("12 34 56 78 9A BC DE F0"). All characters except [0-9A-F] are ignored!
 //
 // The leading [n] calling arguments are the same that will be used for the respective generateRequest() calls.
-bool RTU01(uint8_t serverID, uint8_t functionCode, ModbusRTU& interface, const char *name, vector<uint8_t> expected) {
+bool RTU01(uint8_t serverID, uint8_t functionCode, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU01(uint8_t serverID, uint8_t functionCode, ModbusRTU& interface, const char *name, const char *expected) {
+bool RTU01(uint8_t serverID, uint8_t functionCode, ModbusClientRTU& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU02(uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusRTU& interface, const char *name, vector<uint8_t> expected) {
+bool RTU02(uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU02(uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusRTU& interface, const char *name, const char *expected) {
+bool RTU02(uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusClientRTU& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusRTU& interface, const char *name, vector<uint8_t> expected) {
+bool RTU03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusRTU& interface, const char *name, const char *expected) {
+bool RTU03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusClientRTU& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusRTU& interface, const char *name, vector<uint8_t> expected) {
+bool RTU04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, p3);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusRTU& interface, const char *name, const char *expected) {
+bool RTU04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusClientRTU& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, p3);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusRTU& interface, const char *name, vector<uint8_t> expected) {
+bool RTU05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, count, arrayOfWords);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusRTU& interface, const char *name, const char *expected) {
+bool RTU05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusClientRTU& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, count, arrayOfWords);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusRTU& interface, const char *name, vector<uint8_t> expected) {
+bool RTU06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, count, arrayOfBytes);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusRTU& interface, const char *name, const char *expected) {
+bool RTU06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusClientRTU& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, count, arrayOfBytes);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusRTU& interface, const char *name, vector<uint8_t> expected) {
+bool RTU07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, count, arrayOfBytes);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusRTU& interface, const char *name, const char *expected) {
+bool RTU07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusClientRTU& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, count, arrayOfBytes);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU08(uint8_t serverID, uint8_t functionCode, Error error, ModbusRTU& interface, const char *name, vector<uint8_t> expected) {
+bool RTU08(uint8_t serverID, uint8_t functionCode, Error error, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateErrorResponse(serverID, functionCode, error);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU08(uint8_t serverID, uint8_t functionCode, Error error, ModbusRTU& interface, const char *name, const char *expected) {
+bool RTU08(uint8_t serverID, uint8_t functionCode, Error error, ModbusClientRTU& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateErrorResponse(serverID, functionCode, error);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP01(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, ModbusTCP& interface, const char *name, vector<uint8_t> expected) {
+bool TCP01(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool TCP01(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, ModbusTCP& interface, const char *name, const char *expected) {
+bool TCP01(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, ModbusClientTCP& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP02(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusTCP& interface, const char *name, vector<uint8_t> expected) {
+bool TCP02(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool TCP02(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusTCP& interface, const char *name, const char *expected) {
+bool TCP02(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusClientTCP& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP03(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusTCP& interface, const char *name, vector<uint8_t> expected) {
+bool TCP03(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool TCP03(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusTCP& interface, const char *name, const char *expected) {
+bool TCP03(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusClientTCP& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP04(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusTCP& interface, const char *name, vector<uint8_t> expected) {
+bool TCP04(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, p3);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool TCP04(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusTCP& interface, const char *name, const char *expected) {
+bool TCP04(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusClientTCP& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, p3);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP05(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusTCP& interface, const char *name, vector<uint8_t> expected) {
+bool TCP05(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfWords);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool TCP05(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusTCP& interface, const char *name, const char *expected) {
+bool TCP05(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusClientTCP& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfWords);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP06(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusTCP& interface, const char *name, vector<uint8_t> expected) {
+bool TCP06(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfBytes);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool TCP06(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusTCP& interface, const char *name, const char *expected) {
+bool TCP06(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusClientTCP& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfBytes);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP07(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusTCP& interface, const char *name, vector<uint8_t> expected) {
+bool TCP07(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, count, arrayOfBytes);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool TCP07(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusTCP& interface, const char *name, const char *expected) {
+bool TCP07(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusClientTCP& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, count, arrayOfBytes);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP08(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error error, ModbusTCP& interface, const char *name, vector<uint8_t> expected) {
+bool TCP08(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error error, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
   vector<uint8_t> msg = interface.generateErrorResponse(transactionID, serverID, functionCode, error);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool TCP08(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error error, ModbusTCP& interface, const char *name, const char *expected) {
+bool TCP08(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error error, ModbusClientTCP& interface, const char *name, const char *expected) {
   vector<uint8_t> msg = interface.generateErrorResponse(transactionID, serverID, functionCode, error);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
@@ -561,7 +561,7 @@ void setup()
   TestTCP.onDataHandler(&handleData);
   TestTCP.onErrorHandler(&handleError);
 
-  // Start ModbusTCP background task
+  // Start ModbusClientTCP background task
   TestTCP.begin();
 
   // Start TCP stub

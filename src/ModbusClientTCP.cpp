@@ -2,10 +2,10 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
- #include "ModbusTCP.h"
+ #include "ModbusClientTCP.h"
 
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
-ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
+ModbusClientTCP::ModbusClientTCP(Client& client, uint16_t queueLimit) :
   ModbusClient(),
   MT_client(client),
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
@@ -16,7 +16,7 @@ ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
   { }
 
 // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
-ModbusTCP::ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit) :
+ModbusClientTCP::ModbusClientTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit) :
   ModbusClient(),
   MT_client(client),
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
@@ -27,7 +27,7 @@ ModbusTCP::ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t que
   { }
 
 // Destructor: clean up queue, task etc.
-ModbusTCP::~ModbusTCP() {
+ModbusClientTCP::~ModbusClientTCP() {
   // Clean up queue
   {
     // Safely lock access
@@ -47,7 +47,7 @@ ModbusTCP::~ModbusTCP() {
 }
 
 // begin: start worker task
-void ModbusTCP::begin(int coreID) {
+void ModbusClientTCP::begin(int coreID) {
   // Create unique task name
   char taskName[12];
   snprintf(taskName, 12, "Modbus%02XTCP", instanceCounter);
@@ -56,14 +56,14 @@ void ModbusTCP::begin(int coreID) {
 }
 
 // Set default timeout value (and interval)
-void ModbusTCP::setTimeout(uint32_t timeout, uint32_t interval) {
+void ModbusClientTCP::setTimeout(uint32_t timeout, uint32_t interval) {
   MT_defaultTimeout = timeout;
   MT_defaultInterval = interval;
 }
 
 // Switch target host (if necessary)
 // Return true, if host/port is different from last host/port used
-bool ModbusTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout, uint32_t interval) {
+bool ModbusClientTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout, uint32_t interval) {
   MT_target.host = host;
   MT_target.port = port;
   MT_target.timeout = timeout ? timeout : MT_defaultTimeout;
@@ -74,7 +74,7 @@ bool ModbusTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout, uint3
 
 // Methods to set up requests
 // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token) {
+Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -94,7 +94,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t tok
   return rc;
 }
 
-TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode) {
+TCPMessage ModbusClientTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode) {
   Error rc = SUCCESS;       // Return code from generating the request
   TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
@@ -113,7 +113,7 @@ TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, 
 }
 
 // 2. one uint16_t parameter (FC 0x18)
-Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
+Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -133,7 +133,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1) {
+TCPMessage ModbusClientTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1) {
   Error rc = SUCCESS;       // Return code from generating the request
   TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
@@ -152,7 +152,7 @@ TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, 
 }
   
 // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
+Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -172,7 +172,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
+TCPMessage ModbusClientTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
   Error rc = SUCCESS;       // Return code from generating the request
   TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
@@ -191,7 +191,7 @@ TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, 
 }
 
 // 4. three uint16_t parameters (FC 0x16)
-Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token) {
+Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -211,7 +211,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
+TCPMessage ModbusClientTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
   Error rc = SUCCESS;       // Return code from generating the request
   TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
@@ -230,7 +230,7 @@ TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, 
 }
   
 // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
-Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
+Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -250,7 +250,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
+TCPMessage ModbusClientTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
   Error rc = SUCCESS;       // Return code from generating the request
   TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
@@ -269,7 +269,7 @@ TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, 
 }
   
 // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
-Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token) {
+Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -289,7 +289,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1,
   return rc;
 }
   
-TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
+TCPMessage ModbusClientTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
   TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
@@ -308,7 +308,7 @@ TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, 
 }
 
 // 7. generic constructor for preformatted data ==> count is counting bytes!
-Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
+Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Create request, if valid
@@ -328,7 +328,7 @@ Error ModbusTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint16_t cou
   return rc;
 }
   
-TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
+TCPMessage ModbusClientTCP::generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
   Error rc = SUCCESS;       // Return code from generating the request
   TCPMessage rv;       // Returned std::vector with the message or error code
   TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
@@ -347,7 +347,7 @@ TCPMessage ModbusTCP::generateRequest(uint16_t transactionID, uint8_t serverID, 
 }
 
 // addToQueue: send freshly created request to queue
-bool ModbusTCP::addToQueue(TCPRequest *request) {
+bool ModbusClientTCP::addToQueue(TCPRequest *request) {
   bool rc = false;
   // Did we get one?
   if (request) {
@@ -363,7 +363,7 @@ bool ModbusTCP::addToQueue(TCPRequest *request) {
 }
 
 // Move complete message data including tcpHead into a std::vector
-TCPMessage ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request, Error err) {
+TCPMessage ModbusClientTCP::vectorize(uint16_t transactionID, TCPRequest *request, Error err) {
   TCPMessage rv;       /// Returned std::vector
 
   // Was the message generated?
@@ -390,7 +390,7 @@ TCPMessage ModbusTCP::vectorize(uint16_t transactionID, TCPRequest *request, Err
 }
 
 // Method to generate an error response - properly enveloped for TCP
-TCPMessage ModbusTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
+TCPMessage ModbusClientTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
   TCPMessage rv;       // Returned std::vector
 
   Error rc = TCPRequest::checkServerFC(serverID, functionCode);
@@ -415,7 +415,7 @@ TCPMessage ModbusTCP::generateErrorResponse(uint16_t transactionID, uint8_t serv
 
 // handleConnection: worker task
 // This was created in begin() to handle the queue entries
-void ModbusTCP::handleConnection(ModbusTCP *instance) {
+void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
   const uint8_t RETRIES(2);
   uint8_t retryCounter = RETRIES;
   bool doNotPop;
@@ -530,7 +530,7 @@ void ModbusTCP::handleConnection(ModbusTCP *instance) {
 }
 
 // makeHead: helper function to set up a MSB TCP header
-bool ModbusTCP::makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN) {
+bool ModbusClientTCP::makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN) {
   uint16_t headlong = 6;
   uint16_t offs = 0;
   uint16_t ptr = 0;
@@ -552,7 +552,7 @@ bool ModbusTCP::makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t
 }
 
 // send: send request via Client connection
-void ModbusTCP::send(TCPRequest *request) {
+void ModbusClientTCP::send(TCPRequest *request) {
   // We have a established connection here, so we can write right away.
   // Wait...: tcpHead is not yet in MSB order:
   uint8_t head[6];
@@ -568,7 +568,7 @@ void ModbusTCP::send(TCPRequest *request) {
 }
 
 // receive: get response via Client connection
-TCPResponse* ModbusTCP::receive(TCPRequest *request) {
+TCPResponse* ModbusClientTCP::receive(TCPRequest *request) {
   uint32_t lastMillis = millis();     // Timer to check for timeout
   bool hadData = false;               // flag data received
   const uint16_t dataLen(300);          // Modbus Packet supposedly will fit (260<300)
@@ -621,7 +621,7 @@ TCPResponse* ModbusTCP::receive(TCPRequest *request) {
   return response;
 }
 
-TCPResponse* ModbusTCP::errorResponse(Error e, TCPRequest *request) {
+TCPResponse* ModbusClientTCP::errorResponse(Error e, TCPRequest *request) {
   TCPResponse *errResponse = new TCPResponse(3);
   
   errResponse->add(request->getServerID());
