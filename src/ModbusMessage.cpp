@@ -398,7 +398,7 @@ Error ModbusResponse::getError() {
     if (MM_data[1] > 0x80)
     {
       // Yes. Get it.
-      MRS_error = static_cast<ModbusClient::Error>(MM_data[2]);
+      MRS_error = static_cast<Modbus::Error>(MM_data[2]);
     }
   }
   return MRS_error;

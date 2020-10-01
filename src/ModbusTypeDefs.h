@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-namespace ModbusClient {
+namespace Modbus {
 
 enum FunctionCode : uint8_t {
   READ_COIL               = 0x01,
@@ -78,7 +78,7 @@ enum Error : uint8_t {
 };
 
 typedef void (*MBOnData) (uint8_t serverID, uint8_t functionCode, const uint8_t *data, uint16_t data_length, uint32_t token);
-typedef void (*MBOnError) (ModbusClient::Error, uint32_t token);
+typedef void (*MBOnError) (Modbus::Error, uint32_t token);
 
 }  // namespace ModbusClient
 

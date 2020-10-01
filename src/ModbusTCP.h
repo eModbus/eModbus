@@ -6,7 +6,7 @@
 #define _MODBUS_TCP_H
 #include <Arduino.h>
 #include "ModbusMessageTCP.h"
-#include "PhysicalInterface.h"
+#include "ModbusClient.h"
 #include "Client.h"
 #include <queue>
 #include <vector>
@@ -20,7 +20,7 @@ using TCPMessage = std::vector<uint8_t>;
 #define TARGETHOSTINTERVAL 10
 #define DEFAULTTIMEOUT 2000
 
-class ModbusTCP : public PhysicalInterface {
+class ModbusTCP : public ModbusClient {
 public:
   // Constructor takes reference to Client (EthernetClient or WiFiClient)
   explicit ModbusTCP(Client& client, uint16_t queueLimit = 100);

@@ -6,7 +6,7 @@
 
 // Constructor takes Serial reference and optional DE/RE pin
 ModbusRTU::ModbusRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit) :
-  PhysicalInterface(),
+  ModbusClient(),
   MR_serial(serial),
   MR_lastMicros(micros()),
   MR_interval(2000),

@@ -2,26 +2,26 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
-#ifndef _PHYSICAL_INTERFACE_H
-#define _PHYSICAL_INTERFACE_H
+#ifndef _MODBUS_CLIENT_H
+#define _MODBUS_CLIENT_H
 #include "ModbusTypeDefs.h"
 
-using ModbusClient::MBOnData;
-using ModbusClient::MBOnError;
+using Modbus::MBOnData;
+using Modbus::MBOnError;
 
 extern "C" {
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 }
 
-class PhysicalInterface {
+class ModbusClient {
 public:
   void onDataHandler(MBOnData handler);   // Accept onData handler 
   void onErrorHandler(MBOnError handler); // Accept onError handler 
   uint32_t getMessageCount();              // Informative: return number of messages created
   
 protected:
-  PhysicalInterface();             // Default constructor
+  ModbusClient();             // Default constructor
   virtual void isInstance() = 0;   // Make class abstract
   uint32_t messageCount;           // Number of requests generated. Used for transactionID in TCPhead
   TaskHandle_t worker;             // Interface instance worker task

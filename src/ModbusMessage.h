@@ -7,7 +7,7 @@
 #include "ModbusTypeDefs.h"
 #include "ModbusError.h"
 
-using ModbusClient::Error;
+using Modbus::Error;
 
 // Definition of the classes for MODBUS messages - Request and Response
 // all classes are abstract, a concrete class has to be derived from these.

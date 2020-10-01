@@ -6,7 +6,7 @@
 
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
 ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
-  PhysicalInterface(),
+  ModbusClient(),
   MT_client(client),
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_target(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
@@ -17,7 +17,7 @@ ModbusTCP::ModbusTCP(Client& client, uint16_t queueLimit) :
 
 // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
 ModbusTCP::ModbusTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit) :
-  PhysicalInterface(),
+  ModbusClient(),
   MT_client(client),
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_target(host, port, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),

@@ -5,7 +5,7 @@
 #ifndef _MODBUS_RTU_H
 #define _MODBUS_RTU_H
 #include "ModbusMessageRTU.h"
-#include "PhysicalInterface.h"
+#include "ModbusClient.h"
 #include "HardwareSerial.h"
 #include <queue>
 #include <mutex>                  // NOLINT
@@ -18,7 +18,7 @@ using RTUMessage = std::vector<uint8_t>;
 
 #define DEFAULTTIMEOUT 2000
 
-class ModbusRTU : public PhysicalInterface {
+class ModbusRTU : public ModbusClient {
 public:
   // Constructor takes Serial reference and optional DE/RE pin and queue limit
   explicit ModbusRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);

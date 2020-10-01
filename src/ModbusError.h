@@ -6,7 +6,7 @@
 #define _MODBUS_ERROR_H
 #include "ModbusTypeDefs.h"
 
-using namespace ModbusClient;  // NOLINT
+using namespace Modbus;  // NOLINT
 
 class ModbusError {
 public:
