@@ -6,7 +6,7 @@
 
 // registerWorker: register a worker function for a certain serverID/FC combination
 // If there is one already, it will be overwritten!
-inline void ModbusServer::registerWorker(uint8_t serverID, uint8_t functionCode, MBSworker worker) {
+void ModbusServer::registerWorker(uint8_t serverID, uint8_t functionCode, MBSworker worker) {
   workerMap[serverID][functionCode] = worker;
 }
 
@@ -32,7 +32,7 @@ MBSworker ModbusServer::getWorker(uint8_t serverID, uint8_t functionCode) {
 inline uint32_t ModbusServer::getMessageCount() { return messageCount; }
 
 // ErrorResponse: create an error response message from an error code
-inline ResponseType ModbusServer::ErrorResponse(Error errorCode) {
+ResponseType ModbusServer::ErrorResponse(Error errorCode) {
   ResponseType r = { 0xFF, 0xF2, errorCode };
   return r;
 }
