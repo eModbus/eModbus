@@ -28,6 +28,25 @@ template <typename T> uint16_t addValue(uint8_t *target, uint16_t targetLength, 
   return index;
 }
 
+// Service method to read a MSB-first value
+template <typename T> uint16_t getValue(uint8_t *target, uint16_t targetLength, T& retval) {
+  uint16_t sz = sizeof(retval);    // Size of value to be added
+  uint16_t index = 0;              // Byte pointer in target
+
+  retval = 0;                      // return value
+
+  // Will it fit?
+  if (target && sz <= targetLength) {
+    // Yes. Copy it MSB first
+    while (sz) {
+      sz--;
+      retval <<= 8;
+      retval |= target[index++];
+    }
+  }
+  return index;
+}
+
 class ModbusMessage {
 protected:
   // Default Constructor - takes size of MM_data
