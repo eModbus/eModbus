@@ -13,6 +13,7 @@ public:
   friend class RTURequest;
   friend class RTUResponse;
   friend class ModbusClientRTU;
+  friend class ModbusServerRTU;
   static uint16_t calcCRC(const uint8_t *data, uint16_t len);
 protected:
   RTUCRC() = delete;
@@ -20,6 +21,7 @@ protected:
 
 class RTURequest : public ModbusRequest {
   friend class ModbusClientRTU;
+  friend class ModbusServerRTU;
 protected:
   uint16_t CRC;          // CRC16 value
 
@@ -58,6 +60,7 @@ protected:
 
 class RTUResponse : public ModbusResponse {
   friend class ModbusClientRTU;
+  friend class ModbusServerRTU;
 protected:
   // Default constructor
   explicit RTUResponse(uint16_t dataLen);

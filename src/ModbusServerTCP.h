@@ -4,9 +4,12 @@
 // =================================================================================================
 #ifndef _MODBUS_SERVER_TCP_H
 #define _MODBUS_SERVER_TCP_H
+
+#ifdef CLIENTTYPE
+
 #include <Arduino.h>
-#include <Client.h>
 #include <vector>
+
 #include "ModbusServer.h"
 
 extern "C" {
@@ -25,7 +28,7 @@ public:
   ~ModbusServerTCP();
 
   // accept: start a task to receive requests and respond to a given client
-  bool accept(Client& client, uint32_t timeout, int coreID = -1);
+  bool accept(CLIENTTYPE client, uint32_t timeout, int coreID = -1);
 
   // updateClients: kill disconnected clients
   bool updateClients();
@@ -37,7 +40,7 @@ protected:
   inline void isInstance() { }
   struct ClientData {
     TaskHandle_t task;
-    Client *client;
+    CLIENTTYPE client;
     uint32_t timeout;
     ModbusServerTCP *parent;
   };
@@ -46,5 +49,5 @@ protected:
   static void worker(ClientData *myData);
 };
 
-
+#endif   // CLIENTTYPE
 #endif
