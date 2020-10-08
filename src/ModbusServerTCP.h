@@ -19,13 +19,13 @@ extern "C" {
 
 using std::vector;
 
-class ModbusServerTCP : public ModbusServer {
+class CLASSNAME : public ModbusServer {
 public:
   // Constructor
-  ModbusServerTCP();
+  CLASSNAME();
 
   // Destructor: closes the connections
-  ~ModbusServerTCP();
+  ~CLASSNAME();
 
   // accept: start a task to receive requests and respond to a given client
   bool accept(CLIENTTYPE client, uint32_t timeout, int coreID = -1);
@@ -42,7 +42,7 @@ protected:
     TaskHandle_t task;
     CLIENTTYPE client;
     uint32_t timeout;
-    ModbusServerTCP *parent;
+    CLASSNAME *parent;
   };
   vector<ClientData> clients;
   static uint8_t clientCounter;

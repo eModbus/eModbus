@@ -6,19 +6,19 @@
 
 #ifdef CLIENTTYPE
 
-uint8_t ModbusServerTCP::clientCounter = 0;
+uint8_t CLASSNAME::clientCounter = 0;
 
 // Constructor
-ModbusServerTCP::ModbusServerTCP() :
+CLASSNAME::CLASSNAME() :
   ModbusServer() { }
 
 // Destructor: closes the connections
-ModbusServerTCP::~ModbusServerTCP() {
+CLASSNAME::~CLASSNAME() {
 
 }
 
 // accept: start a task to receive requests and respond to a given client
-bool ModbusServerTCP::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
+bool CLASSNAME::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
   // Add the new client to the list
   clients.push_back( { 0, client, timeout, this } );
   // get pointer to its data to give to the task
@@ -37,7 +37,7 @@ bool ModbusServerTCP::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
 }
 
 // updateClients: kill disconnected clients
-bool ModbusServerTCP::updateClients() {
+bool CLASSNAME::updateClients() {
   bool hadOne = false;
 
   // Loop over all clients entries...
@@ -59,12 +59,12 @@ bool ModbusServerTCP::updateClients() {
   return hadOne;
 }
 
-void ModbusServerTCP::worker(ClientData *myData) {
+void CLASSNAME::worker(ClientData *myData) {
   // Get own reference data in handier form
   CLIENTTYPE myClient = myData->client;
   uint32_t myTimeOut = myData->timeout;
   // TaskHandle_t myTask = myData->task;
-  // ModbusServerTCP *myParent = myData->parent;
+  // CLASSNAME *myParent = myData->parent;
   uint32_t myLastMessage = millis();
 
   // loop forever, if timeout is 0, or until timeout was hit

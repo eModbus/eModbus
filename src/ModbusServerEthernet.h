@@ -6,7 +6,12 @@
 #define _MODBUS_SERVER_ETHERNET_H
 #include <Ethernet.h>
 
+#define WIFIMODE 1
+#define ETHERNETMODE 2
+#define TCPMODE ETHERNETMODE
 #define CLIENTTYPE EthernetClient
+#define CLASSNAME ModbusServerEthernet
+
 #include "ModbusServerTCP.h"
 
 #endif
