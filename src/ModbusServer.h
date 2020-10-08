@@ -8,6 +8,7 @@
 #include <vector>
 #include "ModbusTypeDefs.h"
 #include "ModbusError.h"
+#include "ModbusMessage.h"
 
 using ResponseType = std::vector<uint8_t>;
 

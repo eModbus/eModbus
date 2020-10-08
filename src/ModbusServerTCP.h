@@ -18,6 +18,7 @@ extern "C" {
 }
 
 using std::vector;
+using TCPMessage = std::vector<uint8_t>;
 
 class CLASSNAME : public ModbusServer {
 public:
@@ -47,6 +48,7 @@ protected:
   vector<ClientData> clients;
   static uint8_t clientCounter;
   static void worker(ClientData *myData);
+  TCPMessage receive(CLIENTTYPE client, uint32_t timeWait);
 };
 
 #endif   // CLIENTTYPE
