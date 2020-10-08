@@ -31,10 +31,10 @@ public:
   uint32_t getMessageCount();
 
   // ErrorResponse: create an error response message from an error code
-  ResponseType ErrorResponse(Error errorCode);
+  static ResponseType ErrorResponse(Error errorCode);
 
   // DataResponse: create a regular response from given data
-  ResponseType DataResponse(uint16_t dataLen, uint8_t *data);
+  static ResponseType DataResponse(uint16_t dataLen, uint8_t *data);
 
 protected:
   // Constructor
