@@ -28,6 +28,16 @@ MBSworker ModbusServer::getWorker(uint8_t serverID, uint8_t functionCode) {
   return nullptr;
 }
 
+// isServerFor: if any worker function is registered for the given serverID, return true
+bool ModbusServer::isServerFor(uint8_t serverID) {
+  // Search the FC map for the serverID
+  auto svmap = workerMap.find(serverID);
+  // Is it there? Then return true
+  if (svmap != workerMap.end()) return true;
+  // No, serverID was not found. Return false
+  return false;
+}
+
 // getMessageCount: read number of messages processed
 inline uint32_t ModbusServer::getMessageCount() { return messageCount; }
 

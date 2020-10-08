@@ -27,6 +27,9 @@ public:
   // getWorker: if a worker function is registered, return its address, nullptr otherwise
   MBSworker getWorker(uint8_t serverID, uint8_t functionCode);
 
+  // isServerFor: if any worker function is registered for the given serverID, return true
+  bool isServerFor(uint8_t serverID);
+
   // getMessageCount: read number of messages processed
   uint32_t getMessageCount();
 
