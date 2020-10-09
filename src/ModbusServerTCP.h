@@ -23,7 +23,7 @@ using TCPMessage = std::vector<uint8_t>;
 class CLASSNAME : public ModbusServer {
 public:
   // Constructor
-  CLASSNAME();
+  CLASSNAME(uint8_t maxClients);
 
   // Destructor: closes the connections
   ~CLASSNAME();
@@ -31,22 +31,22 @@ public:
   // accept: start a task to receive requests and respond to a given client
   bool accept(CLIENTTYPE client, uint32_t timeout, int coreID = -1);
 
-  // removeClient: drop client entry
-  void removeClient(TaskHandle_t task);
-
   // activeClients: return number of clients currently employed
-  inline uint16_t activeClients() { return clients.size(); }
+  uint16_t activeClients();
+
+  // clientAvailable: return true,. if a client slot is currently unused
+  inline bool clientAvailable() { return numClients - activeClients() > 0; }
 
 protected:
   inline void isInstance() { }
+  uint8_t numClients;
   struct ClientData {
     TaskHandle_t task;
     CLIENTTYPE client;
     uint32_t timeout;
     CLASSNAME *parent;
   };
-  vector<ClientData> clients;
-  static uint8_t clientCounter;
+  ClientData *clients;
   static void worker(ClientData *myData);
   TCPMessage receive(CLIENTTYPE client, uint32_t timeWait);
 };

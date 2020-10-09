@@ -7,50 +7,49 @@
 // #ifndef CLIENTTYPE
 #ifdef CLIENTTYPE
 
-uint8_t CLASSNAME::clientCounter = 0;
-
 // Constructor
-CLASSNAME::CLASSNAME() :
-  ModbusServer() { }
+CLASSNAME::CLASSNAME(uint8_t maxClients) :
+  ModbusServer(),
+  numClients(maxClients) {
+    clients = new ClientData[numClients];
+    memset(clients, 0, numClients * sizeof(ClientData));
+   }
 
 // Destructor: closes the connections
 CLASSNAME::~CLASSNAME() {
+  delete[] clients;
+}
 
+// activeClients: return number of clients currently employed
+uint16_t CLASSNAME::activeClients() {
+  uint8_t cnt = 0;
+  for (uint8_t i = 0; i < numClients; ++i) {
+    if (clients[i].task != nullptr) cnt++;
+  }
+  return cnt;
 }
 
 // accept: start a task to receive requests and respond to a given client
 bool CLASSNAME::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
-  // Add the new client to the list
-  clients.push_back( { 0, client, timeout, this } );
-  // get pointer to its data to give to the task
-  ClientData& cd = clients.back();
+  // Look for an empty client slot
+  for (uint8_t i = 0; i < numClients; ++i) {
+    if (clients[i].task == nullptr) {
+      clients[i].client = client;
+      clients[i].timeout = timeout;
+      clients[i].parent = this;
 
-  // Create unique task name
-  char taskName[12];
-  snprintf(taskName, 12, "MBsrv%02XTCP", ++clientCounter);
+      // Create unique task name
+      char taskName[12];
+      snprintf(taskName, 12, "MBsrv%02XTCP", i);
 
-  // Start task to handle the client
-  xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, &cd, 5, &cd.task, coreID >= 0 ? coreID : NULL);
+      // Start task to handle the client
+      xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, &clients[i], 5, &clients[i].task, coreID >= 0 ? coreID : NULL);
 
-  Serial.printf("Created task %d\n", (uint32_t)cd.task);
-
-  return cd.task ? true : false;
-}
-
-// removeClient: drop client slot
-void CLASSNAME::removeClient(TaskHandle_t task) {
-
-  Serial.printf("Asked to terminate task %d\n", (uint32_t)task);
-  // Loop over all clients entries...
-  for (auto checkC = clients.begin(); checkC != clients.end(); checkC++) {
-    // ...to find a disconnected one. If we found one...
-    Serial.printf("- Checking task %d\n", (uint32_t)checkC->task);
-    if (checkC->task == task) {
-      // ...and remove it from the list
-      Serial.println("    removed!");
-      clients.erase(checkC);
+      Serial.printf("Created task %d\n", (uint32_t)clients[i].task);
+      return true;
     }
   }
+  return false;
 }
 
 void CLASSNAME::worker(ClientData *myData) {
@@ -167,9 +166,9 @@ void CLASSNAME::worker(ClientData *myData) {
   Serial.printf("Sent stop - task %d killing itself\n", (uint32_t)myTask);
   Serial.flush();
 
-  myParent->removeClient(myTask);
-  delay(500);
-  vTaskDelete(NULL);
+  myData->task = nullptr;
+  delay(50);
+  vTaskDelete(myTask);
 }
 
 // receive: get request via Client connection
