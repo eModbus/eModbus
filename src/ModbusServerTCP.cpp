@@ -4,6 +4,7 @@
 // =================================================================================================
 #include "ModbusServerTCP.h"
 
+// #ifndef CLIENTTYPE
 #ifdef CLIENTTYPE
 
 uint8_t CLASSNAME::clientCounter = 0;
@@ -36,40 +37,33 @@ bool CLASSNAME::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
   return cd.task ? true : false;
 }
 
-// updateClients: kill disconnected clients
-bool CLASSNAME::updateClients() {
-  bool hadOne = false;
+// removeClient: drop client slot
+void CLASSNAME::removeClient(TaskHandle_t task) {
 
+  Serial.printf("Asked to terminate task %d\n", (uint32_t)task);
   // Loop over all clients entries...
-  for (auto checkC = clients.begin(); checkC != clients.end(); ) {
+  for (auto checkC = clients.begin(); checkC != clients.end(); checkC++) {
     // ...to find a disconnected one. If we found one...
-    if (!checkC->client.connected()) {
-      // ...kill the task
-      vTaskDelete(checkC->task);
-
-      Serial.printf("Killed task %d\n", (uint32_t)checkC->task);
-
+    Serial.printf("- Checking task %d\n", (uint32_t)checkC->task);
+    if (checkC->task == task) {
       // ...and remove it from the list
+      Serial.println("    removed!");
       clients.erase(checkC);
-      hadOne = true;
-    } else {
-      checkC++;
     }
   }
-  return hadOne;
 }
 
 void CLASSNAME::worker(ClientData *myData) {
   // Get own reference data in handier form
   CLIENTTYPE myClient = myData->client;
   uint32_t myTimeOut = myData->timeout;
-  // TaskHandle_t myTask = myData->task;
+  TaskHandle_t myTask = myData->task;
   CLASSNAME *myParent = myData->parent;
   uint32_t myLastMessage = millis();
   ResponseType response;               // Data buffer to hold prepared response
 
   // loop forever, if timeout is 0, or until timeout was hit
-  while (!myTimeOut || (millis() - myLastMessage < myTimeOut)) {
+  while (myClient.connected() && (!myTimeOut || (millis() - myLastMessage < myTimeOut))) {
     // Get a request
     if (myClient.available()) {
       response.clear();
@@ -154,9 +148,8 @@ void CLASSNAME::worker(ClientData *myData) {
 
       if (response.size() >= 8) {
         // Yes. Do it now.
-        for (auto& byte : response) {
-          myClient.write(byte);
-        }
+        myClient.write(response.data(), response.size());
+        myClient.flush();
       }
       // We did something communicationally - rewind timeout timer
       myLastMessage = millis();
@@ -168,13 +161,15 @@ void CLASSNAME::worker(ClientData *myData) {
   // Timeout!
   // Read away all that may still hang in the buffer
   while (myClient.available()) { myClient.read(); }
-  // We will only disconnect the client - the task gets killed by the server
-  Serial.println("Sent stop");
-  Serial.flush();
+  // Now stop the client
   myClient.stop();
 
-  // Wait for the hammer to fall...
-  while (true) { delay(1); }
+  Serial.printf("Sent stop - task %d killing itself\n", (uint32_t)myTask);
+  Serial.flush();
+
+  myParent->removeClient(myTask);
+  delay(500);
+  vTaskDelete(NULL);
 }
 
 // receive: get request via Client connection

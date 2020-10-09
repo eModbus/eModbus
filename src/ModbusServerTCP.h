@@ -31,8 +31,8 @@ public:
   // accept: start a task to receive requests and respond to a given client
   bool accept(CLIENTTYPE client, uint32_t timeout, int coreID = -1);
 
-  // updateClients: kill disconnected clients
-  bool updateClients();
+  // removeClient: drop client entry
+  void removeClient(TaskHandle_t task);
 
   // activeClients: return number of clients currently employed
   inline uint16_t activeClients() { return clients.size(); }
