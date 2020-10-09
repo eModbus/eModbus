@@ -41,6 +41,7 @@ protected:
   inline void isInstance() { }
   uint8_t numClients;
   struct ClientData {
+    ClientData() : task(nullptr), client(0), timeout(0), parent(nullptr) {}
     TaskHandle_t task;
     CLIENTTYPE client;
     uint32_t timeout;

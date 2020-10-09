@@ -12,7 +12,6 @@ CLASSNAME::CLASSNAME(uint8_t maxClients) :
   ModbusServer(),
   numClients(maxClients) {
     clients = new ClientData[numClients];
-    memset(clients, 0, numClients * sizeof(ClientData));
    }
 
 // Destructor: closes the connections
