@@ -11,6 +11,7 @@
 #define ETHERNETMODE 2
 #define TCPMODE WIFIMODE
 #define CLIENTTYPE WiFiClient
+#define SERVERTYPE WiFiServer
 #define CLASSNAME ModbusServerWiFi
 
 #include "ModbusServerTCP.h"

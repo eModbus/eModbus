@@ -8,9 +8,12 @@
 #ifdef CLIENTTYPE
 
 // Constructor
-CLASSNAME::CLASSNAME(uint8_t maxClients) :
+CLASSNAME::CLASSNAME() :
   ModbusServer(),
-  numClients(maxClients) {
+  numClients(0),
+  serverTask(nullptr),
+  serverPort(502),
+  serverTimeout(20000) {
     clients = new ClientData[numClients];
    }
 
@@ -28,6 +31,63 @@ uint16_t CLASSNAME::activeClients() {
   return cnt;
 }
 
+  // start: create task with TCP server to accept requests
+  bool CLASSNAME::start(uint16_t port, uint8_t maxClients, uint32_t timeout, int coreID) {
+    // Task already running?
+    if (serverTask != nullptr) {
+      // Yes. stop it first
+      stop();
+    }
+    // Do we have a ClientData array already?
+    if (clients) {
+      // Yes. Does the required number of slots fit?
+      if (numClients != maxClients) {
+        // No. Drop array and allocate a new one
+        delete[] clients;
+        numClients = maxClients;
+        clients = new ClientData[numClients];
+      }
+    } else {
+      // No, no array allocated. Create a fresh one
+      numClients = maxClients;
+      clients = new ClientData[numClients];
+    }
+    serverPort = port;
+    serverTimeout = timeout;
+
+    // Create unique task name
+    char taskName[12];
+    snprintf(taskName, 12, "MBserve%04X", port);
+
+    // Start task to handle the client
+    xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
+
+    Serial.printf("Created server task %d\n", (uint32_t)serverTask);
+
+    return true;
+  }
+
+  // stop: drop all connections and kill server task
+  bool CLASSNAME::stop() {
+    // Check for clients still connected
+    for (uint8_t i = 0; i < numClients; ++i) {
+      // Client is alive?
+      if (clients[i].task != nullptr) {
+        // Yes. Close the connection
+        clients[i].client.stop();
+        delay(50);
+        // Kill the client task
+        vTaskDelete(clients[i].task);
+        clients[i].task = nullptr;
+      }
+    }
+    if (serverTask != nullptr) {
+      vTaskDelete(serverTask);
+      serverTask = nullptr;
+    }
+    return true;
+  }
+
 // accept: start a task to receive requests and respond to a given client
 bool CLASSNAME::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
   // Look for an empty client slot
@@ -39,16 +99,42 @@ bool CLASSNAME::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
 
       // Create unique task name
       char taskName[12];
-      snprintf(taskName, 12, "MBsrv%02XTCP", i);
+      snprintf(taskName, 12, "MBsrv%02Xclnt", i);
 
       // Start task to handle the client
       xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, &clients[i], 5, &clients[i].task, coreID >= 0 ? coreID : NULL);
 
-      Serial.printf("Created task %d\n", (uint32_t)clients[i].task);
+      Serial.printf("Created client %d\n", (uint32_t)clients[i].task);
       return true;
     }
   }
   return false;
+}
+
+void CLASSNAME::serve(CLASSNAME *myself) {
+  // Set up server with given port
+  SERVERTYPE server(myself->serverPort);
+  CLIENTTYPE ec;
+
+  // Start it
+  server.begin();
+
+  // Loop until being killed
+  while (true) {
+    // Do we have clients left to use?
+    if (myself->clientAvailable()) {
+      // Yes. accept one, when it connects
+      ec = server.accept();
+      // Did we get a connection?
+      if (ec) {
+        // Yes. Forward it to the Modbus server
+        myself->accept(ec, myself->serverTimeout);
+        Serial.printf("Accepted connection - %d clients running\n", myself->activeClients());
+      }
+    }
+    // Give scheduler room to breathe
+    delay(10);
+  }
 }
 
 void CLASSNAME::worker(ClientData *myData) {
@@ -161,6 +247,9 @@ void CLASSNAME::worker(ClientData *myData) {
   while (myClient.available()) { myClient.read(); }
   // Now stop the client
   myClient.stop();
+
+  // Hack to remove the response vector from memory
+  vector<uint8_t>().swap(response);
 
   Serial.printf("Sent stop - task %d killing itself\n", (uint32_t)myTask);
   Serial.flush();

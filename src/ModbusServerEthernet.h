@@ -10,6 +10,7 @@
 #define ETHERNETMODE 2
 #define TCPMODE ETHERNETMODE
 #define CLIENTTYPE EthernetClient
+#define SERVERTYPE EthernetServer
 #define CLASSNAME ModbusServerEthernet
 
 #include "ModbusServerTCP.h"
