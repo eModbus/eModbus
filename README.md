@@ -524,7 +524,11 @@ There is no limit in registered callbacks, but a second register for a certain s
 A ``MBSworker`` callback must return a data object of ``ResponseType``. This is in fact a ``std::vector<uint8_t>`` and may be used likewise. There are basically five different ``ResponseType`` return variants:
 - ``NIL_RESPONSE``: no response at all will be sent back to the requester
 - ``ECHO_RESPONSE``: the request will be sent back without any modification as a response. This is common for the writing function code requests the Modbus standard defines.
-- ``ErrorResponse(Error errorCode)``: the error code should be one of the defined error codes in the lib (see [Error codes](#errorcodes))
+- ``ErrorResponse(Error errorCode)``: the error code should be one of the defined error codes in the lib (see [Error codes](#errorcodes)). It will be completed to a standard Modbus error response.
+- ``DataResponse(uint16_t dataLen, uint8_t *data)``: this is the regular response for data requests etc. You will have to fill the ``data`` buffer with the response data starting at the first byte after the function code. Please note that the data has to be in MSB-first format. The ``addValue()`` service method will help you putting your data into that required order.
+- free form: you may of course return any ``std::vector<uint8_t>`` you like as well. It will be sent as is, no addition of serverID or function code etc. will be done by the lib in this case.
+
+  **Note**: do not use the first byte as ``0xFF``, followed by one of ``0xF0``, ``0xF1``, ``0xF2`` or ``0xF3``, as these are used internally for NIL_RESPONSE, ECHO_RESPONSE, ErrorResponse and DataResponse, respectively!
 
 ##### ``MBSworker getWorker(uint8_t serverID, uint8_t functionCode)``
 You may check if a given serverID/functionCode combination has been covered by a callback with ``getWorker()``. This method will return the callback function pointer, if there is any, and a ``nullptr`` else.
@@ -532,19 +536,64 @@ You may check if a given serverID/functionCode combination has been covered by a
 ##### ``bool isServerFor(uint8_t serverID)``
 ``isServerFor()`` will return ``true``, if at least one callback has been registered for the given ``serverID``, and ``false`` else.
 
-  // getMessageCount: read number of messages processed
-  uint32_t getMessageCount();
-
-  // ErrorResponse: create an error response message from an error code
-  static ResponseType ErrorResponse(Error errorCode);
-
-  // DataResponse: create a regular response from given data
-  static ResponseType DataResponse(uint16_t dataLen, uint8_t *data);
+##### ``uint32_t getMessageCount()``
+Each request received will be counted. The ``getMessageCount()`` method will return the current state of the counter.
 
 #### ModbusServerTCP
+Inconsistencies between the WiFi and Ethernet implementations in the core libraries required a split of ModbusServerTCP into the ``ModbusServerEthernet`` and ``ModbusServerWiFi`` variants.
 
-#### ModbusServerEthernet
+Both are sharing the majority of methods etc., but need to be included with different file names and have different object names as well.
 
-#### ModbusServerWiFi
+All relevant calls after initialization of the respective ModbusServer object are identical.
+
+You can use the ``TCPMODE`` macro to tell in your code, which variant you are using - ``#if TCPMODE == ETHERNET`` will be true in the Ethernet case, ``#if TCPMODE == WIFI`` in the other.
+
+##### ModbusServerEthernet
+To use the Ethernet version, you will have to use
+```
+#include "ModbusServerEthernet.h"
+...
+ModbusServerEthernet myServer;
+...
+```
+in your source file. You will not have to add ``#include <Ethernet.h>``, as this is done in the library. It does not do any harm if you do, though.
+
+##### ModbusServerWiFi
+To use the WiFi version, you will have to use
+```
+#include "ModbusServerWiFi.h"
+...
+ModbusServerWiFi myServer;
+...
+```
+in your source file. You will not have to add ``#include <WiFi.h>``, as this is done in the library. It does not do any harm if you do, though.
+
+#### Common calls
+##### ``uint16_t activeClients()``
+This call will give you the number of clients that currently are connected to your ModbusServer. 
+
+##### ``bool start(uint16_t port, uint8_t maxClients, uint32_t timeout)``
+After callback functions have been registered, the Modbus server is started with this method. The parameters are:
+
+- ``port``: the port number the server will liten to. Usually for Modbus this is port 502, but there are situations where another port number is adequate.
+- ``maxClients``: the maximum number of concurrent client connections the server will accept. This is mainly important for Ethernet with the WizNet modules, that can only provide 4 or 8 sockets simultaneously. In this case it can be sensible to restrict the connections of the Modbus server to have connections left for other tasks.
+- ``timeout``: this is given in milliseconds and defines the timespan of inactivity, after which the connection to a client is cut.
+
+  The connection may be cut on the far side by the client at any time, the respective Modbus server connection will be freed immediately, independently of the timeout.
+
+  A ``timeout`` value of ``0`` is possible - this will prevent any timeout handling! If the timeout is set to 0, the server will rely on the far side closing the connection!
+
+- There is in fact a fourth, optional parameter ``int coreID``: if you will add a number here, the server task will be started on the named core# on multi-core MCUs.
+
+The ``start()`` call will create a TCP server task in the background that is listening on the said port. If a connection request comes in, another task with a client handling that connection is started.
+
+A client task is stopped again, if the timeout hits or if the far side has closed the connection.
+
+##### ``bool stop()``
+The ``stop()`` call will close all open connections, free allocated memory and finally stop the server task. At this time your Modbus server will not respond to any connection request any more. 
+
+It can be restarted, though, with another ``start()`` call, even with different ``port``, ``maxClient`` or ``timeout`` setting.
 
 #### ModbusServerRTU
+
+
