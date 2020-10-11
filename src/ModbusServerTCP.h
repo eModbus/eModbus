@@ -8,7 +8,6 @@
 #ifdef CLIENTTYPE
 
 #include <Arduino.h>
-#include <vector>
 
 #include "ModbusServer.h"
 

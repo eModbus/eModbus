@@ -39,7 +39,14 @@ bool ModbusServer::isServerFor(uint8_t serverID) {
 }
 
 // getMessageCount: read number of messages processed
-inline uint32_t ModbusServer::getMessageCount() { return messageCount; }
+uint32_t ModbusServer::getMessageCount() { 
+  uint32_t retCnt = 0;
+  {
+    lock_guard<mutex> cntLock(m);
+    retCnt = messageCount;
+  }
+  return retCnt;
+}
 
 // ErrorResponse: create an error response message from an error code
 ResponseType ModbusServer::ErrorResponse(Error errorCode) {

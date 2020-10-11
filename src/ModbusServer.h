@@ -6,11 +6,14 @@
 #define _MODBUS_SERVER_H
 #include <map>
 #include <vector>
+#include <mutex>      // NOLINT
 #include "ModbusTypeDefs.h"
 #include "ModbusError.h"
 #include "ModbusMessage.h"
 
 using ResponseType = std::vector<uint8_t>;
+using std::mutex;
+using std::lock_guard;
 
 // Standard response variants for "no response" and "echo the request"
 const ResponseType NIL_RESPONSE = { 0xFF, 0xF0 };
@@ -51,7 +54,8 @@ protected:
   virtual void isInstance() = 0;
 
   std::map<uint8_t, std::map<uint8_t, MBSworker>> workerMap;      // map on serverID->functionCode->worker function
-  uint32_t messageCount;                                 // Number of Requests processed
+  uint32_t messageCount;         // Number of Requests processed
+  mutex m;                       // mutex to cover changes to messageCount
 };
 
 

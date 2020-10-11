@@ -159,6 +159,10 @@ void CLASSNAME::worker(ClientData *myData) {
 
       // has it the minimal length (6 bytes TCP header plus serverID plus FC)?
       if (m.size() >= 8) {
+        {
+          lock_guard<mutex> cntLock(myParent->m);
+          myParent->messageCount++;
+        }
         // Yes. Take over TCP header for later response
         for (uint8_t i = 0; i < 6; ++i) {
           response.push_back(m[i]);
