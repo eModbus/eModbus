@@ -530,6 +530,12 @@ A ``MBSworker`` callback must return a data object of ``ResponseType``. This is 
 
   **Note**: do not use the first byte as ``0xFF``, followed by one of ``0xF0``, ``0xF1``, ``0xF2`` or ``0xF3``, as these are used internally for NIL_RESPONSE, ECHO_RESPONSE, ErrorResponse and DataResponse, respectively!
 
+##### ``uint16_t getValue(uint8_t *source, uint16_t sourceLength, T &v)``
+As a complement to the ``addValue()`` service function described in the ModbusClient section, ``getValue()`` will help you reading MSB-first data from a request data buffer.
+This buffer is given as ``uint8_t *source``, its length as ``uint16_t sourceLength``.
+Depending on the data type ``T`` of the variable given as reference ``&v`` to the ``getValue()`` call, the right number of bytes is taken from ``source``, converted into type ``T`` and stored in the variable ``v``.
+The return value of ``getValue()`` is the number of bytes consumed from ``source`` to enable you updating the ``source`` pointer for the next call. **Note**: please take care to reduce the ``sourceLength`` parameter accordingly in subsequent calls to ``getValue()``!
+
 ##### ``MBSworker getWorker(uint8_t serverID, uint8_t functionCode)``
 You may check if a given serverID/functionCode combination has been covered by a callback with ``getWorker()``. This method will return the callback function pointer, if there is any, and a ``nullptr`` else.
 
