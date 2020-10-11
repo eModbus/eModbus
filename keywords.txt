@@ -9,6 +9,7 @@ MBOnError	KEYWORD1
 RTUCRC	KEYWORD1
 Error	KEYWORD1
 FunctionCode	KEYWORD1
+ResponseType	KEYWORD1
 
 # KEYWORD2: functions
 addValue	KEYWORD2
@@ -22,14 +23,24 @@ onDataHandler	KEYWORD2
 onErrorHandler	KEYWORD2
 getMessageCount	KEYWORD2
 setTarget	KEYWORD2
+start	KEYWORD2
+stop	KEYWORD2
+registerWorker	KEYWORD2
+getWorker	KEYWORD2
+getValue	KEYWORD2
+isServerFor	KEYWORD2
+activeClients	KEYWORD2
 
 # KEYWORD3: library
 ModbusClientTCP	KEYWORD3
 ModbusClientRTU	KEYWORD3
+ModbusServerEthernet	KEYWORD3
+ModbusServerWiFi	KEYWORD3
 
 # LITERAL1: constants
 DEFAULTTIMEOUT	LITERAL1
 TARGETHOSTINTERVAL	LITERAL1
+TCPMODE	LITERAL1
 
 # Modbus function codes
 READ_COIL	LITERAL1
