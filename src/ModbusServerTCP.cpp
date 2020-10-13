@@ -104,7 +104,6 @@ bool CLASSNAME::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
       // Start task to handle the client
       xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, &clients[i], 5, &clients[i].task, coreID >= 0 ? coreID : NULL);
 
-      Serial.printf("Created client %d\n", (uint32_t)clients[i].task);
       return true;
     }
   }
@@ -129,7 +128,7 @@ void CLASSNAME::serve(CLASSNAME *myself) {
       if (ec) {
         // Yes. Forward it to the Modbus server
         myself->accept(ec, myself->serverTimeout);
-        Serial.printf("Accepted connection - %d clients running\n", myself->activeClients());
+        // Serial.printf("Accepted connection - %d clients running\n", myself->activeClients());
       }
     }
     // Give scheduler room to breathe
@@ -153,9 +152,9 @@ void CLASSNAME::worker(ClientData *myData) {
       response.clear();
       TCPMessage m = myParent->receive(myClient, 100);
 
-      Serial.print(" Request: ");
-      for (auto& byte : m) { Serial.printf(" %02X", byte); }
-      Serial.println();
+      // Serial.print(" Request: ");
+      // for (auto& byte : m) { Serial.printf(" %02X", byte); }
+      // Serial.println();
 
       // has it the minimal length (6 bytes TCP header plus serverID plus FC)?
       if (m.size() >= 8) {
@@ -230,9 +229,9 @@ void CLASSNAME::worker(ClientData *myData) {
       delay(1);
       // Do we have a response to send?
 
-      Serial.print(" Response: ");
-      for (auto& byte : response) { Serial.printf(" %02X", byte); }
-      Serial.println();
+      // Serial.print(" Response: ");
+      // for (auto& byte : response) { Serial.printf(" %02X", byte); }
+      // Serial.println();
 
       if (response.size() >= 8) {
         // Yes. Do it now.
@@ -255,8 +254,8 @@ void CLASSNAME::worker(ClientData *myData) {
   // Hack to remove the response vector from memory
   vector<uint8_t>().swap(response);
 
-  Serial.printf("Sent stop - task %d killing itself\n", (uint32_t)myTask);
-  Serial.flush();
+  // Serial.printf("Sent stop - task %d killing itself\n", (uint32_t)myTask);
+  // Serial.flush();
 
   myData->task = nullptr;
   delay(50);
