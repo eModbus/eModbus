@@ -11,12 +11,12 @@
 #include <Ethernet.h>
 
 // Include the header for the ModbusClient TCP style
-#include "ModbusTCP.h"
+#include "ModbusClientTCP.h"
 
 // Create a ModbusTCP client instance
 // Note: we will generate a message without sending it, so the EthernetClient needs not to be initialized!
 EthernetClient theClient;
-ModbusTCP MB(theClient);
+ModbusClientTCP MB(theClient);
 
 // Note: no onData or onError handler defined here - we will not need these!
 

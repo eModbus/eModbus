@@ -11,14 +11,15 @@
 #include <WiFi.h>
 
 // Include the header for the ModbusClient TCP style
-#include "ModbusClientTCP.h"
+#include <ModbusClientTCPasync.h>
 
-WiFiClient theClient;                          // Set up a client
-char ssid[] = "...........";                   // SSID and ...
-char pass[] = "...........";                   // password for the WiFi network used
+char ssid[] = "ssid";                     // SSID and ...
+char pass[] = "pass";                     // password for the WiFi network used
+IPAddress ip = {192, 168, 0, 1};          // IP address of modbus server
+uint16_t port = 502;                      // port of modbus server
 
 // Create a ModbusTCP client instance
-ModbusClientTCP MB(theClient);
+ModbusClientTCPasync MB(ip, port);
 
 // Define an onData handler function to receive the regular responses
 // Arguments are Modbus server ID, the function code requested, the message data and length of it, 
@@ -40,7 +41,7 @@ void handleError(Error error, uint32_t token)
 {
   // ModbusError wraps the error code and provides a readable error message for it
   ModbusError me(error);
-  Serial.printf("Error response: %02X - %s\n", (int)me, (const char *)me);
+  Serial.printf("Error response: %02X - %s token: %d\n", (int)me, (const char *)me, token);
 }
 
 // Setup() - initialization happens here
@@ -70,40 +71,40 @@ void setup() {
 // - provide onError handler function
   MB.onErrorHandler(&handleError);
 // Set message timeout to 2000ms and interval between requests to the same host to 200ms
-  MB.setTimeout(2000, 200);
+  MB.setTimeout(10000);
 // Start ModbusTCP background task
-  MB.begin();
-
-// Issue a request
-// Set Modbus TCP server address and port number
-// (Fill in your data here!)
-  MB.setTarget(IPAddress(0, 0, 0, 0), 0);
-
-// Create request for
-// (Fill in your data here!)
-// - server ID = 20
-// - function code = 0x03 (read holding register)
-// - start address to read = word 10
-// - number of words to read = 4
-// - token to match the response with the request. We take the current millis() value for it.
-//
-// If something is missing or wrong with the call parameters, we will immediately get an error code 
-// and the request will not be issued
-  Error err = MB.addRequest(20, READ_HOLD_REGISTER, 10, 4, (uint32_t)millis());
-  if (err!=SUCCESS) {
-    ModbusError e(err);
-    Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
-  }
-
-// Else the request is processed in the background task and the onData/onError handler functions will get the result.
-//
-// The output on the Serial Monitor will be (depending on your WiFi and Modbus the data will be different):
-//     __ OK __
-//     . WIFi IP address: 192.168.178.74
-//     Response: serverID=20, FC=3, Token=0000056C, length=11:
-//     14 03 04 01 F6 FF FF FF 00 C0 A8
+  MB.setIdleTimeout(60000);
 }
 
 // loop() - nothing done here today!
 void loop() {
+  static uint32_t lastMillis = 0;
+  if (millis() - lastMillis > 5000) {
+    lastMillis = millis();
+
+    // Create request for
+    // (Fill in your data here!)
+    // - server ID = 1
+    // - function code = 0x03 (read holding register)
+    // - start address to read = word 10
+    // - number of words to read = 4
+    // - token to match the response with the request. We take the current millis() value for it.
+    //
+    // If something is missing or wrong with the call parameters, we will immediately get an error code 
+    // and the request will not be issued
+    Serial.printf("sending request with token %d\n", lastMillis);
+    Error err;
+    err = MB.addRequest(1, READ_HOLD_REGISTER, 10, 4, lastMillis);
+    if (err != SUCCESS) {
+      ModbusError e(err);
+      Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
+    }
+    // Else the request is processed in the background task and the onData/onError handler functions will get the result.
+    //
+    // The output on the Serial Monitor will be (depending on your WiFi and Modbus the data will be different):
+    //     __ OK __
+    //     . WIFi IP address: 192.168.178.74
+    //     Response: serverID=20, FC=3, Token=0000056C, length=11:
+    //     14 03 04 01 F6 FF FF FF 00 C0 A8
+  }
 }

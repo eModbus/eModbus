@@ -23,6 +23,19 @@
     "url": "https://github.com/ESP32ModbusUnified/ModbusUnified",
     "branch": "master"
   },
+  "dependencies": [
+    {
+      "owner": "me-no-dev",
+      "name": "AsyncTCP",
+      "version": "*",
+      "platforms": ["espressif32"]
+    },
+    {
+      "name": "Ethernet",
+      "url": "https://github.com/maxgerhardt/Ethernet.git",
+      "platforms": ["espressif32"]
+    }
+  ],
   "export": {
     "include":
     [

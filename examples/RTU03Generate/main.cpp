@@ -10,12 +10,12 @@
 #include <Arduino.h>
 
 // Include the header for the ModbusClient RTU style
-#include "ModbusRTU.h"
+#include "ModbusClientRTU.h"
 
 // Create a ModbusRTU client instance
 // In my case the RS485 module had auto halfduplex, so no second parameter with the DE/RE pin is required!
 // Note: we will generate a message without sending it, so Serial2 needs not to be initialized!
-ModbusRTU MB(Serial2);
+ModbusClientRTU MB(Serial2);
 
 // Note: no onData or onError handler defined here - we will not need these!
 

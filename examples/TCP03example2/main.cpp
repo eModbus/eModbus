@@ -17,12 +17,12 @@ byte mac[] = { 0x30, 0x2B, 0x2D, 0x2F, 0x61, 0xE2 }; // MAC address (fill your o
 IPAddress lIP;                      // IP address after Ethernet.begin()
 
 // Include the header for the ModbusClient TCP style
-#include "ModbusTCP.h"
+#include "ModbusClientTCP.h"
 
 EthernetClient theClient;                          // Set up a client
 
 // Create a ModbusTCP client instance
-ModbusTCP MB(theClient);
+ModbusClientTCP MB(theClient);
 
 // Define an onData handler function to receive the regular responses
 // Arguments are Modbus server ID, the function code requested, the message data and length of it, 

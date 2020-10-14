@@ -48,8 +48,8 @@ struct TargetHost {
 
 class TCPRequest : public ModbusRequest {
   friend class ModbusClientTCP;
+  friend class ModbusClientTCPasync;
   friend class ModbusServerTCP;
-  friend class ModbusTCPasync;
   friend class TCPResponse;
 protected:
   ModbusTCPhead tcpHead;       // Header structure for Modbus TCP packets
@@ -92,6 +92,7 @@ protected:
 
 class TCPResponse : public ModbusResponse {
   friend class ModbusClientTCP;
+  friend class ModbusClientTCPasync;
   friend class ModbusServerTCP;
 protected:
   // Default constructor
