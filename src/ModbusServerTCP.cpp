@@ -194,6 +194,8 @@ void CLASSNAME::worker(ClientData *myData) {
               case 0xF3: // DATA
                 response[4] = ((data.size() - 2) >> 8) & 0xFF;
                 response[5] = (data.size() - 2) & 0xFF;
+                response.push_back(m[6]);
+                response.push_back(m[7]);
                 for (auto byte = data.begin() + 2; byte < data.end(); ++byte) {
                   response.push_back(*byte);
                 }

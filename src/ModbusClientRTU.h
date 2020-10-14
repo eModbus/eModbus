@@ -7,6 +7,7 @@
 #include "ModbusMessageRTU.h"
 #include "ModbusClient.h"
 #include "HardwareSerial.h"
+#include "RTUutils.h"
 #include <queue>
 #include <mutex>                  // NOLINT
 #include <vector>
@@ -70,9 +71,6 @@ protected:
 
   // handleConnection: worker task method
   static void handleConnection(ModbusClientRTU *instance);
-
-  // send: send request via Serial
-  void send(RTURequest *request);
 
   // receive: get response via Serial
   RTUResponse* receive(RTURequest *request);

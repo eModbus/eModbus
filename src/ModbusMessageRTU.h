@@ -5,19 +5,7 @@
 #ifndef _MODBUS_MESSAGE_RTU_H
 #define _MODBUS_MESSAGE_RTU_H
 #include "ModbusMessage.h"
-
-// Helper class for CRC16 calculations
-// No constructors etc., just one static method to be used by RTURequest and RTUResponse
-class RTUCRC {
-public:
-  friend class RTURequest;
-  friend class RTUResponse;
-  friend class ModbusClientRTU;
-  friend class ModbusServerRTU;
-  static uint16_t calcCRC(const uint8_t *data, uint16_t len);
-protected:
-  RTUCRC() = delete;
-};
+#include "RTUutils.h"
 
 class RTURequest : public ModbusRequest {
   friend class ModbusClientRTU;

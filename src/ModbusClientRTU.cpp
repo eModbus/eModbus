@@ -371,7 +371,7 @@ RTUMessage ModbusClientRTU::vectorize(RTURequest *request, Error err) {
   return rv;
 }
 
-// Method to generate an error response - properly enveloped for TCP
+// Method to generate an error response - properly ende by CRC
 RTUMessage ModbusClientRTU::generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode) {
   RTUMessage rv;       // Returned std::vector
 
@@ -393,7 +393,7 @@ RTUMessage ModbusClientRTU::generateErrorResponse(uint8_t serverID, uint8_t func
     *cp++ = errorCode;
     
     // Calculate CRC16 and add it in
-    uint16_t crc = RTUCRC::calcCRC(rv.data(), 3);
+    uint16_t crc = RTUutils::calcCRC(rv.data(), 3);
     *cp++ = (crc & 0xFF);
     *cp++ = ((crc >> 8) & 0xFF);
   }
@@ -410,9 +410,39 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       // Yes. pull it.
       RTURequest *request = instance->requests.front();
       // Send it via Serial
-      instance->send(request);
+      RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MR_rtsPin, request->data(), request->len());
       // Get the response - if any
-      RTUResponse *response = instance->receive(request);
+      RTUResponse *response;
+      RTUMessage rv = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval);
+      // No error?
+      if (rv.size() > 1) {
+        if (request->getServerID() != rv[0]) {
+          response = new RTUResponse(3);
+          response->add(request->getServerID());
+          response->add(request->getFunctionCode() | 0x80);
+          response->add(SERVER_ID_MISMATCH);
+        } else if (request->getFunctionCode() != rv[1]) {
+          response = new RTUResponse(3);
+          response->add(request->getServerID());
+          response->add(request->getFunctionCode() | 0x80);
+          response->add(FC_MISMATCH);
+        } else if (!RTUutils::validCRC(rv.data(), rv.size())) {
+          response = new RTUResponse(3);
+          response->add(request->getServerID());
+          response->add(request->getFunctionCode() | 0x80);
+          response->add(CRC_ERROR);
+        } else {
+          response = new RTUResponse(rv.size() - 2);
+          response->add(rv.size() - 2, rv.data());
+          response->setCRC(rv[rv.size() - 2] | (rv[rv.size() - 1] << 8));
+        }
+      } else {
+        response = new RTUResponse(3);
+        response->add(request->getServerID());
+        response->add(request->getFunctionCode() | 0x80);
+        response->add(rv[0]);
+      }
+
       // Did we get a normal response?
       if (response->getError()==SUCCESS) {
         // Yes. Do we have an onData handler registered?
@@ -442,169 +472,4 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       delay(1);
     }
   }
-}
-
-// send: send request via Serial
-void ModbusClientRTU::send(RTURequest *request) {
-  while (micros() - MR_lastMicros < MR_interval) delayMicroseconds(1);  // respect _interval
-  // Toggle rtsPin, if necessary
-  if (MR_rtsPin >= 0) digitalWrite(MR_rtsPin, HIGH);
-  MR_serial.write(request->data(), request->len());
-  MR_serial.write(request->CRC & 0xFF);
-  MR_serial.write((request->CRC >> 8) & 0xFF);
-  MR_serial.flush();
-  // Toggle rtsPin, if necessary
-  if (MR_rtsPin >= 0) digitalWrite(MR_rtsPin, LOW);
-  MR_lastMicros = micros();
-}
-
-// receive: get response via Serial
-RTUResponse* ModbusClientRTU::receive(RTURequest *request) {
-  // Allocate initial buffer size
-  const uint16_t BUFBLOCKSIZE(128);
-  uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
-  uint8_t bufferBlocks = 1;
-
-  // Index into buffer
-  register uint16_t bufferPtr = 0;
-
-  // State machine states
-  enum STATES : uint8_t { WAIT_INTERVAL = 0, WAIT_DATA, IN_PACKET, DATA_READ, ERROR_EXIT, FINISHED };
-  register STATES state = WAIT_INTERVAL;
-
-  // Timeout tracker
-  uint32_t TimeOut = millis();
-
-  // Error code
-  Error errorCode = SUCCESS;
-
-  // Return data object
-  RTUResponse* response = nullptr;
-
-  while (state != FINISHED) {
-    switch (state) {
-    // WAIT_INTERVAL: spend the remainder of the bus quiet time waiting
-    case WAIT_INTERVAL:
-      // Time passed?
-      if (micros() - MR_lastMicros >= MR_interval) {
-        // Yes, proceed to reading data
-        state = WAIT_DATA;
-      } else {
-        // No, wait a little longer
-        delayMicroseconds(1);
-      }
-      break;
-    // WAIT_DATA: await first data byte, but watch timeout
-    case WAIT_DATA:
-      if (MR_serial.available()) {
-        state = IN_PACKET;
-        MR_lastMicros = micros();
-      } else {
-        if (millis() - TimeOut >= MR_timeoutValue) {
-          errorCode = TIMEOUT;
-          state = ERROR_EXIT;
-        }
-      }
-      delay(1);
-      break;
-    // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
-    case IN_PACKET:
-      // Data waiting and space left in buffer?
-      while (MR_serial.available()) {
-        // Yes. Catch the byte
-        buffer[bufferPtr++] = MR_serial.read();
-        // Buffer full?
-        if (bufferPtr >= bufferBlocks * BUFBLOCKSIZE) {
-          // Yes. Extend it by another block
-          bufferBlocks++;
-          uint8_t *temp = new uint8_t[bufferBlocks * BUFBLOCKSIZE];
-          memcpy(temp, buffer, (bufferBlocks - 1) * BUFBLOCKSIZE);
-          // Use intermediate pointer temp2 to keep cppcheck happy
-          delete[] buffer;
-          buffer = temp;
-        }
-        // Rewind timer
-        MR_lastMicros = micros();
-      }
-      // Gap of at least _interval micro seconds passed without data?
-      // ***********************************************
-      // Important notice!
-      // Due to an implementation decision done in the ESP32 Arduino core code,
-      // the correct time to detect a gap of _interval µs is not effective, as
-      // the core FIFO handling takes much longer than that.
-      //
-      // Workaround: uncomment the following line to wait for 16ms(!) for the handling to finish:
-      // if (micros() - MR_lastMicros >= 16000) {
-      //
-      // Alternate solution: is to modify the uartEnableInterrupt() function in
-      // the core implementation file 'esp32-hal-uart.c', to have the line
-      //    'uart->dev->conf1.rxfifo_full_thrhd = 1; // 112;'
-      // This will change the number of bytes received to trigger the copy interrupt
-      // from 112 (as is implemented in the core) to 1, effectively firing the interrupt
-      // for any single byte.
-      // Then you may uncomment the line below instead:
-      if (micros() - MR_lastMicros >= MR_interval) {
-      //
-        state = DATA_READ;
-      }
-      break;
-    // DATA_READ: successfully gathered some data. Prepare return object.
-    case DATA_READ:
-      // Did we get a sensible buffer length?
-      if (bufferPtr >= 5)
-      {
-        // Yes. Allocate response object - without CRC
-        response = new RTUResponse(bufferPtr - 2);
-        // Move gathered data into it
-        response->add(bufferPtr - 2, buffer);
-        // Extract CRC value
-        response->setCRC(buffer[bufferPtr - 2] | (buffer[bufferPtr - 1] << 8));
-        // Check CRC - OK?
-        if (!response->isValidCRC()) {
-          // No! Delete received response, set error code and proceed to ERROR_EXIT.
-          delete response;
-          errorCode = CRC_ERROR;
-          state = ERROR_EXIT;
-          // If the server id does not match that of the request, report error
-        } else if (response->getServerID() != request->getServerID()) {
-          // No! Delete received response, set error code and proceed to ERROR_EXIT.
-          delete response;
-          errorCode = SERVER_ID_MISMATCH;
-          state = ERROR_EXIT;
-          // If the function code does not match that of the request, report error
-        } else if ((response->getFunctionCode() & 0x7F) != request->getFunctionCode()) {
-          delete response;
-          errorCode = FC_MISMATCH;
-          state = ERROR_EXIT;
-        } else {
-          // Yes, move on
-          state = FINISHED;
-        }
-      } else {
-        // No, packet was too short for anything usable. Return error
-        errorCode = PACKET_LENGTH_ERROR;
-        state = ERROR_EXIT;
-      }
-      break;
-    // ERROR_EXIT: We had an error. Prepare error return object
-    case ERROR_EXIT:
-      response = new RTUResponse(3);
-      {
-        response->add((uint8_t)request->getServerID());
-        response->add((uint8_t)(request->getFunctionCode() | 0x80));
-        response->add((uint8_t)errorCode);
-        response->setCRC(RTUCRC::calcCRC(response->data(), 3));
-      }
-      state = FINISHED;
-      break;
-    // FINISHED: we are done, keep the compiler happy by pseudo-treating it.
-    case FINISHED:
-      break;
-    }
-  }
-  // Deallocate buffer
-  delete[] buffer;
-  MR_lastMicros = micros();
-
-  return response;
 }
