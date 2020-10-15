@@ -33,7 +33,7 @@ void setup() {
 // - address to read = word 10
 // - data words to read = 1
 //
-  RTUMessage msg = MB.generateRequest(1, READ_HOLD_REGISTER, 10, 1);
+  RTUMessage msg = MB.generateRequest((uint8_t)1, READ_HOLD_REGISTER, (uint16_t)10, (uint16_t)1);
 
 // If something was wrong with our parameters, the message will contain just 1 byte with the Error code
   if (msg.size() == 1) {
