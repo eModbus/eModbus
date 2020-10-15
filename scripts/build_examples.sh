@@ -1,9 +1,9 @@
 #!/bin/bash
 
-pip install -U platformio
-platformio update
-platformio lib -g install AsyncTCP
-platformio lib -g install https://github.com/maxgerhardt/Ethernet.git  # Ethernet
+#pip install -U platformio
+#platformio update
+#platformio lib -g install AsyncTCP
+#platformio lib -g install https://github.com/maxgerhardt/Ethernet.git  # Ethernet
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -29,7 +29,7 @@ while read line; do
 done <<< "$lines"
 
 # cleanup
-platformio lib -g uninstall AsyncTCP
-platformio lib -g uninstall https://github.com/maxgerhardt/Ethernet.git
+#platformio lib -g uninstall AsyncTCP
+#platformio lib -g uninstall https://github.com/maxgerhardt/Ethernet.git
 
 exit "$retval"
