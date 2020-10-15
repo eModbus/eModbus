@@ -1,4 +1,7 @@
 # ModbusUnified
+
+![ModbusUnified](https://github.com/ESP32ModbusUnified/ModbusUnified/workflows/build_examples/badge.svg)
+
 This is a library to provide Modbus client (formerly known as master) and server (formerly slave) functionalities for both Modbus RTU and TCP protocols.
 
 Modbus communication is done in separate tasks, so Modbus requests and responses are non-blocking. Callbacks are provided to prepare or receive the responses asynchronously.
