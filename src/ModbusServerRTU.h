@@ -23,29 +23,32 @@ public:
   // Constructor
   ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin = -1);
 
-  // Destructor: closes the connections
+  // Destructor
   ~ModbusServerRTU();
 
   // start: create task with RTU server to accept requests
   bool start(int coreID = -1);
 
-  // stop: drop all connections and kill server task
+  // stop: kill server task
   bool stop();
 
 protected:
-  inline void isInstance() { }
+  inline void isInstance() { }           // Make class instantiable
 
-  static uint8_t instanceCounter;
-  TaskHandle_t serverTask;
-  uint32_t serverTimeout;
-  HardwareSerial& MSRserial;
-  uint32_t MSRinterval;
-  uint32_t MSRlastMicros;
-  uint32_t MSRrtsPin;
+  static uint8_t instanceCounter;        // Number of RTU servers created (for task names)
+  TaskHandle_t serverTask;               // task of the started server
+  uint32_t serverTimeout;                // given timeout for receive. Does not really
+                                         // matter for a server, but is needed in 
+                                         // RTUutils. After timeout without any message
+                                         // the server will pause ~1ms and start 
+                                         // receive again.
+  HardwareSerial& MSRserial;             // The serial interface to use
+  uint32_t MSRinterval;                  // Bus quiet time between messages
+  uint32_t MSRlastMicros;                // microsecond time stamp of last bus activity
+  uint32_t MSRrtsPin;                    // GPIO number of the RS485 module's RE/DE line
 
   // serve: loop function for server task
   static void serve(ModbusServerRTU *myself);
-
 };
 
 #endif

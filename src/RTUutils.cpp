@@ -66,14 +66,14 @@ bool RTUutils::validCRC(const uint8_t *data, uint16_t len) {
   return validCRC(data, len - 2, data[len - 2] | (data[len - 1] << 8));
 }
 
-// validCRC #2: check the CRC in a message against a given one for equality
+// validCRC #2: check the CRC of a message against a given one for equality
 bool RTUutils::validCRC(const uint8_t *data, uint16_t len, uint16_t CRC) {
   uint16_t crc16 = calcCRC(data, len);
   if (CRC == crc16) return true;
   return false;
 }
 
-// addCRC: calculate the CRC for a given message and add it to the end
+// addCRC: calculate the CRC for a given RTUMessage and add it to the end
 void RTUutils::addCRC(RTUMessage& raw) {
   uint16_t crc16 = calcCRC(raw.data(), raw.size());
   raw.push_back(crc16 & 0xff);
@@ -86,12 +86,15 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
   while (micros() - lastMicros < interval) delayMicroseconds(1);  // respect _interval
   // Toggle rtsPin, if necessary
   if (rtsPin >= 0) digitalWrite(rtsPin, HIGH);
+  // Write message
   serial.write(data, len);
+  // Write CRC in LSB order
   serial.write(crc16 & 0xff);
   serial.write((crc16 >> 8) & 0xFF);
   serial.flush();
   // Toggle rtsPin, if necessary
   if (rtsPin >= 0) digitalWrite(rtsPin, LOW);
+  // Mark end-of-message time for next interval
   lastMicros = micros();
 }
 
@@ -102,7 +105,7 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
 
 // receive: get (any) message from Serial, taking care of timeout and interval
 RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval) {
-  // Allocate initial buffer size
+  // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(128);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
   uint8_t bufferBlocks = 1;
@@ -112,7 +115,7 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
   register uint16_t bufferPtr = 0;
 
   // State machine states
-  enum STATES : uint8_t { WAIT_INTERVAL = 0, WAIT_DATA, IN_PACKET, DATA_READ, ERROR_EXIT, FINISHED };
+  enum STATES : uint8_t { WAIT_INTERVAL = 0, WAIT_DATA, IN_PACKET, DATA_READ, FINISHED };
   register STATES state = WAIT_INTERVAL;
 
   // Timeout tracker
@@ -139,7 +142,7 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
       } else {
         if (millis() - TimeOut >= timeout) {
           rv.push_back(TIMEOUT);
-          state = ERROR_EXIT;
+          state = FINISHED;
         }
       }
       delay(1);
@@ -156,7 +159,6 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
           bufferBlocks++;
           uint8_t *temp = new uint8_t[bufferBlocks * BUFBLOCKSIZE];
           memcpy(temp, buffer, (bufferBlocks - 1) * BUFBLOCKSIZE);
-          // Use intermediate pointer temp2 to keep cppcheck happy
           delete[] buffer;
           buffer = temp;
         }
@@ -181,16 +183,15 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
       // for any single byte.
       // Then you may uncomment the line below instead:
       if (micros() - lastMicros >= interval) {
-      //
         state = DATA_READ;
       }
       break;
     // DATA_READ: successfully gathered some data. Prepare return object.
     case DATA_READ:
       // Did we get a sensible buffer length?
-      if (bufferPtr >= 5)
+      if (bufferPtr >= 4)
       {
-        // Yes. Allocate response object - with CRC
+        // Yes. Allocate response object
         for (uint16_t i = 0; i < bufferPtr; ++i) {
           rv.push_back(buffer[i]);
         }
@@ -198,12 +199,8 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
       } else {
         // No, packet was too short for anything usable. Return error
         rv.push_back(PACKET_LENGTH_ERROR);
-        state = ERROR_EXIT;
+        state = FINISHED;
       }
-      break;
-    // ERROR_EXIT: We had an error. Prepare error return object
-    case ERROR_EXIT:
-      state = FINISHED;
       break;
     // FINISHED: we are done, keep the compiler happy by pseudo-treating it.
     case FINISHED:

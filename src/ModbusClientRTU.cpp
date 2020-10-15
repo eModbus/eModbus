@@ -50,13 +50,8 @@ void ModbusClientRTU::begin(int coreID) {
   xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 6, &worker, coreID >= 0 ? coreID : NULL);
 
   // silent interval is at least 3.5x character time
-  // MR_interval = 35000000UL / MR_serial->baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
-  MR_interval = 40000000UL / MR_serial.baudRate();  // 4 * 10 bits * 1000 µs * 1000 ms / baud
+  MR_interval = 35000000UL / MR_serial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
 
-  // The following is okay for sending at any baud rate, but problematic at receiving with baud rates above 35000,
-  // since the calculated interval will be below 1000µs!
-  // f.i. 115200bd ==> interval=304µs
-  if (MR_interval < 1000) MR_interval = 1000;  // minimum of 1msec interval
 }
 
 // setTimeOut: set/change the default interface timeout
@@ -64,6 +59,7 @@ void ModbusClientRTU::setTimeout(uint32_t TOV) {
   MR_timeoutValue = TOV;
 }
 
+#ifdef no_template
 // Methods to set up requests
 // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
 Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token) {
@@ -326,6 +322,7 @@ RTUMessage ModbusClientRTU::generateRequest(uint8_t serverID, uint8_t functionCo
   // Move back vector contents
   return rv;
 }
+#endif
 
 // addToQueue: send freshly created request to queue
 bool ModbusClientRTU::addToQueue(RTURequest *request) {
@@ -409,34 +406,49 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
     if (!instance->requests.empty()) {
       // Yes. pull it.
       RTURequest *request = instance->requests.front();
+      for (uint16_t i = 0; i< request->len(); ++i) {
+        Serial.printf("%02X ", request->data()[i]);
+      }
+      Serial.println("Request sent");
       // Send it via Serial
       RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MR_rtsPin, request->data(), request->len());
       // Get the response - if any
       RTUResponse *response;
       RTUMessage rv = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval);
-      // No error?
+      // No error in receive()?
       if (rv.size() > 1) {
+        // No. Check message contents
+        // Does the serverID match the requested?
         if (request->getServerID() != rv[0]) {
+          // No. Return error response
           response = new RTUResponse(3);
           response->add(request->getServerID());
           response->add(request->getFunctionCode() | 0x80);
           response->add(SERVER_ID_MISMATCH);
-        } else if (request->getFunctionCode() != rv[1]) {
+        // ServerID ok, but does the FC match as well?
+        } else if (request->getFunctionCode() != (rv[1] & 0x7F)) {
+          // No. Return error response
           response = new RTUResponse(3);
           response->add(request->getServerID());
           response->add(request->getFunctionCode() | 0x80);
           response->add(FC_MISMATCH);
+        // Both serverID and FC are ok - how about the CRC?
         } else if (!RTUutils::validCRC(rv.data(), rv.size())) {
+          // CRC faulty - return error
           response = new RTUResponse(3);
           response->add(request->getServerID());
           response->add(request->getFunctionCode() | 0x80);
           response->add(CRC_ERROR);
+        // Everything seems okay
         } else {
+          // Build response from received message
           response = new RTUResponse(rv.size() - 2);
           response->add(rv.size() - 2, rv.data());
           response->setCRC(rv[rv.size() - 2] | (rv[rv.size() - 1] << 8));
         }
       } else {
+        // No, we got an error code from receive()
+        // Return it as error response
         response = new RTUResponse(3);
         response->add(request->getServerID());
         response->add(request->getFunctionCode() | 0x80);
