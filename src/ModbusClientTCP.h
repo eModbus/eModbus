@@ -45,7 +45,7 @@ public:
     Error rc = SUCCESS;        // Return value
 
     // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, std::forward<Args>(args) ...);
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, std::forward<Args>(args) ...);
 
     // Add it to the queue, if valid
     if (r) {
@@ -61,15 +61,16 @@ public:
   }
 
   template <typename... Args>
-  TCPMessage generateRequest(Args&&... args) {
+  TCPMessage generateRequest(uint16_t transactionID, Args&&... args) {
     Error rc = SUCCESS;       // Return code from generating the request
     TCPMessage rv;       // Returned std::vector with the message or error code
+    TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
     // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, std::forward<Args>(args) ...);
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, std::forward<Args>(args) ...);
 
     // Put it in the return std::vector
-    rv = vectorize(r, rc);
+    rv = vectorize(transactionID, r, rc);
     
     // Delete request again, if one was created
     if (r) delete r;
