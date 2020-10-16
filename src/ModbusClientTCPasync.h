@@ -69,7 +69,7 @@ public:
     TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
     // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, std::forward<Args>(args) ...);
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, std::forward<Args>(args) ..., 0xDEADDEAD);
 
     // Put it in the return std::vector
     rv = vectorize(transactionID, r, rc);

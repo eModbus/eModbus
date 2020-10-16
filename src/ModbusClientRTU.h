@@ -48,7 +48,7 @@ RTUMessage generateRequest(Args&&... args) {
   RTUMessage rv;       // Returned std::vector with the message or error code
 
   // Create request, if valid
-  RTURequest *r = RTURequest::createRTURequest(rc, std::forward<Args>(args) ...);
+  RTURequest *r = RTURequest::createRTURequest(rc, std::forward<Args>(args) ..., 0xDEADDEAD);
 
   // Put it in the return std::vector
   rv = vectorize(r, rc);
