@@ -46,7 +46,7 @@ bool ModbusServerRTU::start(int coreID) {
   snprintf(taskName, 12, "MBsrv%02XRTU", instanceCounter);
 
   // Start task to handle the client
-  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
+  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
 
   Serial.printf("Created server task %d\n", (uint32_t)serverTask);
 
@@ -78,7 +78,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     m.clear();
 
     // Wait for and read an request
-    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval);
+    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval, "SRV REQ");
     if (request.size() > 1) {
       for (auto& byte : request) {
         Serial.printf("%02X ", byte);
@@ -159,7 +159,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       // Do we have gathered a valid response now?
       if (response.size() >= 3) {
         // Yes. send it back.
-        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRrtsPin, response);
+        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRrtsPin, response, "SRV RSP");
       }
     } else {
       // No, we got a 1-byte request, meaning an error has happened in receive()

@@ -81,7 +81,8 @@ void RTUutils::addCRC(RTUMessage& raw) {
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, const uint8_t *data, uint16_t len) {
+void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, const uint8_t *data, uint16_t len, const char *lbl) {
+  Serial.printf("%uµs, len=%d - %s\n", micros() - lastMicros, len, lbl);
   uint16_t crc16 = calcCRC(data, len);
   while (micros() - lastMicros < interval) delayMicroseconds(1);  // respect _interval
   // Toggle rtsPin, if necessary
@@ -99,12 +100,12 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, RTUMessage raw) {
-  send(serial, lastMicros, interval, rtsPin, raw.data(), raw.size());
+void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, RTUMessage raw, const char *lbl) {
+  send(serial, lastMicros, interval, rtsPin, raw.data(), raw.size(), lbl);
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval
-RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval) {
+RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval, const char *lbl) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(128);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
@@ -120,6 +121,8 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
 
   // Timeout tracker
   uint32_t TimeOut = millis();
+  Serial.printf("%s timeout=%d\n", lbl, timeout);
+  Serial.flush();
 
   while (state != FINISHED) {
     switch (state) {
@@ -209,7 +212,7 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
   }
   // Deallocate buffer
   delete[] buffer;
-  lastMicros = micros();
+  Serial.printf("%s rv: %d %02X\n", lbl, rv.size(), rv[0]);
 
   return rv;
 }

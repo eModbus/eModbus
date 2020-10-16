@@ -146,10 +146,10 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       }
       Serial.println("Request sent");
       // Send it via Serial
-      RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MR_rtsPin, request->data(), request->len());
+      RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MR_rtsPin, request->data(), request->len(), "CLN REQ");
       // Get the response - if any
       RTUResponse *response;
-      RTUMessage rv = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval);
+      RTUMessage rv = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval, "CLN RSP");
       // No error in receive()?
       if (rv.size() > 1) {
         // No. Check message contents
@@ -188,6 +188,12 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
         response->add(request->getServerID());
         response->add(request->getFunctionCode() | 0x80);
         response->add(rv[0]);
+        Serial.printf("SRV got error: ");
+        for (uint16_t i = 0; i < 3; ++i) {
+          Serial.printf("%02X ", response->data()[i]);
+        }
+        Serial.println();
+        Serial.flush();
       }
 
       // Did we get a normal response?
