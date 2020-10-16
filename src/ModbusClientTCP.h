@@ -45,7 +45,7 @@ public:
     Error rc = SUCCESS;        // Return value
 
     // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, std::forward<Args>(args) ...);
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, this->MT_target, std::forward<Args>(args) ...);
 
     // Add it to the queue, if valid
     if (r) {
