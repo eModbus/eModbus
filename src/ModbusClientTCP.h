@@ -40,34 +40,43 @@ public:
   // Switch target host (if necessary)
   bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
 
-  // Methods to set up requests
-  // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode);
-  
-  // 2. one uint16_t parameter (FC 0x18)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1);
-  
-  // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2);
-  
-  // 4. three uint16_t parameters (FC 0x16)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3);
-  
-  // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords);
-  
-  // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes);
+  template <typename... Args>
+  Error addRequest(Args&&... args) {
+    Error rc = SUCCESS;        // Return value
 
-  // 7. generic constructor for preformatted data ==> count is counting bytes!
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
-  TCPMessage generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
+    // Create request, if valid
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, std::forward<Args>(args) ...);
+
+    // Add it to the queue, if valid
+    if (r) {
+      // Queue add successful?
+      if (!addToQueue(r)) {
+        // No. Return error after deleting the allocated request.
+        rc = REQUEST_QUEUE_FULL;
+        delete r;
+      }
+    }
+
+    return rc;
+  }
+
+  template <typename... Args>
+  TCPMessage generateRequest(Args&&... args) {
+    Error rc = SUCCESS;       // Return code from generating the request
+    TCPMessage rv;       // Returned std::vector with the message or error code
+
+    // Create request, if valid
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, std::forward<Args>(args) ...);
+
+    // Put it in the return std::vector
+    rv = vectorize(r, rc);
+    
+    // Delete request again, if one was created
+    if (r) delete r;
+
+    // Move back vector contents
+    return rv;
+  }
 
   // Method to generate an error response - properly enveloped for TCP
   TCPMessage generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode);

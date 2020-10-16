@@ -1,3 +1,7 @@
+// =================================================================================================
+// ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
+//               MIT license - see license.md for details
+// =================================================================================================
 #ifndef _MODBUS_TCPASYNC_H
 #define _MODBUS_TCPASYNC_H
 #include <Arduino.h>
@@ -6,12 +10,14 @@
 #include "ModbusClient.h"
 #include <list>
 #include <vector>
-#include <mutex>
+#include <mutex>      // NOLINT
 
 using std::list;
 using std::mutex;
 using std::lock_guard;
 using std::vector;
+
+using TCPMessage = std::vector<uint8_t>;
 
 #define DEFAULTTIMEOUT 10000
 #define DEFAULTIDLETIME 60000
@@ -36,34 +42,43 @@ public:
   // Set idle timeout value (time before connection auto closes after being idle)
   void setIdleTimeout(uint32_t timeout);
 
-  // Methods to set up requests
-  // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint32_t token = 0);
-  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode);
-  
-  // 2. one uint16_t parameter (FC 0x18)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint32_t token = 0);
-  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1);
-  
-  // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint32_t token = 0);
-  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2);
-  
-  // 4. three uint16_t parameters (FC 0x16)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, uint32_t token = 0);
-  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3);
-  
-  // 5. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, uint32_t token = 0);
-  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords);
-  
-  // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
-  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes);
+  template <typename... Args>
+  Error addRequest(Args&&... args) {
+    Error rc = SUCCESS;        // Return value
 
-  // 7. generic constructor for preformatted data ==> count is counting bytes!
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes, uint32_t token = 0);
-  vector<uint8_t> generateRequest(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
+    // Create request, if valid
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, std::forward<Args>(args) ...);
+
+    // Add it to the queue, if valid
+    if (r) {
+      // Queue add successful?
+      if (!addToQueue(r)) {
+        // No. Return error after deleting the allocated request.
+        rc = REQUEST_QUEUE_FULL;
+        delete r;
+      }
+    }
+
+    return rc;
+  }
+
+  template <typename... Args>
+  TCPMessage generateRequest(Args&&... args) {
+    Error rc = SUCCESS;       // Return code from generating the request
+    TCPMessage rv;       // Returned std::vector with the message or error code
+
+    // Create request, if valid
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, std::forward<Args>(args) ...);
+
+    // Put it in the return std::vector
+    rv = vectorize(r, rc);
+    
+    // Delete request again, if one was created
+    if (r) delete r;
+
+    // Move back vector contents
+    return rv;
+  }
 
 protected:
 // makeHead: helper function to set up a MSB TCP header
