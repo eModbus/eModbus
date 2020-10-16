@@ -79,6 +79,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
 
     // Wait for and read an request
     request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval, "SRV REQ");
+    /*
     if (request.size() > 1) {
       for (auto& byte : request) {
         Serial.printf("%02X ", byte);
@@ -87,6 +88,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     } else {
       Serial.println("Request size <= 1?");
     }
+    */
 
     // Request longer than 1 byte (that will signal an error in receive())? 
     if (request.size() > 1) {
@@ -149,10 +151,12 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           response.push_back(request[0]);
           response.push_back(request[1] | 0x80);
           response.push_back(ILLEGAL_FUNCTION);
+          /*
           for (auto& byte : response) {
             Serial.printf("%02X ", byte);
           }
           Serial.println("illegal FC");
+          */
         }
         // Else we will ignore the request, as it is not meant for us!
       }

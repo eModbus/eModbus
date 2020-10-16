@@ -141,10 +141,12 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
     if (!instance->requests.empty()) {
       // Yes. pull it.
       RTURequest *request = instance->requests.front();
+      /*
       for (uint16_t i = 0; i< request->len(); ++i) {
         Serial.printf("%02X ", request->data()[i]);
       }
       Serial.println("Request sent");
+      */
       // Send it via Serial
       RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MR_rtsPin, request->data(), request->len(), "CLN REQ");
       // Get the response - if any
@@ -188,12 +190,14 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
         response->add(request->getServerID());
         response->add(request->getFunctionCode() | 0x80);
         response->add(rv[0]);
+        /*
         Serial.printf("SRV got error: ");
         for (uint16_t i = 0; i < 3; ++i) {
           Serial.printf("%02X ", response->data()[i]);
         }
         Serial.println();
         Serial.flush();
+        */
       }
 
       // Did we get a normal response?

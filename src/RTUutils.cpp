@@ -82,7 +82,7 @@ void RTUutils::addCRC(RTUMessage& raw) {
 
 // send: send a message via Serial, watching interval times - including CRC!
 void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, const uint8_t *data, uint16_t len, const char *lbl) {
-  Serial.printf("%uµs, len=%d - %s\n", micros() - lastMicros, len, lbl);
+  // Serial.printf("%uµs, len=%d - %s\n", micros() - lastMicros, len, lbl);
   uint16_t crc16 = calcCRC(data, len);
   while (micros() - lastMicros < interval) delayMicroseconds(1);  // respect _interval
   // Toggle rtsPin, if necessary
@@ -92,7 +92,7 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
   // Write CRC in LSB order
   serial.write(crc16 & 0xff);
   serial.write((crc16 >> 8) & 0xFF);
-  serial.flush();
+  // serial.flush();
   // Toggle rtsPin, if necessary
   if (rtsPin >= 0) digitalWrite(rtsPin, LOW);
   // Mark end-of-message time for next interval
@@ -121,8 +121,7 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
 
   // Timeout tracker
   uint32_t TimeOut = millis();
-  Serial.printf("%s timeout=%d\n", lbl, timeout);
-  Serial.flush();
+  // Serial.printf("%s timeout=%d\n", lbl, timeout);
 
   while (state != FINISHED) {
     switch (state) {
@@ -212,7 +211,7 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
   }
   // Deallocate buffer
   delete[] buffer;
-  Serial.printf("%s rv: %d %02X\n", lbl, rv.size(), rv[0]);
+  // Serial.printf("%s rv: %d %02X\n", lbl, rv.size(), rv[0]);
 
   return rv;
 }
