@@ -115,7 +115,9 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
               response.clear();
               break;
             case 0xF1: // ECHO
-              response = request;
+              for (auto it = request.begin(); it < request.end() - 2; ++it) {
+                response.push_back(*it);
+              }
               break;
             case 0xF2: // ERROR
               response.push_back(request[0]);
