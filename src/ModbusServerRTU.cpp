@@ -48,7 +48,7 @@ bool ModbusServerRTU::start(int coreID) {
   // Start task to handle the client
   xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
 
-  Serial.printf("Created server task %d\n", (uint32_t)serverTask);
+  // Serial.printf("Created server task %d\n", (uint32_t)serverTask);
 
   return true;
 }
