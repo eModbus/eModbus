@@ -1135,7 +1135,43 @@ void setup()
     }
     delay(1000);
 
+    // #2: write a word of data
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Write one word of data",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("01 06 00 10 BE EF"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(1, 0x06, 16, 0xBEEF, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
+    delay(1000);
 
+    // #3: read several words
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Read back 4 words of data",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("01 03 08 1A 1B 1C 1D BE EF 20 21"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(1, 0x03, 14, 4, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
+    delay(1000);
 
     // ******************************************************************************
     // Write test cases above this line!
