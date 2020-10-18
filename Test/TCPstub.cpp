@@ -192,7 +192,7 @@ void TCPstub::workerTask(TCPstub *instance) {
           instance->inQueue.pop();
           // Serial.printf("%02X ", byte);
         }
-        // Serial.println();
+        // Serial.println((*instance->tm).size());
       }
       // Get the TID
       tid = ((TCPhead[0] << 8) & 0xFF) | (TCPhead[1] & 0xFF);

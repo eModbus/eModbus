@@ -78,6 +78,8 @@ bool ModbusClientTCP::addToQueue(TCPRequest *request) {
   // Did we get one?
   if (request) {
     if (requests.size()<MT_qLimit) {
+      // inject proper transactionID
+      request->tcpHead.transactionID = messageCount++;
       // Yes. Safely lock queue and push request to queue
       rc = true;
       lock_guard<mutex> lockGuard(qLock);

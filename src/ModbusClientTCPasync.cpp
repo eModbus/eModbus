@@ -116,6 +116,8 @@ bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
   // Did we get one?
   if (request) {
     Serial.print("request added to queue\n");
+    // Inject actual transactionID into tcpHead
+    request->tcpHead.transactionID = messageCount++;
     lock_guard<mutex> lockGuard(qLock);
     if (txQueue.size() + rxQueue.size() < MTA_qLimit) {
       // add sending time to request for timeout purposes
