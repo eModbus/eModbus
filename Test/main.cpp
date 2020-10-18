@@ -3,6 +3,7 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include <Arduino.h>
+#include "ModbusServerRTU.h"
 #include "ModbusClientRTU.h"
 #include "ModbusClientTCP.h"
 #include <vector>
@@ -16,12 +17,96 @@ using std::vector;
 // Test prerequisites
 TCPstub stub;
 ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance.
-ModbusClientRTU TestRTU(Serial);             // ModbusClientRTU test instance. Will never be started with begin()!
+ModbusClientRTU RTUclient(Serial1);             // ModbusClientRTU test instance.
+ModbusServerRTU RTUserver(Serial2, 20000);      // ModbusServerRTU instance
 uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
 uint16_t testsPassed = 0;              // Global passed test cases counter. Incremented in testOutput().
 bool printPassed = true;               // If true, testOutput will print passed tests as well.
 TidMap testCasesByTID;
 TokenMap testCasesByToken;
+
+uint16_t memo[32];                     // Test server memory: 32 words
+
+// Worker function for function code 0x03
+ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+  uint16_t addr = 0;        // Start address to read
+  uint16_t wrds = 0;        // Number of words to read
+
+  // Get addr and words from data array. Values are MSB-first, getValue() will convert to binary
+  // Returned: number of bytes eaten up 
+  uint16_t offs = getValue(data, dataLen, addr);
+  offs += getValue(data + offs, dataLen - offs, wrds);
+
+  // address valid?
+  if (!addr || addr > 32) {
+    // No. Return error response
+    return RTUserver.ErrorResponse(ILLEGAL_DATA_ADDRESS);
+  }
+
+  // Modbus address is 1..n, memory address 0..n-1
+  addr--;
+
+  // Number of words valid?
+  if (!wrds || (addr + wrds) > 32) {
+    // No. Return error response
+    return RTUserver.ErrorResponse(ILLEGAL_DATA_ADDRESS);
+  }
+
+  // Data buffer for returned values. +1 for the leading length byte!
+  uint8_t rdata[wrds * 2 + 1];
+
+  // Set length byte
+  rdata[0] = wrds * 2;
+  offs = 1;
+
+  // Loop over all words to be sent
+  for (uint16_t i = 0; i < wrds; i++) {
+    // Add word MSB-first to response buffer
+    // serverID 1 gets the real values, all others the inverted values
+    offs += addValue(rdata + offs, wrds * 2 - offs + 1, (uint16_t)((serverID == 1) ? memo[addr + i] : ~memo[addr + i]));
+  }
+
+  // Return the data response
+  return RTUserver.DataResponse(wrds * 2 + 1, rdata);
+}
+
+// Worker function function code 0x06
+ResponseType FC06(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+  uint16_t addr = 0;        // Start address to read
+  uint16_t value = 0;       // New value for register
+
+  // Get addr and value from data array. Values are MSB-first, getValue() will convert to binary
+  // Returned: number of bytes eaten up 
+  uint16_t offs = getValue(data, dataLen, addr);
+  offs += getValue(data + offs, dataLen - offs, value);
+
+  // address valid?
+  if (!addr || addr > 32) {
+    // No. Return error response
+    return RTUserver.ErrorResponse(ILLEGAL_DATA_ADDRESS);
+  }
+
+  // Modbus address is 1..n, memory address 0..n-1
+  addr--;
+
+  // Fake data error - 0x0000 or 0xFFFF will not be accepted
+  if (!value || value == 0xFFFF) {
+    // No. Return error response
+    return RTUserver.ErrorResponse(ILLEGAL_DATA_VALUE);
+  }
+
+  // Fill in new value.
+  memo[addr] = value;
+
+  // Return the ECHO response
+  return ECHO_RESPONSE;
+}
+
+// Worker function function code 0x41 (user defined)
+ResponseType FC41(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+  // return nothing to test timeout
+  return NIL_RESPONSE;
+}
 
 // testOutput:  takes the test function name called, the test case name and expected and recieved messages,
 // compares both and prints out the result.
@@ -434,101 +519,101 @@ void setup()
   // RTU tests starting here
 
   // #### RTU, generateRequest(serverID, functionCode) #01
-  RTU01(0, 0x07, TestRTU, LNO(__LINE__) "invalid server id", "E1");
-  RTU01(1, 0x01, TestRTU, LNO(__LINE__) "invalid FC for RTU01", "E6");
-  RTU01(1, 0xA2, TestRTU, LNO(__LINE__) "invalid FC>127",       "01");
+  RTU01(0, 0x07, RTUclient, LNO(__LINE__) "invalid server id", "E1");
+  RTU01(1, 0x01, RTUclient, LNO(__LINE__) "invalid FC for RTU01", "E6");
+  RTU01(1, 0xA2, RTUclient, LNO(__LINE__) "invalid FC>127",       "01");
 
-  RTU01(1, 0x07, TestRTU, LNO(__LINE__) "correct call 0x07",    "01 07 41 E2");
-  RTU01(1, 0x0B, TestRTU, LNO(__LINE__) "correct call 0x0B",    "01 0B 41 E7");
-  RTU01(1, 0x0C, TestRTU, LNO(__LINE__) "correct call 0x0C",    "01 0C 00 25");
-  RTU01(1, 0x11, TestRTU, LNO(__LINE__) "correct call 0x11",    "01 11 C0 2C");
+  RTU01(1, 0x07, RTUclient, LNO(__LINE__) "correct call 0x07",    "01 07 41 E2");
+  RTU01(1, 0x0B, RTUclient, LNO(__LINE__) "correct call 0x0B",    "01 0B 41 E7");
+  RTU01(1, 0x0C, RTUclient, LNO(__LINE__) "correct call 0x0C",    "01 0C 00 25");
+  RTU01(1, 0x11, RTUclient, LNO(__LINE__) "correct call 0x11",    "01 11 C0 2C");
 
   // #### RTU, generateRequest(serverID, functionCode, p1) #02
-  RTU02(0, 0x18, 0x1122, TestRTU, LNO(__LINE__) "invalid server id",    "E1");
-  RTU02(1, 0x01, 0x1122, TestRTU, LNO(__LINE__) "invalid FC for RTU02", "E6");
-  RTU02(1, 0xA2, 0x1122, TestRTU, LNO(__LINE__) "invalid FC>127",       "01");
+  RTU02(0, 0x18, 0x1122, RTUclient, LNO(__LINE__) "invalid server id",    "E1");
+  RTU02(1, 0x01, 0x1122, RTUclient, LNO(__LINE__) "invalid FC for RTU02", "E6");
+  RTU02(1, 0xA2, 0x1122, RTUclient, LNO(__LINE__) "invalid FC>127",       "01");
 
-  RTU02(1, 0x18, 0x9A20, TestRTU, LNO(__LINE__) "correct call",         "01 18 9A 20 EA A7");
+  RTU02(1, 0x18, 0x9A20, RTUclient, LNO(__LINE__) "correct call",         "01 18 9A 20 EA A7");
 
   // #### RTU, generateRequest(serverID, functionCode, p1, p2) #03
-  RTU03(0, 0x01, 0x1122, 0x0002, TestRTU, LNO(__LINE__) "invalid server id",        "E1");
-  RTU03(1, 0x07, 0x1122, 0x0002, TestRTU, LNO(__LINE__) "invalid FC for RTU03",     "E6");
-  RTU03(1, 0xA2, 0x1122, 0x0002, TestRTU, LNO(__LINE__) "invalid FC>127",           "01");
+  RTU03(0, 0x01, 0x1122, 0x0002, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
+  RTU03(1, 0x07, 0x1122, 0x0002, RTUclient, LNO(__LINE__) "invalid FC for RTU03",     "E6");
+  RTU03(1, 0xA2, 0x1122, 0x0002, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
 
-  RTU03(1, 0x01, 0x1020, 2000,   TestRTU, LNO(__LINE__) "correct call 0x01 (2000)", "01 01 10 20 07 D0 3A AC");
-  RTU03(1, 0x01, 0x0300, 2001,   TestRTU, LNO(__LINE__) "illegal # coils 0x01",     "E7");
-  RTU03(1, 0x01, 0x0300, 0x0000, TestRTU, LNO(__LINE__) "illegal coils=0 0x01",     "E7");
-  RTU03(1, 0x01, 0x1020, 1,      TestRTU, LNO(__LINE__) "correct call 0x01 (1)",    "01 01 10 20 00 01 F8 C0");
+  RTU03(1, 0x01, 0x1020, 2000,   RTUclient, LNO(__LINE__) "correct call 0x01 (2000)", "01 01 10 20 07 D0 3A AC");
+  RTU03(1, 0x01, 0x0300, 2001,   RTUclient, LNO(__LINE__) "illegal # coils 0x01",     "E7");
+  RTU03(1, 0x01, 0x0300, 0x0000, RTUclient, LNO(__LINE__) "illegal coils=0 0x01",     "E7");
+  RTU03(1, 0x01, 0x1020, 1,      RTUclient, LNO(__LINE__) "correct call 0x01 (1)",    "01 01 10 20 00 01 F8 C0");
 
-  RTU03(1, 0x02, 0x1020, 2000,   TestRTU, LNO(__LINE__) "correct call 0x02 (2000)", "01 02 10 20 07 D0 7E AC");
-  RTU03(1, 0x02, 0x0300, 2001,   TestRTU, LNO(__LINE__) "illegal # inputs 0x02",    "E7");
-  RTU03(1, 0x02, 0x0300, 0x0000, TestRTU, LNO(__LINE__) "illegal inputs=0 0x02",    "E7");
-  RTU03(1, 0x02, 0x1020, 1,      TestRTU, LNO(__LINE__) "correct call 0x02 (1)",    "01 02 10 20 00 01 BC C0");
+  RTU03(1, 0x02, 0x1020, 2000,   RTUclient, LNO(__LINE__) "correct call 0x02 (2000)", "01 02 10 20 07 D0 7E AC");
+  RTU03(1, 0x02, 0x0300, 2001,   RTUclient, LNO(__LINE__) "illegal # inputs 0x02",    "E7");
+  RTU03(1, 0x02, 0x0300, 0x0000, RTUclient, LNO(__LINE__) "illegal inputs=0 0x02",    "E7");
+  RTU03(1, 0x02, 0x1020, 1,      RTUclient, LNO(__LINE__) "correct call 0x02 (1)",    "01 02 10 20 00 01 BC C0");
 
-  RTU03(1, 0x03, 0x1020, 125,    TestRTU, LNO(__LINE__) "correct call 0x03 (125)",  "01 03 10 20 00 7D 80 E1");
-  RTU03(1, 0x03, 0x0300, 126,    TestRTU, LNO(__LINE__) "illegal # registers 0x03", "E7");
-  RTU03(1, 0x03, 0x0300, 0x0000, TestRTU, LNO(__LINE__) "illegal registers=0 0x03", "E7");
-  RTU03(1, 0x03, 0x1020, 1,      TestRTU, LNO(__LINE__) "correct call 0x03 (1)",    "01 03 10 20 00 01 81 00");
+  RTU03(1, 0x03, 0x1020, 125,    RTUclient, LNO(__LINE__) "correct call 0x03 (125)",  "01 03 10 20 00 7D 80 E1");
+  RTU03(1, 0x03, 0x0300, 126,    RTUclient, LNO(__LINE__) "illegal # registers 0x03", "E7");
+  RTU03(1, 0x03, 0x0300, 0x0000, RTUclient, LNO(__LINE__) "illegal registers=0 0x03", "E7");
+  RTU03(1, 0x03, 0x1020, 1,      RTUclient, LNO(__LINE__) "correct call 0x03 (1)",    "01 03 10 20 00 01 81 00");
 
-  RTU03(1, 0x04, 0x1020, 125,    TestRTU, LNO(__LINE__) "correct call 0x04 (125)",  "01 04 10 20 00 7D 35 21");
-  RTU03(1, 0x04, 0x0300, 126,    TestRTU, LNO(__LINE__) "illegal # registers 0x04", "E7");
-  RTU03(1, 0x04, 0x0300, 0x0000, TestRTU, LNO(__LINE__) "illegal registers=0 0x04", "E7");
-  RTU03(1, 0x04, 0x1020, 1,      TestRTU, LNO(__LINE__) "correct call 0x04 (1)",    "01 04 10 20 00 01 34 C0");
+  RTU03(1, 0x04, 0x1020, 125,    RTUclient, LNO(__LINE__) "correct call 0x04 (125)",  "01 04 10 20 00 7D 35 21");
+  RTU03(1, 0x04, 0x0300, 126,    RTUclient, LNO(__LINE__) "illegal # registers 0x04", "E7");
+  RTU03(1, 0x04, 0x0300, 0x0000, RTUclient, LNO(__LINE__) "illegal registers=0 0x04", "E7");
+  RTU03(1, 0x04, 0x1020, 1,      RTUclient, LNO(__LINE__) "correct call 0x04 (1)",    "01 04 10 20 00 01 34 C0");
 
-  RTU03(1, 0x05, 0x1020, 0x0000, TestRTU, LNO(__LINE__) "correct call 0x05 (0)",    "01 05 10 20 00 00 C8 C0");
-  RTU03(1, 0x05, 0x0300, 0x00FF, TestRTU, LNO(__LINE__) "illegal coil value 0x05",  "E7");
-  RTU03(1, 0x05, 0x0300, 0x0FF0, TestRTU, LNO(__LINE__) "illegal coil value 0x05",  "E7");
-  RTU03(1, 0x05, 0x1020, 0xFF00, TestRTU, LNO(__LINE__) "correct call 0x05 (0xFF00)", "01 05 10 20 FF 00 89 30");
+  RTU03(1, 0x05, 0x1020, 0x0000, RTUclient, LNO(__LINE__) "correct call 0x05 (0)",    "01 05 10 20 00 00 C8 C0");
+  RTU03(1, 0x05, 0x0300, 0x00FF, RTUclient, LNO(__LINE__) "illegal coil value 0x05",  "E7");
+  RTU03(1, 0x05, 0x0300, 0x0FF0, RTUclient, LNO(__LINE__) "illegal coil value 0x05",  "E7");
+  RTU03(1, 0x05, 0x1020, 0xFF00, RTUclient, LNO(__LINE__) "correct call 0x05 (0xFF00)", "01 05 10 20 FF 00 89 30");
 
-  RTU03(1, 0x06, 0x0000, 0xFFFF, TestRTU, LNO(__LINE__) "correct call 0x06 (0xFFFF)", "01 06 00 00 FF FF 88 7A");
+  RTU03(1, 0x06, 0x0000, 0xFFFF, RTUclient, LNO(__LINE__) "correct call 0x06 (0xFFFF)", "01 06 00 00 FF FF 88 7A");
 
   // #### RTU, generateRequest(serverID, functionCode, p1, p2, p3) #04
-  RTU04(0, 0x01, 0x1122, 0x0002, 0xBEAD, TestRTU, LNO(__LINE__) "invalid server id",        "E1");
-  RTU04(1, 0x07, 0x1122, 0x0002, 0xBEAD, TestRTU, LNO(__LINE__) "invalid FC for RTU04",     "E6");
-  RTU04(1, 0xA2, 0x1122, 0x0002, 0xBEAD, TestRTU, LNO(__LINE__) "invalid FC>127",           "01");
+  RTU04(0, 0x01, 0x1122, 0x0002, 0xBEAD, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
+  RTU04(1, 0x07, 0x1122, 0x0002, 0xBEAD, RTUclient, LNO(__LINE__) "invalid FC for RTU04",     "E6");
+  RTU04(1, 0xA2, 0x1122, 0x0002, 0xBEAD, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
 
-  RTU04(1, 0x16, 0x0000, 0xFAFF, 0xDEEB, TestRTU, LNO(__LINE__) "correct call 0x16", "01 16 00 00 FA FF DE EB EF 01");
+  RTU04(1, 0x16, 0x0000, 0xFAFF, 0xDEEB, RTUclient, LNO(__LINE__) "correct call 0x16", "01 16 00 00 FA FF DE EB EF 01");
 
   // #### RTU, generateRequest(serverID, functionCode, p1, p2, count, arrayOfWords) #05
-  RTU05(0, 0x01, 0x1122, 0x0002,  4, words, TestRTU, LNO(__LINE__) "invalid server id",        "E1");
-  RTU05(1, 0x07, 0x1122, 0x0002,  4, words, TestRTU, LNO(__LINE__) "invalid FC for RTU05",     "E6");
-  RTU05(1, 0xA2, 0x1122, 0x0002,  4, words, TestRTU, LNO(__LINE__) "invalid FC>127",           "01");
+  RTU05(0, 0x01, 0x1122, 0x0002,  4, words, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
+  RTU05(1, 0x07, 0x1122, 0x0002,  4, words, RTUclient, LNO(__LINE__) "invalid FC for RTU05",     "E6");
+  RTU05(1, 0xA2, 0x1122, 0x0002,  4, words, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
 
-  RTU05(1, 0x10, 0x1020, 6, 12, words, TestRTU, LNO(__LINE__) "correct call 0x10", 
+  RTU05(1, 0x10, 0x1020, 6, 12, words, RTUclient, LNO(__LINE__) "correct call 0x10", 
         "01 10 10 20 00 06 0C 00 00 11 11 22 22 33 33 44 44 55 55 A5 44");
-  RTU05(1, 0x10, 0x1020, 5, 12, words, TestRTU, LNO(__LINE__) "wrong word count 0x10", "03");
-  RTU05(1, 0x10, 0x1020, 0, 12, words, TestRTU, LNO(__LINE__) "illegal word count(0) 0x10", "E7");
-  RTU05(1, 0x10, 0x1020, 124, 12, words, TestRTU, LNO(__LINE__) "illegal word count(124) 0x10", "E7");
-  RTU05(1, 0x10, 0x1020, 1, 2, words, TestRTU, LNO(__LINE__) "correct call 0x10", 
+  RTU05(1, 0x10, 0x1020, 5, 12, words, RTUclient, LNO(__LINE__) "wrong word count 0x10", "03");
+  RTU05(1, 0x10, 0x1020, 0, 12, words, RTUclient, LNO(__LINE__) "illegal word count(0) 0x10", "E7");
+  RTU05(1, 0x10, 0x1020, 124, 12, words, RTUclient, LNO(__LINE__) "illegal word count(124) 0x10", "E7");
+  RTU05(1, 0x10, 0x1020, 1, 2, words, RTUclient, LNO(__LINE__) "correct call 0x10", 
         "01 10 10 20 00 01 02 00 00 B0 F1");
 
   // #### RTU, generateRequest(serverID, functionCode, p1, p2, count, arrayOfBytes) #06
-  RTU06(0, 0x01, 0x1122, 0x0002,  1, bytes, TestRTU, LNO(__LINE__) "invalid server id",        "E1");
-  RTU06(1, 0x07, 0x1122, 0x0002,  1, bytes, TestRTU, LNO(__LINE__) "invalid FC for RTU06",     "E6");
-  RTU06(1, 0xA2, 0x1122, 0x0002,  1, bytes, TestRTU, LNO(__LINE__) "invalid FC>127",           "01");
+  RTU06(0, 0x01, 0x1122, 0x0002,  1, bytes, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
+  RTU06(1, 0x07, 0x1122, 0x0002,  1, bytes, RTUclient, LNO(__LINE__) "invalid FC for RTU06",     "E6");
+  RTU06(1, 0xA2, 0x1122, 0x0002,  1, bytes, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
 
-  RTU06(1, 0x0F, 0x1020, 31, 4, bytes, TestRTU, LNO(__LINE__) "correct call 0x0F", 
+  RTU06(1, 0x0F, 0x1020, 31, 4, bytes, RTUclient, LNO(__LINE__) "correct call 0x0F", 
         "01 0F 10 20 00 1F 04 00 11 22 33 06 EF");
-  RTU06(1, 0x0F, 0x1020, 5, 12, bytes, TestRTU, LNO(__LINE__) "wrong word count 0x0F", "03");
-  RTU06(1, 0x0F, 0x1020, 0, 1, bytes, TestRTU, LNO(__LINE__) "illegal word count(0) 0x0F", "E7");
-  RTU06(1, 0x0F, 0x1020, 2001, 251, bytes, TestRTU, LNO(__LINE__) "illegal word count(2001) 0x0F", "E7");
-  RTU06(1, 0x0F, 0x1020, 1, 1, bytes, TestRTU, LNO(__LINE__) "correct call 0x10", 
+  RTU06(1, 0x0F, 0x1020, 5, 12, bytes, RTUclient, LNO(__LINE__) "wrong word count 0x0F", "03");
+  RTU06(1, 0x0F, 0x1020, 0, 1, bytes, RTUclient, LNO(__LINE__) "illegal word count(0) 0x0F", "E7");
+  RTU06(1, 0x0F, 0x1020, 2001, 251, bytes, RTUclient, LNO(__LINE__) "illegal word count(2001) 0x0F", "E7");
+  RTU06(1, 0x0F, 0x1020, 1, 1, bytes, RTUclient, LNO(__LINE__) "correct call 0x10", 
         "01 0F 10 20 00 01 01 00 AD C0");
 
   // #### RTU, generateRequest(serverID, functionCode, count, arrayOfBytes) #07
-  RTU07(0, 0x20, 0x0002, bytes, TestRTU, LNO(__LINE__) "invalid server id",        "E1");
-  RTU07(1, 0xA2, 0x0002, bytes, TestRTU, LNO(__LINE__) "invalid FC>127",           "01");
+  RTU07(0, 0x20, 0x0002, bytes, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
+  RTU07(1, 0xA2, 0x0002, bytes, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
 
-  RTU07(1, 0x42, 0x0007, bytes, TestRTU, LNO(__LINE__) "correct call",
+  RTU07(1, 0x42, 0x0007, bytes, RTUclient, LNO(__LINE__) "correct call",
        "01 42 00 11 22 33 44 55 66 89 E4");
-  RTU07(1, 0x42, 0x0000, bytes, TestRTU, LNO(__LINE__) "correct call 0 bytes", "01 42 80 11");
+  RTU07(1, 0x42, 0x0000, bytes, RTUclient, LNO(__LINE__) "correct call 0 bytes", "01 42 80 11");
 
   // #### RTU, generateErrorResponse(serverID, functionCode, errorCode) #08
-  RTU08(0, 0x03, (Error)0x02, TestRTU, LNO(__LINE__) "invalid server id",      "E1");
-  RTU08(1, 0x9F, (Error)0x02, TestRTU, LNO(__LINE__) "invalid FC>127",         "01");
+  RTU08(0, 0x03, (Error)0x02, RTUclient, LNO(__LINE__) "invalid server id",      "E1");
+  RTU08(1, 0x9F, (Error)0x02, RTUclient, LNO(__LINE__) "invalid FC>127",         "01");
 
-  RTU08(1, 0x05, (Error)0xE1, TestRTU, LNO(__LINE__) "correct call", "01 85 E1 82 D8");
-  RTU08(1, 0x05, (Error)0x73, TestRTU, LNO(__LINE__) "correct call (unk.err)", "01 85 73 03 75");
+  RTU08(1, 0x05, (Error)0xE1, RTUclient, LNO(__LINE__) "correct call", "01 85 E1 82 D8");
+  RTU08(1, 0x05, (Error)0x73, RTUclient, LNO(__LINE__) "correct call (unk.err)", "01 85 73 03 75");
 
   // ******************************************************************************
   // Write test cases above this line!
@@ -950,6 +1035,116 @@ void setup()
   delay(2000);
   Serial.printf("----->    TCP loop stub tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
+
+  // ******************************************************************************
+  // Tests using RTU client and server looped together next.
+  // ******************************************************************************
+
+  // Restart test case and tests passed counter
+  testsExecuted = 0;
+  testsPassed = 0;
+
+  printPassed = true;
+
+  // Set up Serial1 and Serial2
+  Serial1.begin(19200, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
+  Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
+
+// CHeck if connections are made
+  char chkSerial[64];
+  snprintf(chkSerial, 64, "This is Serial1\n");
+  uint16_t chkLen = strlen(chkSerial);
+  uint16_t chkCnt = 0;
+  bool chkFailed = false;
+
+  Serial1.write((uint8_t *)chkSerial, chkLen);
+  Serial1.flush();
+  delay(50);
+
+  while (Serial2.available()) {
+    if (Serial2.read() == chkSerial[chkCnt]) {
+      chkCnt++;
+    }
+  }
+  if (chkCnt != chkLen) {
+    Serial.printf("Serial1 failed: %d != %d\n", chkLen, chkCnt);
+    chkFailed = true;
+  }
+
+  snprintf(chkSerial, 64, "And this is Serial2\n");
+  chkLen = strlen(chkSerial);
+  chkCnt = 0;
+
+  Serial2.write((uint8_t *)chkSerial, chkLen);
+  Serial2.flush();
+  delay(50);
+
+  while (Serial1.available()) {
+    if (Serial1.read() == chkSerial[chkCnt]) {
+      chkCnt++;
+    }
+  }
+  if (chkCnt != chkLen) {
+    Serial.printf("Serial2 failed: %d != %d\n", chkLen, chkCnt);
+    chkFailed = true;
+  }
+  if (chkFailed) {
+    Serial.println("--> Please be sure to connect GPIO_16<->GPIO_32 and GPIO_17<->GPIO_33!");
+    Serial.println("    RTU loop tests skipped.");
+  } else {
+    // Connections are as needed. Set up RTU client
+    RTUclient.onDataHandler(&handleData);
+    RTUclient.onErrorHandler(&handleError);
+    RTUclient.setTimeout(2000);
+
+    RTUclient.begin();
+
+    // Define and start RTU server
+    RTUserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
+    RTUserver.registerWorker(1, READ_INPUT_REGISTER, &FC03);     // FC=04 for serverID=1
+    RTUserver.registerWorker(1, WRITE_HOLD_REGISTER, &FC06);     // FC=06 for serverID=1
+    RTUserver.registerWorker(2, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=2
+    RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
+
+    RTUserver.start();
+
+    // Set up test memory
+    for (uint16_t i = 0; i < 32; ++i) {
+      memo[i] = (i * 2) << 8 | ((i * 2) + 1);
+    }
+    // ******************************************************************************
+    // Write test cases below this line!
+    // ******************************************************************************
+
+    // #1: read a word of data
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Read one word of data",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("01 03 02 1E 1F"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(1, 0x03, 16, 1, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
+    delay(1000);
+
+
+
+    // ******************************************************************************
+    // Write test cases above this line!
+    // ******************************************************************************
+
+    // Print summary. We will have to wait a bit to get all test cases executed!
+    delay(2000);
+    Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+  }
   Serial.println("All finished.");
 }
 
