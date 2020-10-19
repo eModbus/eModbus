@@ -37,9 +37,11 @@ The library was developed for and on ESP32 MCUs in the Arduino core development 
 - C++ standard library components
   - ``std::queue``
   - ``std::vector``
+  - ``std::list``
   - ``std::map``
   - ``std::mutex``
   - ``std::lock_guard``
+  - ``std::forward``
 
 For Modbus RTU you will need a RS485-to-Serial adaptor. Commonly used are the **RS485MAX** adaptors or the **XY-017** adaptors with automatic half duplex control.
 
@@ -57,7 +59,7 @@ We recommend to use the [PlatformIO IDE](https://platformio.org/). There, in you
 # some settings
 
 lib_deps = 
-  ModbusClient=https://github.com/...
+  ModbusClient=https://github.com/ESP32ModbusUnified/ModbusUnified
 ```
 
 If you are using the Arduino IDE, you will want to copy the library folder into your library directory. In Windows this will be  ``C:\Users\<user_name>\Documents\Arduino\libraries`` normally.
@@ -137,19 +139,19 @@ Being called, it will get the parameters
 - ``*data`` and ``data_length``: data points to a buffer containing the response message bytes, ``data_length`` gives the number of bytes in the message.
 - ``token``: this is a general concept throughout the library, so a detour is necessary.
 #### The ``token`` concept
-Each request can (and should) be given a user-defined ``token`` value. This is taken with the request and delivered again with the response the request has caused. No processing whatsoever is done on the token, you will get what you sent.
+Each request must be given a user-defined ``token`` value. This is taken with the request and delivered again with the response the request has caused. No processing whatsoever is done on the token, you will get what you sent.
 This enables a user to keep track of the sent requests when receiving a response.
 
 Imagine an application that has several ModbusClients working; some for dedicated TCP Modbus servers, another for a RS485 RTU Modbus and another again to request different TCP servers.
 
 If you only want to have a single onData and onError function handling all responses regardless of the server that sent them, you will need a means to tell one response from the other. 
 
-Your token you gave at request time will tell you that, as the response willl return exactly that token.
+Your token you gave at request time will tell you that, as the response will return exactly that token.
 
 ##### ``void onErrorHandler(MBOnError handler)``
 Very similar to the ``onDataHandler`` call, this allows to catch all error responses with a callback function. 
 
-**Note:** it is not *required* to have an error callback registered. If there is none, errors will vanish unnoticed!
+**Note:** it is not *required* to have an error callback registered. But if there is none, errors will vanish unnoticed!
 
 The ``onErrorhandler`` call accepts a function pointer with the following signature only:
 ```
@@ -191,7 +193,7 @@ The Library is providing a separate wrapper class ``ModbusError`` that can be as
 ##### ``uint32_t getMessageCount()``
 Each request that got successfully enqueued is counted. By calling ``getMessageCount()`` you will be able to read the number accumulated so far.
 
-Please note that this count is instance-specific, so any ModbusClient instance you created will have an own count.
+Please note that this count is instance-specific, so any ModbusClient instance you created will have its own count.
 
 ##### ``void begin()`` and ``void begin(int coreID)``
 This is the most important call to get a ModbusClient instance to work. It will open the request queue and start the background worker task to process the queued requests.
@@ -204,13 +206,14 @@ The second form of ``begin()`` allows you to choose a CPU core for the worker ta
 The function calls to create requests to be sent to servers will take care of the function codes defined by the Modbus standard, in terms of parameter and parameter limits checking, but will also accept other function codes from the user-defined or reserved range of codes. For these non-standard codes no parameter checks can be made, so it is up to you to have them correct!
 
 Any ``addRequest`` call will take the same ``serverID`` and ``functionCode`` parameters as first and second, plus the ``token`` value as last parameter.
-``serverID`` must not be 0 and ``functionCode`` has to be below 128, according to the Modbus standard.
+``serverID`` must not be 0 and ``functionCode`` has to be non-zero and below 128, according to the Modbus standard.
 
 There are 7 different ``addRequest`` calls, covering most of the Modbus standard function codes with their parameter lists.
 
 The function codes may be given numerically or by one of the constant names defined in ``ModbusTypeDefs.h``:
 ```
 enum FunctionCode : uint8_t {
+  ANY_FUNCTION_CODE       = 0x00,  // only valid to be used by ModbusServer!
   READ_COIL               = 0x01,
   READ_DISCR_INPUT        = 0x02,
   READ_HOLD_REGISTER      = 0x03,
@@ -337,9 +340,18 @@ There is one more ``generate`` call to create a properly formed error response m
 
 The ``errorCode`` parameter takes an ``Error`` value as defined above. The resulting message returned also will have the correct CRC16 data added to it.
 
-##### ``RTUCRC::calcCRC16(uint8_t *data, uint16_t len)``
+##### ``RTUutils::calcCRC16(uint8_t *data, uint16_t len)``
 This is a convenient method to calculate a CRC16 value for a given block of bytes. ``*data`` points to this block, ``len`` gives the number of bytes to consider.
 The call will return the 16-bit CRC16 value.
+
+##### ``bool validCRC(const uint8_t *data, uint16_t len)``
+If you got a buffer holding a Modbus message including a CRC, ``validCRC()`` will tell you if it is correct - by calculating the CRC16 again and comparing it to the last two bytes of the message buffer.
+
+##### ``bool validCRC(const uint8_t *data, uint16_t len, uint16_t CRC)``
+``validCRC()`` has a second variant, where you can provide a pre-calculated (or otherwise obtained) CRC16 to be compared to that of the given message buffer.
+
+##### ``void addCRC(RTUMessage& raw)``
+If you have a ``RTUMessage`` (see above), you can calculate a valid CRC16 tnd have it pushed o its end with ``addCRC()``.
 
 #### ModbusClientTCP API elements
 You will have to have the following include line in your code to make the ``ModbusClientTCP`` API available:
@@ -394,7 +406,7 @@ ModbusServer (aka slave) allows you to concentrate on the server functionality -
 
 You will write callback functions to handle requests for accepted function codes and register those with the ModbusServer. All requests matching one of the registered callbacks will lead to these callbacks being called to get a response, that in turn is sent back to the requester.
 
-Any request for a function code without one of your callbacks registered for it will be answered by an ILLEGAL_FUNCTION_CODE response automatically.
+Any request for a function code without one of your callbacks registered for it will be answered by an ``ILLEGAL_FUNCTION_CODE`` response automatically.
 
 ### Basic use
 Here is an example of a Modbus server running on WiFi, that reacts on function codes 0x03:``READ_HOLD_REGISTER`` and 0x04:``READ_INPUT_REGISTER`` with the same callback function.
@@ -424,7 +436,7 @@ ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   // address valid?
   if (!addr || addr > 128) {
     // No. Return error response
-    return MBserver.ErrorResponse(ILLEGAL_DATA_ADDRESS);
+    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
   }
 
   // Modbus address is 1..n, memory address 0..n-1
@@ -433,7 +445,7 @@ ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   // Number of words valid?
   if (!wrds || (addr + wrds) > 127) {
     // No. Return error response
-    return MBserver.ErrorResponse(ILLEGAL_DATA_ADDRESS);
+    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
   }
 
   // Data buffer for returned values. +1 for the leading length byte!
@@ -450,7 +462,7 @@ ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   }
 
   // Return the data response
-  return MBserver.DataResponse(wrds * 2 + 1, rdata);
+  return ModbusServer::DataResponse(wrds * 2 + 1, rdata);
 }
 
 void setup() {
@@ -523,6 +535,12 @@ where the parameters given to the callback are
 **Note**: you may specify different server identifications for registered callbacks. This way the server you are providing can cover more than one Modbus server at a time. You will have to check the requested serverID in the callback to learn which of the registered servers was meant in the request.
 
 There is no limit in registered callbacks, but a second register for a certain serverID/functionCode combination will overwrite the first without warning.
+
+**Note**: there is a special function code ``ANY_FUNCTION_CODE``, that will register your callback to any function code except those you have explicitly registered otherwise.
+This is meant for applications where the standard function code and response handling does not fit the needs of the user.
+There will be no automatic ``ILLEGAL_FUNCTION_CODE`` response any more for this server!
+You may combine this with the ``NIL_RESPONSE`` response variant described below to have a server that will gobble all incoming requests.
+With RTU, this will give you a copy of all messages directed to another server on the bus, but without interfering with it.
 
 A ``MBSworker`` callback must return a data object of ``ResponseType``. This is in fact a ``std::vector<uint8_t>`` and may be used likewise. There are basically five different ``ResponseType`` return variants:
 - ``NIL_RESPONSE``: no response at all will be sent back to the requester
@@ -605,4 +623,22 @@ It can be restarted, though, with another ``start()`` call, even with different 
 
 #### ModbusServerRTU
 
+There are a few differences to the TCP-based ModbusServers: 
+- ModbusServerRTU only has a single background task to listen for responses on the Modbus.
+- as timing is critical on the Modbus, the background task has a higher priority than others
+- a request received for another server ID not covered by this server will be ignored (rather than answered with an ``ILLEGAL_SERVER_ID`` error as with TCP)
 
+##### ``ModbusServerRTU(HardwareSerial& serial, uint32_t timeout)`` and ``ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin)``
+The first parameter, ``serial`` is mandatory, as it gives the serial interface used to connect to the RTU Modbus to the server.
+``timeout`` is less important as it is for TCP. It defines after what time of inactivity the server should loop around and re-initialize some working data.
+A value of ``20000`` (20 seconds) is reasonable.
+The third (optional) parameter ``rtsPin`` is the same as for the RTU Modbus client described above - if you are using a RS485 adaptor requiring a DE/RE line to be maintained, ``rtsPin`` should be the GPIO number of the wire to that DE/RE line. The linbrary will take care of toggling the pin.
+
+  // start: create task with RTU server to accept requests
+##### ``bool start()`` and ``bool start(int coreID)``
+With ``start()`` the server will create its background task and start listening to the Modbus. 
+The optional parameter ``coreID`` may be used to have that background task run on the named core for multi-core MCUs.
+
+##### ``bool stop()``
+The server background process can be stopped and the task be deleted with the ``stop()`` call. You may start it again with another ``start()`` afterwards.
+In fact a ``start()`` to an already running server will stop and then restart it.
