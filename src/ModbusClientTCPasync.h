@@ -9,10 +9,10 @@
 #include "ModbusMessageTCP.h"
 #include "ModbusClient.h"
 #include <list>
+#include <map>
 #include <vector>
 #include <mutex>      // NOLINT
 
-using std::list;
 using std::mutex;
 using std::lock_guard;
 using std::vector;
@@ -112,10 +112,11 @@ protected:
   void onPoll();
   void handleSendingQueue();
 
-  list<TCPRequest*> txQueue;        // Queue to hold requests to be sent
-  list<TCPRequest*> rxQueue;        // Queue to hold requests to be processed
-  mutex sLock;                      // Mutex to protect state
-  mutex qLock;                      // Mutex to protect queues
+  std::list<TCPRequest*> txQueue;           // Queue to hold requests to be sent
+  std::map<uint16_t, TCPRequest*> rxQueue;  // Queue to hold requests to be processed
+  mutex sLock;                         // Mutex to protect state
+  mutex qLock;                         // Mutex to protect queues
+
   AsyncClient MTA_client;           // Async TCP client
   uint32_t MTA_timeout;             // Standard timeout value taken
   uint32_t MTA_idleTimeout;         // Standard timeout value taken

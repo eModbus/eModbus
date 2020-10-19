@@ -42,14 +42,12 @@ ModbusClientTCPasync::~ModbusClientTCPasync() {
     lock_guard<mutex> lockguard(sLock);
     // Delete all elements from queues
     while (!txQueue.empty()) {
-      TCPRequest *r = txQueue.front();
-      delete r;
+      delete txQueue.front();
       txQueue.pop_front();
     }
-    while (!rxQueue.empty()) {
-      TCPRequest *r = rxQueue.front();
-      delete r;
-      rxQueue.pop_front();
+    for (auto it = rxQueue.cbegin(); it != rxQueue.cend();/* no increment */) {
+      delete it->second;
+      it = rxQueue.erase(it);
     }
   }
   // force close client
@@ -115,17 +113,16 @@ bool ModbusClientTCPasync::makeHead(uint8_t *data, uint16_t dataLen, uint16_t TI
 bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
   // Did we get one?
   if (request) {
-    Serial.print("request added to queue\n");
-    // Inject actual transactionID into tcpHead
-    request->tcpHead.transactionID = messageCount++;
+    //Serial.print("request added to queue\n");
     lock_guard<mutex> lockGuard(qLock);
     if (txQueue.size() + rxQueue.size() < MTA_qLimit) {
+      request->tcpHead.transactionID = messageCount++;
       // add sending time to request for timeout purposes
       request->target.timeout = millis();
       // if we're already connected, try to send and push to rxQueue
       // or push to txQueue and (re)connect
       if (MTA_state == CONNECTED && send(request)) {
-        rxQueue.push_back(request);
+        rxQueue[request->tcpHead.transactionID] = request;
       } else {
         txQueue.push_back(request);
         if (MTA_state == DISCONNECTED) {
@@ -189,12 +186,12 @@ void ModbusClientTCPasync::onDisconnected() {
     txQueue.pop_front();
   }
   while (!rxQueue.empty()) {
-    TCPRequest* r = rxQueue.front();
+    TCPRequest *r = rxQueue.begin()->second;
     if (onError) {
       onError(IP_CONNECTION_FAILED, r->getToken());
     }
     delete r;
-    rxQueue.pop_front();
+    rxQueue.erase(rxQueue.begin());
   }
 }
 
@@ -216,94 +213,101 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   // reset idle timeout
   MTA_lastActivity = millis();
 
-  TCPRequest* request = nullptr;
-  TCPResponse* response = nullptr;
-  uint16_t transactionID = 0;
-  uint16_t messageLength = 0;
-  size_t processedBytes = 0;
+  while (length > 0) {
+    Serial.printf("now processing %d\n", length);
 
-  // 1. Check for valid modbus message
+    TCPRequest* request = nullptr;
+    TCPResponse* response = nullptr;
+    uint16_t transactionID = 0;
+    uint16_t messageLength = 0;
 
-  // MBAP header is 6 bytes, we can't do anything with less
-  // total message should be longer then byte 5 (remaining length) + MBAP length
-  // remaining length should be less then 254
-  if (length > 6 &&
-      data[2] == 0 &&
-      data[3] == 0 &&
-      length >= data[5] + 6 &&
-      data[5] < 254) {
-    transactionID = data[0] << 8 | data[1];
-    messageLength = data[4] << 8 | data[5];
-    response = new TCPResponse(messageLength);
-    response->add(messageLength, &data[6]);
-    processedBytes += 6 + messageLength;
-    Serial.printf("packet validated - len %d\n", processedBytes);
-  } else {
-    // invalid packet, abort function
-    Serial.print("packet invalid\n");
-    return;
-  }
+    // 1. Check for valid modbus message
 
-  // 2. if we got a valid response, match with a request
+    // MBAP header is 6 bytes, we can't do anything with less
+    // total message should be longer then byte 5 (remaining length) + MBAP length
+    // remaining length should be less then 254
+    if (length > 6 &&
+        data[2] == 0 &&
+        data[3] == 0 &&
+        length >= data[5] + 6 &&
+        data[5] < 254) {
+      transactionID = data[0] << 8 | data[1];
+      messageLength = data[4] << 8 | data[5];
+      response = new TCPResponse(messageLength);
+      response->add(messageLength, &data[6]);
+      Serial.printf("packet validated - len %d\n", messageLength);
 
-  if (response) {
-    lock_guard<mutex> lockGuard(qLock);
-    std::list<TCPRequest*>::iterator i = rxQueue.begin();
-    Serial.print("looking for request\n");
-    while (i != rxQueue.end()) {
-      Serial.printf("rxID: %d - qID: %d\n", transactionID, (*i)->tcpHead.transactionID);
-      if ((*i)->tcpHead.transactionID == transactionID) {
+      // on next iteration: adjust remaining lengt and pointer to data
+      length -= 6 + messageLength;
+      data += 6 + messageLength;
+    } else {
+      // invalid packet, abort function
+      Serial.print("packet invalid\n");
+      // try again skipping the first byte
+      --length;
+      return;
+    }
+
+    // 2. if we got a valid response, match with a request
+
+    if (response) {
+      lock_guard<mutex> lockGuard(qLock);
+      Serial.print("looking for request\n");
+      auto i = rxQueue.find(transactionID);
+      if (i != rxQueue.end()) {
         // found it, handle it and stop iterating
-        request = *i;
+        request = i->second;
         i = rxQueue.erase(i);
         Serial.print("matched request\n");
-        break;
       } else {
-        ++i;
-      }
-    }
-  } else {
-    // TCP packet did not yield valid modbus response, abort function
-    return;
-  }
-
-  // 3. we have a valid request and a valid response, call appropriate callback
-
-  if (request) {
-    // compare request with response
-    Error error = SUCCESS;
-    if (request->getFunctionCode() != response->getFunctionCode()) {
-      error = FC_MISMATCH;
-    } else if (request->getServerID() != response->getServerID()) {
-      error = SERVER_ID_MISMATCH;
-    } else {
-      error = response->getError();
-    }
-    if (error == SUCCESS) {
-      if (onData) {
-        onData(response->getServerID(), response->getFunctionCode(), response->data(), response->len(), request->getToken());
+        // TCP packet did not yield valid modbus response, abort function
+        Serial.print("no matching request found\n");
+        return;
       }
     } else {
-      if (onError) {
-        onError(response->getError(), request->getToken());
-      }
+      // response was not set
+      return;
     }
-    delete request;
-  }
-  delete response;
+
+    // 3. we have a valid request and a valid response, call appropriate callback
+
+    if (request) {
+      // compare request with response
+      Error error = SUCCESS;
+      if (request->getFunctionCode() != response->getFunctionCode()) {
+        error = FC_MISMATCH;
+      } else if (request->getServerID() != response->getServerID()) {
+        error = SERVER_ID_MISMATCH;
+      } else {
+        error = response->getError();
+      }
+      if (error == SUCCESS) {
+        if (onData) {
+          onData(response->getServerID(), response->getFunctionCode(), response->data(), response->len(), request->getToken());
+        }
+      } else {
+        if (onError) {
+          onError(response->getError(), request->getToken());
+        }
+      }
+      delete request;
+    }
+    delete response;
+
+  }  // end processing of incoming data
 }
 
 void ModbusClientTCPasync::onPoll() {
   lock_guard<mutex> lockGuard(qLock);
 
-  Serial.printf("Queue sizes: tx: %d rx: %d\n", txQueue.size(), rxQueue.size());
+  //Serial.printf("Queue sizes: tx: %d rx: %d\n", txQueue.size(), rxQueue.size());
 
   // try to send whatever is waiting
   handleSendingQueue();
 
   // next check if timeout has struck for oldest request
   if (!rxQueue.empty()) {
-    TCPRequest* request = rxQueue.front();
+    TCPRequest* request = rxQueue.begin()->second;
     if (millis() - request->target.timeout > MTA_timeout) {
       Serial.print("request timeouts\n");
       // oldest element timeouts, call onError and clean up
@@ -312,7 +316,7 @@ void ModbusClientTCPasync::onPoll() {
         onError(TIMEOUT, request->getToken());
       }
       delete request;
-      rxQueue.pop_front();
+      rxQueue.erase(rxQueue.begin());
     }
   }
 
@@ -330,18 +334,18 @@ void ModbusClientTCPasync::handleSendingQueue() {
   // try to send everything we have waiting
   std::list<TCPRequest*>::iterator i = txQueue.begin();
   while (i != txQueue.end()) {
-    Serial.print("we are trying to send");
+    //Serial.print("we are trying to send");
     // get the actual element
     TCPRequest* r = *i;
     if (send(r)) {
       // after sending, update timeout value, add to other queue and remove from this queue
       r->target.timeout = millis();
-      rxQueue.push_back(r);      // push request to other queue
+      rxQueue[r->tcpHead.transactionID] = r;      // push request to other queue
       i = txQueue.erase(i);  // remove from toSend queue and point i to next request
-      Serial.print("-ok\n");
+      //Serial.print("-ok\n");
     } else {
       // sending didn't succeed, try next request
-      Serial.print("-nok\n");
+      //Serial.print("-nok\n");
       ++i;
     }
   }
