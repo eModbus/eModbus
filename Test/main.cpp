@@ -1051,7 +1051,7 @@ void setup()
   testsExecuted = 0;
   testsPassed = 0;
 
-  printPassed = true;
+  printPassed = false;
 
   // Set up Serial1 and Serial2
   Serial1.begin(19200, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
@@ -1213,6 +1213,82 @@ void setup()
     if (e != SUCCESS) {
       testOutput(tc->testname, tc->name, tc->expected, { e });
     }
+
+    // #6: invalid FC
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Invalid function code",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("01"), 
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(1, 0x07, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
+
+    // #7: invalid server id
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Invalid server ID",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("E0"), 
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(3, 0x07, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
+    delay(2000);   // #7 results in timeout, so wat a bit.
+
+    // #8: NIL_RESPONSE (aka timeout)
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "NIL_RESPONSE",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("E0"), 
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(2, USER_DEFINED_41, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
+    delay(2000);   // #8 results in timeout, so wat a bit.
+
+    // #9: Error response
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Error response",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("02"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(1, 0x03, 45, 1, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
+
+
 
     // ******************************************************************************
     // Write test cases above this line!
