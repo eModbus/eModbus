@@ -10,10 +10,33 @@
 #include <Arduino.h>
 
 // Struct describing the TCP header of Modbus packets
-struct ModbusTCPhead {
+class ModbusTCPhead {
+public:
+  ModbusTCPhead() :
+  transactionID(0),
+  protocolID(0),
+  len(0) {}
+  ModbusTCPhead(uint16_t tid, uint16_t pid, uint16_t _len) :
+  transactionID(tid),
+  protocolID(pid),
+  len(_len) {}
   uint16_t transactionID;     // Caller-defined identification
   uint16_t protocolID;        // const 0x0000
   uint16_t len;               // Length of remainder of TCP packet
+  inline explicit operator const uint8_t *() {
+    addValue(headRoom, 6, transactionID);
+    addValue(headRoom + 2, 4, protocolID);
+    addValue(headRoom + 4, 2, len);
+    return headRoom;
+  }
+  inline ModbusTCPhead& operator= (ModbusTCPhead& t) {
+    transactionID = t.transactionID;
+    protocolID    = t.protocolID;
+    len           = t.len;
+    return *this;
+  }
+protected:
+  uint8_t headRoom[6];        // Buffer to hold MSB-first TCP header
 };
 
 // Struct describing a target server

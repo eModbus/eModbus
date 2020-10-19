@@ -87,28 +87,6 @@ void ModbusClientTCPasync::setIdleTimeout(uint32_t timeout) {
   MTA_idleTimeout = timeout;
 }
 
-// makeHead: helper function to set up a MSB TCP header
-bool ModbusClientTCPasync::makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN) {
-  uint16_t headlong = 6;
-  uint16_t offs = 0;
-  uint16_t ptr = 0;
-
-  if (dataLen < headlong) return false;   // Will not fit
-  if (data == nullptr) return false;      // No data allocated?
-
-  offs = addValue(data + ptr, headlong, TID);
-  headlong -= offs;
-  ptr += offs;
-  offs = addValue(data + ptr, headlong, PID);
-  headlong -= offs;
-  ptr += offs;
-  offs = addValue(data + ptr, headlong, LEN);
-  headlong -= offs;
-  // headlong should be 0 here!
-  if (headlong) return false;
-  return true;
-}
-
 // addToQueue: send freshly created request to queue
 bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
   // Did we get one?
@@ -133,33 +111,6 @@ bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
     }
   }
   return false;
-}
-
-// Move complete message data including tcpHead into a std::vector
-vector<uint8_t> ModbusClientTCPasync::vectorize(uint16_t transactionID, TCPRequest *request, Error err) {
-  vector<uint8_t> rv;       /// Returned std::vector
-
-  // Was the message generated?
-  if (err != SUCCESS) {
-    // No. Return the Error code only - vector size is 1
-    rv.reserve(1);
-    rv.push_back(err);
-  // If it was successful - did we get a message?
-  } else if (request) {
-    // Yes, obviously. 
-    // Resize the vector to take tcpHead (6 bytes) + message proper
-    rv.reserve(request->len() + 6);
-    rv.resize(request->len() + 6);
-
-    // Do a fast (non-C++-...) copy
-    uint8_t *cp = rv.data();
-    // Copy in TCP header
-    makeHead(cp, 6, transactionID, request->tcpHead.protocolID, request->tcpHead.len);
-    // Copy in message contents
-    memcpy(cp + 6, request->data(), request->len());
-  }
-  // Bring back the vector
-  return rv;
 }
 
 void ModbusClientTCPasync::onConnected() {
@@ -354,19 +305,15 @@ void ModbusClientTCPasync::handleSendingQueue() {
 bool ModbusClientTCPasync::send(TCPRequest* request) {
   // check if TCP client is able to send
   if (MTA_client.space() > request->len() + 6) {
-    // tcpHead is not yet in MSB order:
-    uint8_t head[6];
-    if (makeHead(head, 6, request->tcpHead.transactionID, request->tcpHead.protocolID, request->tcpHead.len)) {
-      // Write TCP header first
-      MTA_client.add(reinterpret_cast<char*>(head), 6);
-      // Request comes next
-      MTA_client.add(reinterpret_cast<const char*>(request->data()), request->len());
-      // done
-      MTA_client.send();
-      // reset idle timeout
-      MTA_lastActivity = millis();
-      return true;
-    }
+    // Write TCP header first
+    MTA_client.add(reinterpret_cast<const char *>((const uint8_t *)(request->tcpHead)), 6);
+    // Request comes next
+    MTA_client.add(reinterpret_cast<const char*>(request->data()), request->len());
+    // done
+    MTA_client.send();
+    // reset idle timeout
+    MTA_lastActivity = millis();
+    return true;
   }
   return false;
 }
@@ -377,8 +324,7 @@ TCPResponse* ModbusClientTCPasync::errorResponse(Error e, TCPRequest *request) {
   errResponse->add(request->getServerID());
   errResponse->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));
   errResponse->add(static_cast<uint8_t>(e));
-  errResponse->tcpHead.transactionID = request->tcpHead.transactionID;
-  errResponse->tcpHead.protocolID = request->tcpHead.protocolID;
+  errResponse->tcpHead = request->tcpHead;
   errResponse->tcpHead.len = 3;
 
   return errResponse;

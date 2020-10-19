@@ -71,8 +71,26 @@ public:
     // Create request, if valid
     TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, std::forward<Args>(args) ..., 0xDEADDEAD);
 
-    // Put it in the return std::vector
-    rv = vectorize(transactionID, r, rc);
+    // Was the message generated?
+    if (rc != SUCCESS) {
+      // No. Return the Error code only - vector size is 1
+      rv.reserve(1);
+      rv.push_back(rc);
+    // If it was successful - did we get a message?
+    } else if (r) {
+      // Yes, obviously. 
+      // Resize the vector to take tcpHead (6 bytes) + message proper
+      rv.reserve(r->len() + 6);
+      rv.resize(r->len() + 6);
+      r->tcpHead.transactionID = transactionID;
+
+      // Do a fast (non-C++-...) copy
+      uint8_t *cp = rv.data();
+      // Copy in TCP header
+      memcpy(cp, (const uint8_t *)r->tcpHead, 6);
+      // Copy in message contents
+      memcpy(cp + 6, r->data(), r->len());
+    }
     
     // Delete request again, if one was created
     if (r) delete r;
@@ -82,9 +100,6 @@ public:
   }
 
 protected:
-// makeHead: helper function to set up a MSB TCP header
-  bool makeHead(uint8_t *data, uint16_t dataLen, uint16_t TID, uint16_t PID, uint16_t LEN);
-
   // addToQueue: send freshly created request to queue
   bool addToQueue(TCPRequest *request);
 
@@ -96,9 +111,6 @@ protected:
 
   // Create standard error response 
   TCPResponse* errorResponse(Error e, TCPRequest *request);
-
-  // Move complete message data including tcpHead into a std::vector
-  vector<uint8_t> vectorize(uint16_t transactionID, TCPRequest *request, Error err);
 
   void isInstance() { return; }     // make class instantiable
 

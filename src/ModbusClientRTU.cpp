@@ -76,33 +76,6 @@ bool ModbusClientRTU::addToQueue(RTURequest *request) {
   return rc;
 }
 
-// Move complete message data including CRC into a std::vector
-RTUMessage ModbusClientRTU::vectorize(RTURequest *request, Error err) {
-  RTUMessage rv;       /// Returned std::vector
-
-  // Was the message generated?
-  if (err != SUCCESS) {
-    // No. Return the Error code only - vector size is 1
-    rv.reserve(1);
-    rv.push_back(err);
-  // If it was successful - did we get a message?
-  } else if (request) {
-    // Yes, obviously. 
-    // Resize the vector to take message proper plus CRC (2 bytes)
-    rv.reserve(request->len() + 2);
-    rv.resize(request->len() + 2);
-
-    // Do a fast (non-C++-...) copy
-    uint8_t *cp = rv.data();
-    // Copy in message contents
-    memcpy(cp, request->data(), request->len());
-    cp[request->len()] = (request->CRC) & 0xFF;
-    cp[request->len() + 1] = (request->CRC >> 8) & 0xFF;
-  }
-  // Bring back the vector
-  return rv;
-}
-
 // Method to generate an error response - properly ende by CRC
 RTUMessage ModbusClientRTU::generateErrorResponse(uint8_t serverID, uint8_t functionCode, Error errorCode) {
   RTUMessage rv;       // Returned std::vector

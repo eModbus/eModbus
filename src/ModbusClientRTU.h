@@ -50,8 +50,25 @@ RTUMessage generateRequest(Args&&... args) {
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, std::forward<Args>(args) ..., 0xDEADDEAD);
 
-  // Put it in the return std::vector
-  rv = vectorize(r, rc);
+  // Was the message generated?
+  if (rc != SUCCESS) {
+    // No. Return the Error code only - vector size is 1
+    rv.reserve(1);
+    rv.push_back(rc);
+  // If it was successful - did we get a message?
+  } else if (r) {
+    // Yes, obviously. 
+    // Resize the vector to take message proper plus CRC (2 bytes)
+    rv.reserve(r->len() + 2);
+    rv.resize(r->len() + 2);
+
+    // Do a fast (non-C++-...) copy
+    uint8_t *cp = rv.data();
+    // Copy in message contents
+    memcpy(cp, r->data(), r->len());
+    cp[r->len()] = (r->CRC) & 0xFF;
+    cp[r->len() + 1] = (r->CRC >> 8) & 0xFF;
+  }
   
   // Delete request again, if one was created
   if (r) delete r;
@@ -84,9 +101,6 @@ protected:
 
   // receive: get response via Serial
   RTUResponse* receive(RTURequest *request);
-
-  // Move complete message data including CRC into a std::vector
-  RTUMessage vectorize(RTURequest *request, Error err);
 
   void isInstance() { return; }   // make class instantiable
   queue<RTURequest *> requests;   // Queue to hold requests to be processed
