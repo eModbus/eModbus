@@ -10,6 +10,7 @@
 namespace Modbus {
 
 enum FunctionCode : uint8_t {
+  ANY_FUNCTION_CODE       = 0x00, // Only valid for server to register function codes
   READ_COIL               = 0x01,
   READ_DISCR_INPUT        = 0x02,
   READ_HOLD_REGISTER      = 0x03,

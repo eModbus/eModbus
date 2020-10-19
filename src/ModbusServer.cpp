@@ -22,6 +22,14 @@ MBSworker ModbusServer::getWorker(uint8_t serverID, uint8_t functionCode) {
     if (fcmap != svmap->second.end()) {
       // Yes. Return the function pointer for it.
       return fcmap->second;
+      // No, no explicit worker found, but may be there is one for ANY_FUNCTION_CODE?
+    } else {
+      fcmap = svmap->second.find(ANY_FUNCTION_CODE);;
+      // Found it?
+      if (fcmap != svmap->second.end()) {
+        // Yes. Return the function pointer for it.
+        return fcmap->second;
+      }
     }
   }
   // No matching function pointer found
