@@ -40,7 +40,7 @@ ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   // address valid?
   if (!addr || addr > 32) {
     // No. Return error response
-    return RTUserver.ErrorResponse(ILLEGAL_DATA_ADDRESS);
+    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
   }
 
   // Modbus address is 1..n, memory address 0..n-1
@@ -49,7 +49,7 @@ ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   // Number of words valid?
   if (!wrds || (addr + wrds) > 32) {
     // No. Return error response
-    return RTUserver.ErrorResponse(ILLEGAL_DATA_ADDRESS);
+    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
   }
 
   // Data buffer for returned values. +1 for the leading length byte!
@@ -67,7 +67,7 @@ ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   }
 
   // Return the data response
-  return RTUserver.DataResponse(wrds * 2 + 1, rdata);
+  return ModbusServer::DataResponse(wrds * 2 + 1, rdata);
 }
 
 // Worker function function code 0x06
@@ -83,7 +83,7 @@ ResponseType FC06(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   // address valid?
   if (!addr || addr > 32) {
     // No. Return error response
-    return RTUserver.ErrorResponse(ILLEGAL_DATA_ADDRESS);
+    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
   }
 
   // Modbus address is 1..n, memory address 0..n-1
@@ -92,7 +92,7 @@ ResponseType FC06(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   // Fake data error - 0x0000 or 0xFFFF will not be accepted
   if (!value || value == 0xFFFF) {
     // No. Return error response
-    return RTUserver.ErrorResponse(ILLEGAL_DATA_VALUE);
+    return ModbusServer::ErrorResponse(ILLEGAL_DATA_VALUE);
   }
 
   // Fill in new value.
@@ -106,6 +106,13 @@ ResponseType FC06(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
 ResponseType FC41(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
   // return nothing to test timeout
   return NIL_RESPONSE;
+}
+
+// Worker function for any function code
+ResponseType FCany(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+  // return nothing to test timeout
+  uint8_t resp[] = "ANY FC";
+  return ModbusServer::DataResponse(6, resp);
 }
 
 // testOutput:  takes the test function name called, the test case name and expected and recieved messages,
@@ -1105,6 +1112,7 @@ void setup()
     RTUserver.registerWorker(1, WRITE_HOLD_REGISTER, &FC06);     // FC=06 for serverID=1
     RTUserver.registerWorker(2, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=2
     RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
+    RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=41 for serverID=2
 
     RTUserver.start();
 
@@ -1133,7 +1141,6 @@ void setup()
     if (e != SUCCESS) {
       testOutput(tc->testname, tc->name, tc->expected, { e });
     }
-    delay(1000);
 
     // #2: write a word of data
     tc = new TestCase { 
@@ -1152,7 +1159,6 @@ void setup()
     if (e != SUCCESS) {
       testOutput(tc->testname, tc->name, tc->expected, { e });
     }
-    delay(1000);
 
     // #3: read several words
     tc = new TestCase { 
@@ -1171,7 +1177,42 @@ void setup()
     if (e != SUCCESS) {
       testOutput(tc->testname, tc->name, tc->expected, { e });
     }
-    delay(1000);
+
+    // #4: use explicit worker
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Explicit worker FC03",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("02 03 08 C9 C8 C7 C6 C5 C4 C3 C2"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(2, READ_HOLD_REGISTER, 28, 4, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
+
+    // #5: use default worker
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Default worker FC07",
+      .transactionID = 0,
+      .token = Token++,
+      .response = {},
+      .expected = makeVector("02 07 41 4E 59 20 46 43"),  // "ANY FC"
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(2, 0x07, tc->token);
+    if (e != SUCCESS) {
+      testOutput(tc->testname, tc->name, tc->expected, { e });
+    }
 
     // ******************************************************************************
     // Write test cases above this line!
