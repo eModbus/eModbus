@@ -160,21 +160,21 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
           // No. Return error response
           response = new RTUResponse(3);
           response->add(request->getServerID());
-          response->add(request->getFunctionCode() | 0x80);
+          response->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));
           response->add(SERVER_ID_MISMATCH);
         // ServerID ok, but does the FC match as well?
         } else if (request->getFunctionCode() != (rv[1] & 0x7F)) {
           // No. Return error response
           response = new RTUResponse(3);
           response->add(request->getServerID());
-          response->add(request->getFunctionCode() | 0x80);
+          response->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));
           response->add(FC_MISMATCH);
         // Both serverID and FC are ok - how about the CRC?
         } else if (!RTUutils::validCRC(rv.data(), rv.size())) {
           // CRC faulty - return error
           response = new RTUResponse(3);
           response->add(request->getServerID());
-          response->add(request->getFunctionCode() | 0x80);
+          response->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));
           response->add(CRC_ERROR);
         // Everything seems okay
         } else {
@@ -188,16 +188,8 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
         // Return it as error response
         response = new RTUResponse(3);
         response->add(request->getServerID());
-        response->add(request->getFunctionCode() | 0x80);
+        response->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));
         response->add(rv[0]);
-        /*
-        Serial.printf("SRV got error: ");
-        for (uint16_t i = 0; i < 3; ++i) {
-          Serial.printf("%02X ", response->data()[i]);
-        }
-        Serial.println();
-        Serial.flush();
-        */
       }
 
       // Did we get a normal response?
