@@ -235,10 +235,13 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
 // send: send request via Client connection
 void ModbusClientTCP::send(TCPRequest *request) {
   // We have a established connection here, so we can write right away.
-  // Write TCP header first
-  MT_client.write((const uint8_t *)request->tcpHead, 6);
-  // Request comes next
-  MT_client.write(request->data(), request->len());
+  // Move tcpHead and request into one continuous buffer, since the very first request tends to 
+  // take too long to be sent to be recognized.
+  uint16_t rl = request->len();
+  uint8_t sbuf[rl + 6];
+  memcpy(sbuf, (const uint8_t *)request->tcpHead, 6);
+  memcpy(sbuf + 6, request->data(), rl);
+  MT_client.write(sbuf, rl + 6);
   // Done. Are we?
   MT_client.flush();
 }
