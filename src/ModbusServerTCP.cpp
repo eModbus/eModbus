@@ -152,7 +152,7 @@ void CLASSNAME::worker(ClientData *myData) {
       response.clear();
       TCPMessage m = myParent->receive(myClient, 100);
 
-      // Serial.print(" Request: ");
+      // Serial.print(" Request received: ");
       // for (auto& byte : m) { Serial.printf(" %02X", byte); }
       // Serial.println();
 
@@ -173,6 +173,10 @@ void CLASSNAME::worker(ClientData *myData) {
           if (callBack) {
             // Yes, we do. Invoke the worker method to get a response
             ResponseType data = callBack(m[6], m[7], m.size() - 8, m.data() + 8);
+            // for (auto& byte : data) {
+            //   Serial.printf("%02X ", byte);
+            // }
+            // Serial.println("data received");
             // Process Response
             // One of the predefined types?
             if (data[0] == 0xFF && (data[1] == 0xF0 || data[1] == 0xF1 || data[1] == 0xF2 || data[1] == 0xF3)) {
@@ -192,13 +196,17 @@ void CLASSNAME::worker(ClientData *myData) {
                 response.push_back(data[2]);
                 break;
               case 0xF3: // DATA
-                response[4] = ((data.size() - 2) >> 8) & 0xFF;
-                response[5] = (data.size() - 2) & 0xFF;
+                response[4] = (data.size() >> 8) & 0xFF;
+                response[5] = data.size() & 0xFF;
                 response.push_back(m[6]);
                 response.push_back(m[7]);
                 for (auto byte = data.begin() + 2; byte < data.end(); ++byte) {
                   response.push_back(*byte);
                 }
+                // for (auto& byte : response) {
+                //   Serial.printf("%02X ", byte);
+                // }
+                // Serial.println("Response generated");
                 break;
               default:   // Will not get here!
                 break;
@@ -277,6 +285,7 @@ TCPMessage CLASSNAME::receive(CLIENTTYPE client, uint32_t timeWait) {
       while (client.available()) {
         m.push_back(client.read());
       }
+      delay(1);
       // Rewind EOT and timeout timers
       lastMillis = millis();
     }
