@@ -246,7 +246,7 @@ void CLASSNAME::worker(ClientData *myData) {
       if (response.size() >= 8) {
         // Yes. Do it now.
         myClient.write(response.data(), response.size());
-        myClient.flush();
+        // myClient.flush();
       }
       // We did something communicationally - rewind timeout timer
       myLastMessage = millis();
@@ -276,20 +276,35 @@ void CLASSNAME::worker(ClientData *myData) {
 TCPMessage CLASSNAME::receive(CLIENTTYPE client, uint32_t timeWait) {
   uint32_t lastMillis = millis();     // Timer to check for timeout
   TCPMessage m;                       // vector to take read data
+  register uint16_t lengthVal = 0;
+  register uint16_t cnt = 0;
+  uint8_t buffer[300];
 
   // wait for packet data or timeout
   while (millis() - lastMillis < timeWait) {
     // Is there data waiting?
     if (client.available()) {
       // Yes. catch as much as is there and fits into buffer
-      while (client.available()) {
-        m.push_back(client.read());
+      while (client.available() && ((cnt < 6) || (cnt < lengthVal))) {
+        buffer[cnt] = client.read();
+        if (cnt == 4) lengthVal = buffer[cnt] << 8;
+        if (cnt == 5) {
+          lengthVal |= buffer[cnt];
+          lengthVal += 6;
+        }
+        cnt++;
       }
       delay(1);
       // Rewind EOT and timeout timers
       lastMillis = millis();
     }
     delay(1); // Give scheduler room to breathe
+  }
+  if (cnt) {
+    uint16_t i = 0;
+    while (cnt--) {
+      m.push_back(buffer[i++]);
+    }
   }
   return m;
 }
