@@ -61,7 +61,6 @@ void ModbusClientTCPasync::connect() {
   // only connect if disconnected
   if (MTA_state == DISCONNECTED) {
     MTA_state = CONNECTING;
-    MTA_lastActivity = millis();
     MTA_client.connect(MTA_target.host, MTA_target.port);
   }
 }
@@ -69,12 +68,7 @@ void ModbusClientTCPasync::connect() {
 // manually disconnect from modbus server. Connection will also auto close after idle time
 void ModbusClientTCPasync::disconnect(bool force) {
   Serial.print("disconnecting\n");
-  lock_guard<mutex> lockGuard(sLock);
-  // only disconnect if connected
-  if (MTA_state == CONNECTED) {
-    MTA_state = DISCONNECTING;
-    MTA_client.close(force);
-  }
+  MTA_client.close(force);
 }
 
 // Set timeout value
@@ -315,7 +309,6 @@ bool ModbusClientTCPasync::send(TCPRequest* request) {
     // done
     MTA_client.send();
     // reset idle timeout
-    MTA_lastActivity = millis();
     return true;
   }
   return false;

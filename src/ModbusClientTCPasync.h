@@ -137,8 +137,7 @@ protected:
   enum {
     DISCONNECTED,
     CONNECTING,
-    CONNECTED,
-    DISCONNECTING
+    CONNECTED
   } MTA_state;                      // TCP connection state
   TargetHost MTA_target;            // dummy target
 };
