@@ -249,6 +249,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
 }
 
 void ModbusClientTCPasync::onPoll() {
+  {
   lock_guard<mutex> lockGuard(qLock);
 
   //Serial.printf("Queue sizes: tx: %d rx: %d\n", txQueue.size(), rxQueue.size());
@@ -270,6 +271,8 @@ void ModbusClientTCPasync::onPoll() {
       rxQueue.erase(rxQueue.begin());
     }
   }
+    
+  }  // end lockguard scope
 
   // if nothing happened during idle timeout, gracefully close connection
   if (millis() - MTA_lastActivity > MTA_idleTimeout) {
