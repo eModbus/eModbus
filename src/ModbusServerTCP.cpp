@@ -246,7 +246,7 @@ void CLASSNAME::worker(ClientData *myData) {
       if (response.size() >= 8) {
         // Yes. Do it now.
         myClient.write(response.data(), response.size());
-        // myClient.flush();
+        myClient.flush();
       }
       // We did something communicationally - rewind timeout timer
       myLastMessage = millis();
@@ -269,7 +269,7 @@ void CLASSNAME::worker(ClientData *myData) {
 
   myData->task = nullptr;
   delay(50);
-  vTaskDelete(myTask);
+  vTaskDelete(NULL);
 }
 
 // receive: get request via Client connection

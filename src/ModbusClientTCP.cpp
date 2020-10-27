@@ -144,7 +144,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         */
 
       // Empty the RX buffer - just in case...
-      while (instance->MT_client.available()) instance->MT_client.read();
+      // while (instance->MT_client.available()) instance->MT_client.read();
 
       // check if lastHost/lastPort!=host/port off the queued request
       if (instance->MT_lastTarget.host != request->target.host || instance->MT_lastTarget.port != request->target.port) {
