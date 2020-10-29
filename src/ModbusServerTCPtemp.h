@@ -45,12 +45,14 @@ protected:
 
   struct ClientData {
     ClientData() : task(nullptr), client(0), timeout(0), parent(nullptr) {}
+    ClientData(TaskHandle_t t, CT& c, uint32_t to, ModbusServerTCP<ST, CT> *p) : 
+      task(t), client(c), timeout(to), parent(p) {}
     TaskHandle_t task;
     CT client;
     uint32_t timeout;
     ModbusServerTCP<ST, CT> *parent;
   };
-  ClientData *clients;
+  ClientData **clients;
 
   // serve: loop function for server task
   static void serve(ModbusServerTCP<ST, CT> *myself);
@@ -65,7 +67,7 @@ protected:
   bool accept(CT& client, uint32_t timeout, int coreID = -1);
 
   // clientAvailable: return true,. if a client slot is currently unused
-  inline bool clientAvailable() { return numClients - activeClients() > 0; }
+  bool clientAvailable() { return (numClients - activeClients()) > 0; }
 };
 
 // Constructor
@@ -76,12 +78,17 @@ ModbusServerTCP<ST, CT>::ModbusServerTCP() :
   serverTask(nullptr),
   serverPort(502),
   serverTimeout(20000) {
-    clients = new ClientData[numClients];
+    clients = new ClientData*[numClients]();
    }
 
 // Destructor: closes the connections
 template <typename ST, typename CT>
 ModbusServerTCP<ST, CT>::~ModbusServerTCP() {
+  for (uint8_t i = 0; i < numClients; ++i) {
+    if (clients[i] != nullptr) {
+      delete clients[i];
+    }
+  }
   delete[] clients;
 }
 
@@ -90,7 +97,16 @@ template <typename ST, typename CT>
 uint16_t ModbusServerTCP<ST, CT>::activeClients() {
   uint8_t cnt = 0;
   for (uint8_t i = 0; i < numClients; ++i) {
-    if (clients[i].task != nullptr) cnt++;
+    // Current slot could have been previously used - look for cleared task handles
+    if (clients[i] != nullptr) {
+      // Empty task handle?
+      if (clients[i]->task == nullptr) {
+        // Yes. Delete entry and init client pointer
+        delete clients[i];
+        clients[i] = nullptr;
+      }
+    }
+    if (clients[i] != nullptr) cnt++;
   }
   return cnt;
 }
@@ -103,19 +119,13 @@ template <typename ST, typename CT>
       // Yes. stop it first
       stop();
     }
-    // Do we have a ClientData array already?
-    if (clients) {
-      // Yes. Does the required number of slots fit?
-      if (numClients != maxClients) {
-        // No. Drop array and allocate a new one
-        delete[] clients;
-        numClients = maxClients;
-        clients = new ClientData[numClients];
-      }
-    } else {
-      // No, no array allocated. Create a fresh one
+    // Does the required number of slots fit?
+    if (numClients != maxClients) {
+      // No. Drop array and allocate a new one
+      delete[] clients;
+      // Now allocate a new one
       numClients = maxClients;
-      clients = new ClientData[numClients];
+      clients = new ClientData*[numClients]();
     }
     serverPort = port;
     serverTimeout = timeout;
@@ -127,8 +137,6 @@ template <typename ST, typename CT>
     // Start task to handle the client
     xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
 
-    Serial.printf("Created server task %d\n", (uint32_t)serverTask);
-
     return true;
   }
 
@@ -138,13 +146,14 @@ template <typename ST, typename CT>
     // Check for clients still connected
     for (uint8_t i = 0; i < numClients; ++i) {
       // Client is alive?
-      if (clients[i].task != nullptr) {
+      if (clients[i] != nullptr) {
         // Yes. Close the connection
-        clients[i].client.stop();
+        clients[i]->client.stop();
         delay(50);
         // Kill the client task
-        vTaskDelete(clients[i].task);
-        clients[i].task = nullptr;
+        vTaskDelete(clients[i]->task);
+        delete clients[i];
+        clients[i] = nullptr;
       }
     }
     if (serverTask != nullptr) {
@@ -159,17 +168,17 @@ template <typename ST, typename CT>
 bool ModbusServerTCP<ST, CT>::accept(CT& client, uint32_t timeout, int coreID) {
   // Look for an empty client slot
   for (uint8_t i = 0; i < numClients; ++i) {
-    if (clients[i].task == nullptr) {
-      clients[i].client = client;
-      clients[i].timeout = timeout;
-      clients[i].parent = this;
+    // Empty slot?
+    if (clients[i] == nullptr) {
+      // Yes. allocate new client data in slot
+      clients[i] = new ClientData(0, client, timeout, this);
 
       // Create unique task name
       char taskName[12];
       snprintf(taskName, 12, "MBsrv%02Xclnt", i);
 
       // Start task to handle the client
-      xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, &clients[i], 5, &clients[i].task, coreID >= 0 ? coreID : NULL);
+      xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, clients[i], 5, &clients[i]->task, coreID >= 0 ? coreID : NULL);
 
       return true;
     }
@@ -208,12 +217,10 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   // Get own reference data in handier form
   CT myClient = myData->client;
   uint32_t myTimeOut = myData->timeout;
-  TaskHandle_t myTask = myData->task;
+  // TaskHandle_t myTask = myData->task;
   ModbusServerTCP<ST, CT> *myParent = myData->parent;
   uint32_t myLastMessage = millis();
   ResponseType response;               // Data buffer to hold prepared response
-
-  Serial.printf("Worker started: %d\n", (uint32_t)myTask);
 
   // loop forever, if timeout is 0, or until timeout was hit
   while (myClient.connected() && (!myTimeOut || (millis() - myLastMessage < myTimeOut))) {
@@ -334,10 +341,8 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   // Hack to remove the response vector from memory
   vector<uint8_t>().swap(response);
 
-  Serial.printf("Sent stop - task %d killing itself\n", (uint32_t)myTask);
-  Serial.flush();
-
   myData->task = nullptr;
+
   delay(50);
   vTaskDelete(NULL);
 }
