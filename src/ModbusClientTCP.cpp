@@ -132,20 +132,6 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
       TCPRequest *request = instance->requests.front();
       doNotPop = false;
 
-/*
-      Serial.printf("Target: %d.%d.%d.%d/%d Timeout=%d Interval=%d\n", 
-        request->target.host[0], 
-        request->target.host[1], 
-        request->target.host[2], 
-        request->target.host[3], 
-        request->target.port, 
-        request->target.timeout, 
-        request->target.interval);
-        */
-
-      // Empty the RX buffer - just in case...
-      // while (instance->MT_client.available()) instance->MT_client.read();
-
       // check if lastHost/lastPort!=host/port off the queued request
       if (instance->MT_lastTarget.host != request->target.host || instance->MT_lastTarget.port != request->target.port) {
         // It is different. If client is connected, disconnect
@@ -162,6 +148,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
       }
       // if client is disconnected (we will have to switch hosts)
       if (!instance->MT_client.connected()) {
+        Serial.println("Client reconnecting");
         // It is disconnected. connect to host/port from queue
         instance->MT_client.connect(request->target.host, request->target.port);
 
