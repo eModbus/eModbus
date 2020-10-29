@@ -2,13 +2,75 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
-#include "ModbusServerTCP.h"
+#ifndef _MODBUS_SERVER_TCP_TEMP_H
+#define _MODBUS_SERVER_TCP_TEMP_H
 
-// #ifndef CLIENTTYPE
-#ifdef CLIENTTYPE
+#include <Arduino.h>
+
+#include "ModbusServer.h"
+
+extern "C" {
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+}
+
+using std::vector;
+using TCPMessage = std::vector<uint8_t>;
+
+template <typename ST, typename CT>
+class ModbusServerTCP : public ModbusServer {
+public:
+  // Constructor
+  ModbusServerTCP();
+
+  // Destructor: closes the connections
+  ~ModbusServerTCP();
+
+  // activeClients: return number of clients currently employed
+  uint16_t activeClients();
+
+  // start: create task with TCP server to accept requests
+  bool start(uint16_t port, uint8_t maxClients, uint32_t timeout, int coreID = -1);
+
+  // stop: drop all connections and kill server task
+  bool stop();
+
+protected:
+  inline void isInstance() { }
+
+  uint8_t numClients;
+  TaskHandle_t serverTask;
+  uint16_t serverPort;
+  uint32_t serverTimeout;
+
+  struct ClientData {
+    ClientData() : task(nullptr), client(0), timeout(0), parent(nullptr) {}
+    TaskHandle_t task;
+    CT client;
+    uint32_t timeout;
+    ModbusServerTCP<ST, CT> *parent;
+  };
+  ClientData *clients;
+
+  // serve: loop function for server task
+  static void serve(ModbusServerTCP<ST, CT> *myself);
+
+  // worker: loop function for client tasks
+  static void worker(ClientData *myData);
+
+  // receive: read data from TCP
+  TCPMessage receive(CT& client, uint32_t timeWait);
+
+  // accept: start a task to receive requests and respond to a given client
+  bool accept(CT& client, uint32_t timeout, int coreID = -1);
+
+  // clientAvailable: return true,. if a client slot is currently unused
+  inline bool clientAvailable() { return numClients - activeClients() > 0; }
+};
 
 // Constructor
-CLASSNAME::CLASSNAME() :
+template <typename ST, typename CT>
+ModbusServerTCP<ST, CT>::ModbusServerTCP() :
   ModbusServer(),
   numClients(0),
   serverTask(nullptr),
@@ -18,12 +80,14 @@ CLASSNAME::CLASSNAME() :
    }
 
 // Destructor: closes the connections
-CLASSNAME::~CLASSNAME() {
+template <typename ST, typename CT>
+ModbusServerTCP<ST, CT>::~ModbusServerTCP() {
   delete[] clients;
 }
 
 // activeClients: return number of clients currently employed
-uint16_t CLASSNAME::activeClients() {
+template <typename ST, typename CT>
+uint16_t ModbusServerTCP<ST, CT>::activeClients() {
   uint8_t cnt = 0;
   for (uint8_t i = 0; i < numClients; ++i) {
     if (clients[i].task != nullptr) cnt++;
@@ -32,7 +96,8 @@ uint16_t CLASSNAME::activeClients() {
 }
 
   // start: create task with TCP server to accept requests
-  bool CLASSNAME::start(uint16_t port, uint8_t maxClients, uint32_t timeout, int coreID) {
+template <typename ST, typename CT>
+  bool ModbusServerTCP<ST, CT>::start(uint16_t port, uint8_t maxClients, uint32_t timeout, int coreID) {
     // Task already running?
     if (serverTask != nullptr) {
       // Yes. stop it first
@@ -62,13 +127,14 @@ uint16_t CLASSNAME::activeClients() {
     // Start task to handle the client
     xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
 
-    // Serial.printf("Created server task %d\n", (uint32_t)serverTask);
+    Serial.printf("Created server task %d\n", (uint32_t)serverTask);
 
     return true;
   }
 
   // stop: drop all connections and kill server task
-  bool CLASSNAME::stop() {
+template <typename ST, typename CT>
+  bool ModbusServerTCP<ST, CT>::stop() {
     // Check for clients still connected
     for (uint8_t i = 0; i < numClients; ++i) {
       // Client is alive?
@@ -89,7 +155,8 @@ uint16_t CLASSNAME::activeClients() {
   }
 
 // accept: start a task to receive requests and respond to a given client
-bool CLASSNAME::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
+template <typename ST, typename CT>
+bool ModbusServerTCP<ST, CT>::accept(CT& client, uint32_t timeout, int coreID) {
   // Look for an empty client slot
   for (uint8_t i = 0; i < numClients; ++i) {
     if (clients[i].task == nullptr) {
@@ -110,10 +177,10 @@ bool CLASSNAME::accept(CLIENTTYPE client, uint32_t timeout, int coreID) {
   return false;
 }
 
-void CLASSNAME::serve(CLASSNAME *myself) {
+template <typename ST, typename CT>
+void ModbusServerTCP<ST, CT>::serve(ModbusServerTCP<ST, CT> *myself) {
   // Set up server with given port
-  SERVERTYPE server(myself->serverPort);
-  CLIENTTYPE ec;
+  ST server(myself->serverPort);
 
   // Start it
   server.begin();
@@ -123,11 +190,11 @@ void CLASSNAME::serve(CLASSNAME *myself) {
     // Do we have clients left to use?
     if (myself->clientAvailable()) {
       // Yes. accept one, when it connects
-      ec = server.accept();
+      CT ec = server.accept();
       // Did we get a connection?
       if (ec) {
         // Yes. Forward it to the Modbus server
-        myself->accept(ec, myself->serverTimeout);
+        myself->accept(ec, myself->serverTimeout, 0);
         // Serial.printf("Accepted connection - %d clients running\n", myself->activeClients());
       }
     }
@@ -136,14 +203,17 @@ void CLASSNAME::serve(CLASSNAME *myself) {
   }
 }
 
-void CLASSNAME::worker(ClientData *myData) {
+template <typename ST, typename CT>
+void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   // Get own reference data in handier form
-  CLIENTTYPE myClient = myData->client;
+  CT myClient = myData->client;
   uint32_t myTimeOut = myData->timeout;
   TaskHandle_t myTask = myData->task;
-  CLASSNAME *myParent = myData->parent;
+  ModbusServerTCP<ST, CT> *myParent = myData->parent;
   uint32_t myLastMessage = millis();
   ResponseType response;               // Data buffer to hold prepared response
+
+  Serial.printf("Worker started: %d\n", (uint32_t)myTask);
 
   // loop forever, if timeout is 0, or until timeout was hit
   while (myClient.connected() && (!myTimeOut || (millis() - myLastMessage < myTimeOut))) {
@@ -264,8 +334,8 @@ void CLASSNAME::worker(ClientData *myData) {
   // Hack to remove the response vector from memory
   vector<uint8_t>().swap(response);
 
-  // Serial.printf("Sent stop - task %d killing itself\n", (uint32_t)myTask);
-  // Serial.flush();
+  Serial.printf("Sent stop - task %d killing itself\n", (uint32_t)myTask);
+  Serial.flush();
 
   myData->task = nullptr;
   delay(50);
@@ -273,7 +343,8 @@ void CLASSNAME::worker(ClientData *myData) {
 }
 
 // receive: get request via Client connection
-TCPMessage CLASSNAME::receive(CLIENTTYPE client, uint32_t timeWait) {
+template <typename ST, typename CT>
+TCPMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
   uint32_t lastMillis = millis();     // Timer to check for timeout
   TCPMessage m;                       // vector to take read data
   register uint16_t lengthVal = 0;
