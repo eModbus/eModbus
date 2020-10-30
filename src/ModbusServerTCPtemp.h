@@ -6,6 +6,7 @@
 #define _MODBUS_SERVER_TCP_TEMP_H
 
 #include <Arduino.h>
+#include <mutex>  // NOLINT
 
 #include "ModbusServer.h"
 
@@ -16,6 +17,8 @@ extern "C" {
 
 using std::vector;
 using TCPMessage = std::vector<uint8_t>;
+using std::mutex;
+using std::lock_guard;
 
 template <typename ST, typename CT>
 class ModbusServerTCP : public ModbusServer {
@@ -42,6 +45,7 @@ protected:
   TaskHandle_t serverTask;
   uint16_t serverPort;
   uint32_t serverTimeout;
+  mutex clientLock;
 
   struct ClientData {
     ClientData() : task(nullptr), client(0), timeout(0), parent(nullptr) {}
@@ -86,6 +90,7 @@ template <typename ST, typename CT>
 ModbusServerTCP<ST, CT>::~ModbusServerTCP() {
   for (uint8_t i = 0; i < numClients; ++i) {
     if (clients[i] != nullptr) {
+      if (clients[i]->task != nullptr) vTaskDelete(clients[i]->task);
       delete clients[i];
     }
   }
@@ -102,6 +107,7 @@ uint16_t ModbusServerTCP<ST, CT>::activeClients() {
       // Empty task handle?
       if (clients[i]->task == nullptr) {
         // Yes. Delete entry and init client pointer
+        lock_guard<mutex> cL(clientLock);
         delete clients[i];
         clients[i] = nullptr;
       }
@@ -341,7 +347,10 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   // Hack to remove the response vector from memory
   vector<uint8_t>().swap(response);
 
-  myData->task = nullptr;
+  {
+    lock_guard<mutex> cL(myParent->clientLock);
+    myData->task = nullptr;
+  }
 
   delay(50);
   vTaskDelete(NULL);
