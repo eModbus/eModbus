@@ -5,14 +5,8 @@
 #ifndef _MODBUS_SERVER_WIFI_H
 #define _MODBUS_SERVER_WIFI_H
 #include <WiFi.h>
+#include "ModbusServerTCPtemp.h"
 
-#define WIFIMODE 1
-#define ETHERNETMODE 2
-#define TCPMODE WIFIMODE
-#define CLIENTTYPE WiFiClient
-#define SERVERTYPE WiFiServer
-#define CLASSNAME ModbusServerWiFi
-
-#include "ModbusServerTCP.h"
+using ModbusServerWiFi = ModbusServerTCP<WiFiServer, WiFiClient>;
 
 #endif
