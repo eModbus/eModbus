@@ -42,6 +42,9 @@ public:
   // Set idle timeout value (time before connection auto closes after being idle)
   void setIdleTimeout(uint32_t timeout);
 
+  // Set maximum amount of messages awaiting a response. Subsequent messages will be queued.
+  void setMaxInflightRequests(uint32_t maxInflightRequests);
+
   template <typename... Args>
   Error addRequest(Args&&... args) {
     Error rc = SUCCESS;        // Return value
@@ -117,7 +120,7 @@ protected:
   // TCP handling code, all static taking a class instancs as param
   void onConnected();
   void onDisconnected();
-  // void onError(int8_t error);
+  void onACError(AsyncClient* c, int8_t error);
   // void onTimeout(uint32_t time);
   // void onAck(size_t len, uint32_t time);
   void onPacket(uint8_t* data, size_t length);
@@ -133,6 +136,7 @@ protected:
   uint32_t MTA_timeout;             // Standard timeout value taken
   uint32_t MTA_idleTimeout;         // Standard timeout value taken
   uint16_t MTA_qLimit;              // Maximum number of requests to accept in queue
+  uint32_t MTA_maxInflightRequests; // Maximum number of inflight requests
   uint32_t MTA_lastActivity;        // Last time there was activity (disabled when queues are not empty)
   enum {
     DISCONNECTED,

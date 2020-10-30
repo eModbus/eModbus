@@ -12,6 +12,7 @@ ModbusClientTCPasync::ModbusClientTCPasync(IPAddress address, uint16_t port, uin
   MTA_timeout(DEFAULTTIMEOUT),
   MTA_idleTimeout(DEFAULTIDLETIME),
   MTA_qLimit(queueLimit),
+  MTA_maxInflightRequests(queueLimit),
   MTA_lastActivity(0),
   MTA_state(DISCONNECTED),
   MTA_target()
@@ -19,7 +20,7 @@ ModbusClientTCPasync::ModbusClientTCPasync(IPAddress address, uint16_t port, uin
       // attach all handlers on async tcp events
       MTA_client.onConnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onConnected(); }, this);
       MTA_client.onDisconnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onDisconnected(); }, this);
-      // MTA_client.onError([](void* i, AsyncClient* c, int8_t error) { (static_cast<ModbusClientTCPasync*>(i))->onError(error); }, this);
+      MTA_client.onError([](void* i, AsyncClient* c, int8_t error) { (static_cast<ModbusClientTCPasync*>(i))->onACError(c, error); }, this);
       // MTA_client.onTimeout([](void* i, AsyncClient* c, uint32_t time) { (static_cast<ModbusClientTCPasync*>(i))->onTimeout(time); }, this);
       // MTA_client.onAck([](void* i, AsyncClient* c, size_t len, uint32_t time) { (static_cast<ModbusClientTCPasync*>(i))->onAck(len, time); }, this);
       MTA_client.onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<ModbusClientTCPasync*>(i))->onPacket(static_cast<uint8_t*>(data), len); }, this);
@@ -81,6 +82,10 @@ void ModbusClientTCPasync::setIdleTimeout(uint32_t timeout) {
   MTA_idleTimeout = timeout;
 }
 
+void ModbusClientTCPasync::setMaxInflightRequests(uint32_t maxInflightRequests) {
+  MTA_maxInflightRequests = maxInflightRequests;
+}
+
 // addToQueue: send freshly created request to queue
 bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
   // Did we get one?
@@ -140,11 +145,13 @@ void ModbusClientTCPasync::onDisconnected() {
   }
 }
 
-/*
-void ModbusClientTCPasync::onError(int8_t error) {
+
+void ModbusClientTCPasync::onACError(AsyncClient* c, int8_t error) {
   // onDisconnect will alse be called, so nothing to do here
+  Serial.printf("TCP error: %s\n", c->errorToString(error));
 }
 
+/*
 void onTimeout(uint32_t time) {
   // timeOut is handled by onPoll or onDisconnect
 }
@@ -240,13 +247,17 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
     delete response;
 
   }  // end processing of incoming data
+
+  // check if we have to send the next request
+  lock_guard<mutex> lockGuard(qLock);
+  handleSendingQueue();
 }
 
 void ModbusClientTCPasync::onPoll() {
   {
   lock_guard<mutex> lockGuard(qLock);
 
-  //Serial.printf("Queue sizes: tx: %d rx: %d\n", txQueue.size(), rxQueue.size());
+  Serial.printf("Queue sizes: tx: %d rx: %d\n", txQueue.size(), rxQueue.size());
 
   // try to send whatever is waiting
   handleSendingQueue();
@@ -282,7 +293,6 @@ void ModbusClientTCPasync::handleSendingQueue() {
   // try to send everything we have waiting
   std::list<TCPRequest*>::iterator i = txQueue.begin();
   while (i != txQueue.end()) {
-    //Serial.print("we are trying to send");
     // get the actual element
     TCPRequest* r = *i;
     if (send(r)) {
@@ -290,16 +300,21 @@ void ModbusClientTCPasync::handleSendingQueue() {
       r->target.timeout = millis();
       rxQueue[r->tcpHead.transactionID] = r;      // push request to other queue
       i = txQueue.erase(i);  // remove from toSend queue and point i to next request
-      //Serial.print("-ok\n");
     } else {
       // sending didn't succeed, try next request
-      //Serial.print("-nok\n");
       ++i;
     }
   }
 }
 
 bool ModbusClientTCPasync::send(TCPRequest* request) {
+  // ATTENTION: This method does not have a lock guard.
+  // Calling sites must assure shared resources are protected
+  // by mutex.
+
+  if (rxQueue.size() >= MTA_maxInflightRequests)
+    return false;
+
   // check if TCP client is able to send
   if (MTA_client.space() > request->len() + 6) {
     // Write TCP header first
@@ -309,6 +324,7 @@ bool ModbusClientTCPasync::send(TCPRequest* request) {
     // done
     MTA_client.send();
     // reset idle timeout
+    Serial.printf("request sent - msgid: %d\n", request->tcpHead.transactionID);
     return true;
   }
   return false;
