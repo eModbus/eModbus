@@ -6,6 +6,7 @@
 #define _MODBUS_MESSAGE_H
 #include "ModbusTypeDefs.h"
 #include "ModbusError.h"
+#include <type_traits>
 
 using Modbus::Error;
 
@@ -108,6 +109,12 @@ protected:
   // add() variant to copy a buffer into MM_data. Returns updated MM_index or 0
   uint16_t add(uint8_t *arrayOfBytes, uint16_t count);
 
+  // Template function to extend add(A) to add(A, B, C, ...)
+  template <class T, class... Args> 
+  typename std::enable_if<!std::is_pointer<T>::value, uint16_t>::type
+  add(T v, Args... args) {
+      return add(v) + add(args...);
+  }
 };
 
 class ModbusRequest : public ModbusMessage {

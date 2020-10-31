@@ -148,7 +148,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
       }
       // if client is disconnected (we will have to switch hosts)
       if (!instance->MT_client.connected()) {
-        Serial.println("Client reconnecting");
+        // Serial.println("Client reconnecting");
         // It is disconnected. connect to host/port from queue
         instance->MT_client.connect(request->target.host, request->target.port);
 

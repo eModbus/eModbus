@@ -35,8 +35,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
     {
       // Yes, all fine. Create new TCPRequest instance
       returnPtr = new TCPRequest(target, 2, token);
-      returnPtr->add(serverID);
-      returnPtr->add(functionCode);
+      returnPtr->add(serverID, functionCode);
     }
   }
   return returnPtr;
@@ -54,9 +53,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
     {
       // Yes, all fine. Create new TCPRequest instance
       returnPtr = new TCPRequest(target, 4, token);
-      returnPtr->add(serverID);
-      returnPtr->add(functionCode);
-      returnPtr->add(p1);
+      returnPtr->add(serverID, functionCode, p1);
     }
   }
   return returnPtr;
@@ -74,10 +71,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
     {
       // Yes, all fine. Create new TCPRequest instance
       returnPtr = new TCPRequest(target, 6, token);
-      returnPtr->add(serverID);
-      returnPtr->add(functionCode);
-      returnPtr->add(p1);
-      returnPtr->add(p2);
+      returnPtr->add(serverID, functionCode, p1, p2);
     }
   }
   return returnPtr;
@@ -95,11 +89,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
     {
       // Yes, all fine. Create new TCPRequest instance
       returnPtr = new TCPRequest(target, 8, token);
-      returnPtr->add(serverID);
-      returnPtr->add(functionCode);
-      returnPtr->add(p1);
-      returnPtr->add(p2);
-      returnPtr->add(p3);
+      returnPtr->add(serverID, functionCode, p1, p2, p3);
     }
   }
   return returnPtr;
@@ -117,10 +107,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
     {
       // Yes, all fine. Create new TCPRequest instance
       returnPtr = new TCPRequest(target, 7 + count, token);
-      returnPtr->add(serverID);
-      returnPtr->add(functionCode);
-      returnPtr->add(p1);
-      returnPtr->add(p2);
+      returnPtr->add(serverID, functionCode, p1, p2);
       returnPtr->add(count);
       for (uint8_t i = 0; i < (count >> 1); ++i) {
         returnPtr->add(arrayOfWords[i]);
@@ -142,10 +129,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
     {
       // Yes, all fine. Create new TCPRequest instance
       returnPtr = new TCPRequest(target, 7 + count, token);
-      returnPtr->add(serverID);
-      returnPtr->add(functionCode);
-      returnPtr->add(p1);
-      returnPtr->add(p2);
+      returnPtr->add(serverID, functionCode, p1, p2);
       returnPtr->add(count);
       for (uint8_t i = 0; i < count; ++i) {
         returnPtr->add(arrayOfBytes[i]);
@@ -167,8 +151,7 @@ TCPRequest *TCPRequest::createTCPRequest(Error& returnCode, TargetHost target, u
     {
       // Yes, all fine. Create new TCPRequest instance
       returnPtr = new TCPRequest(target, 2 + count, token);
-      returnPtr->add(serverID);
-      returnPtr->add(functionCode);
+      returnPtr->add(serverID, functionCode);
       for (uint8_t i = 0; i < count; ++i) {
         returnPtr->add(arrayOfBytes[i]);
       }
