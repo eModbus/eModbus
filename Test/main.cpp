@@ -6,6 +6,7 @@
 #include "ModbusServerRTU.h"
 #include "ModbusClientRTU.h"
 #include "ModbusClientTCP.h"
+#include "ModbusServerWiFi.h"
 #include <vector>
 using std::vector;
 
@@ -16,9 +17,14 @@ using std::vector;
 
 // Test prerequisites
 TCPstub stub;
-ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance.
+ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance for stub use.
+WiFiClient wc;
+ModbusClientTCP TestClientWiFi(wc, 25);         // ModbusClientTCP test instance for WiFi loopback use.
 ModbusClientRTU RTUclient(Serial1);             // ModbusClientRTU test instance.
 ModbusServerRTU RTUserver(Serial2, 20000);      // ModbusServerRTU instance
+ModbusServerWiFi MBserver;                      // ModbusServerWiFi instance
+IPAddress ip = {127,   0,   0,   1};            // IP address of ModbusServerWiFi (loopback IF)
+uint16_t port = 502;                            // port of modbus server
 uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
 uint16_t testsPassed = 0;              // Global passed test cases counter. Incremented in testOutput().
 bool printPassed = true;               // If true, testOutput will print passed tests as well.
@@ -406,6 +412,9 @@ void setup()
   Serial.begin(115200);
   while (!Serial) {}
   Serial.println("__ OK __");
+
+  // Init WiFi with fake ssid/pass (we will use loopback only)
+  WiFi.begin("foo", "bar");
 
   Serial.println("-----> Some timeout tests may take a while. Wait patiently for 'All finished.'");
 
@@ -1288,8 +1297,6 @@ void setup()
       testOutput(tc->testname, tc->name, tc->expected, { e });
     }
 
-
-
     // ******************************************************************************
     // Write test cases above this line!
     // ******************************************************************************
@@ -1297,7 +1304,217 @@ void setup()
     // Print summary. We will have to wait a bit to get all test cases executed!
     delay(2000);
     Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
   }
+
+  // ******************************************************************************
+  // Tests using WiFi client and server looped together next.
+  // ******************************************************************************
+
+  // Restart test case and tests passed counter
+  testsExecuted = 0;
+  testsPassed = 0;
+
+  printPassed = false;
+
+  // Register onData and onError handlers
+  TestClientWiFi.onDataHandler(&handleData);
+  TestClientWiFi.onErrorHandler(&handleError);
+
+  // Start ModbusClientTCP background task
+  TestClientWiFi.begin();
+  TestClientWiFi.setTarget(ip, port, 500, 0);
+
+  // Define and start TCP server
+  MBserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
+  MBserver.registerWorker(1, READ_INPUT_REGISTER, &FC03);     // FC=04 for serverID=1
+  MBserver.registerWorker(1, WRITE_HOLD_REGISTER, &FC06);     // FC=06 for serverID=1
+  MBserver.registerWorker(2, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=2
+  MBserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
+  MBserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=41 for serverID=2
+
+  // Set up test memory
+  for (uint16_t i = 0; i < 32; ++i) {
+    memo[i] = (i * 2) << 8 | ((i * 2) + 1);
+  }
+
+  MBserver.start(port, 2, 10000);
+
+  // ******************************************************************************
+  // Write test cases below this line!
+  // ******************************************************************************
+
+  // #1: read a word of data
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Read one word of data",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("01 03 02 1E 1F"),
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(1, 0x03, 16, 1, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // #2: write a word of data
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Write one word of data",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("01 06 00 10 BE EF"),
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(1, 0x06, 16, 0xBEEF, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // #3: read several words
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Read back 4 words of data",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("01 03 08 1A 1B 1C 1D BE EF 20 21"),
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(1, 0x03, 14, 4, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // #4: use explicit worker
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Explicit worker FC03",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("02 03 08 C9 C8 C7 C6 C5 C4 C3 C2"),
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(2, READ_HOLD_REGISTER, 28, 4, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // #5: use default worker
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Default worker FC07",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("02 07 41 4E 59 20 46 43"),  // "ANY FC"
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(2, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // #6: invalid FC
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Invalid function code",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("01"), 
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(1, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // #7: invalid server id
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Invalid server ID",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("E1"), 
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(3, 0x07, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // #8: NIL_RESPONSE (aka timeout)
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "NIL_RESPONSE",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("E0"), 
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(2, USER_DEFINED_41, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+  delay(2000);   // #8 results in timeout, so wat a bit.
+
+  // #9: Error response
+  tc = new TestCase { 
+    .name = LNO(__LINE__),
+    .testname = "Error response",
+    .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
+    .token = Token++,
+    .response = {},
+    .expected = makeVector("02"),
+    .delayTime = 0,
+    .stopAfterResponding = true,
+    .fakeTransactionID = false
+  };
+  testCasesByToken[tc->token] = tc;
+  e = TestClientWiFi.addRequest(1, 0x03, 45, 1, tc->token);
+  if (e != SUCCESS) {
+    testOutput(tc->testname, tc->name, tc->expected, { e });
+  }
+
+  // ******************************************************************************
+  // Write test cases above this line!
+  // ******************************************************************************
+
+  // Print summary. We will have to wait a bit to get all test cases executed!
+  delay(2000);
+  Serial.printf("----->    TCP WiFi loopback tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
   Serial.println("All finished.");
 }
 
