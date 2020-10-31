@@ -153,7 +153,7 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
         } else {
           // Build response from received message
           response = new RTUResponse(rv.size() - 2);
-          response->add(rv.size() - 2, rv.data());
+          response->add(rv.data(), rv.size() - 2);
           response->setCRC(rv[rv.size() - 2] | (rv[rv.size() - 1] << 8));
         }
       } else {

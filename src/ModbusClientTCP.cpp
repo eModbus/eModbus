@@ -275,7 +275,7 @@ TCPResponse* ModbusClientTCP::receive(TCPRequest *request) {
     } else {
       // Looks good.
       response = new TCPResponse(dataPtr - 6);
-      response->add(dataPtr - 6, data + 6);
+      response->add(data + 6, dataPtr - 6);
       response->tcpHead = head;
     }
   } else {

@@ -102,7 +102,7 @@ uint8_t ModbusMessage::getServerID() {
 }
 
 // add() variant to copy a buffer into MM_data. Returns updated MM_index or 0
-uint16_t ModbusMessage::add(uint16_t count, uint8_t *arrayOfBytes) {
+uint16_t ModbusMessage::add(uint8_t *arrayOfBytes, uint16_t count) {
   // Will it fit?
   if (MM_data && count <= (MM_len - MM_index)) {
     // Yes. Copy it

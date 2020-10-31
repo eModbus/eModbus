@@ -186,7 +186,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
       transactionID = data[0] << 8 | data[1];
       messageLength = data[4] << 8 | data[5];
       response = new TCPResponse(messageLength);
-      response->add(messageLength, &data[6]);
+      response->add(&data[6], messageLength);
       Serial.printf("packet validated - len %d\n", messageLength);
 
       // on next iteration: adjust remaining lengt and pointer to data
