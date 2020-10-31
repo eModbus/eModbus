@@ -132,18 +132,21 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
       TCPRequest *request = instance->requests.front();
       doNotPop = false;
 
-      // check if lastHost/lastPort!=host/port off the queued request
-      if (instance->MT_lastTarget.host != request->target.host || instance->MT_lastTarget.port != request->target.port) {
-        // It is different. If client is connected, disconnect
-        if (instance->MT_client.connected()) {
-          // Is connected - cut it
+      // Do we have a connection open?
+      if (instance->MT_client.connected()) {
+        // check if lastHost/lastPort!=host/port off the queued request
+        if (instance->MT_lastTarget.host != request->target.host || instance->MT_lastTarget.port != request->target.port) {
+          // It is different. Disconnect it.
           instance->MT_client.stop();
           delay(1);  // Give scheduler room to breathe
-        }
-      } else {
-        // it is the same host/port. Give it some slack to get ready again
-        while (millis() - lastRequest < request->target.interval) {
-          delay(1);
+        } else {
+          // it is the same host/port.
+          // Empty the RX buffer in case there is a stray response left
+          if (instance->MT_client.connected()) {
+            while (instance->MT_client.available()) { instance->MT_client.read(); }
+          }
+          // Give it some slack to get ready again
+          while (millis() - lastRequest < request->target.interval) { delay(1); }
         }
       }
       // if client is disconnected (we will have to switch hosts)
