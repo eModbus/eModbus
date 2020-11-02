@@ -136,9 +136,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
             }
           } else {
             // No predefined. User provided data in free format
-            for (auto& byte : m) {
-              response.push_back(byte);
-            }
+            response = m;
           }
         } else {
           // No, CRC is wrong. Send error response
@@ -153,12 +151,6 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           response.push_back(request[0]);
           response.push_back(request[1] | 0x80);
           response.push_back(ILLEGAL_FUNCTION);
-          /*
-          for (auto& byte : response) {
-            Serial.printf("%02X ", byte);
-          }
-          Serial.println("illegal FC");
-          */
         }
         // Else we will ignore the request, as it is not meant for us!
       }

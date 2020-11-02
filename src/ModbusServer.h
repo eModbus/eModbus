@@ -43,6 +43,9 @@ public:
   // DataResponse: create a regular response from given data
   static ResponseType DataResponse(uint16_t dataLen, uint8_t *data);
 
+  // Local request to the server
+  ResponseType localRequest(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t* data);
+
 protected:
   // Constructor
   ModbusServer();
