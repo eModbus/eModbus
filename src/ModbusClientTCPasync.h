@@ -2,8 +2,8 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
-#ifndef _MODBUS_TCPASYNC_H
-#define _MODBUS_TCPASYNC_H
+#ifndef _MODBUS_CLIENT_TCP_ASYNC_H
+#define _MODBUS_CLIENT_TCP_ASYNC_H
 #include <Arduino.h>
 #include <AsyncTCP.h>
 #include "ModbusMessageTCP.h"
