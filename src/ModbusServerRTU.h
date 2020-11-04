@@ -33,6 +33,10 @@ public:
   bool stop();
 
 protected:
+  // Prevent copy construction and assignment
+  ModbusServerRTU(ModbusServerRTU& m) = delete;
+  ModbusServerRTU& operator=(ModbusServerRTU& m) = delete;
+
   inline void isInstance() { }           // Make class instantiable
 
   static uint8_t instanceCounter;        // Number of RTU servers created (for task names)

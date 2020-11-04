@@ -39,6 +39,10 @@ public:
   bool stop();
 
 protected:
+  // Prevent copy construction and assignment
+  ModbusServerTCP(ModbusServerTCP& m) = delete;
+  ModbusServerTCP& operator=(ModbusServerTCP& m) = delete;
+
   inline void isInstance() { }
 
   uint8_t numClients;
@@ -235,10 +239,6 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
       response.clear();
       TCPMessage m = myParent->receive(myClient, 100);
 
-      // Serial.print(" Request received: ");
-      // for (auto& byte : m) { Serial.printf(" %02X", byte); }
-      // Serial.println();
-
       // has it the minimal length (6 bytes TCP header plus serverID plus FC)?
       if (m.size() >= 8) {
         {
@@ -249,83 +249,85 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
         for (uint8_t i = 0; i < 6; ++i) {
           response.push_back(m[i]);
         }
-        // ServerID shall be at [6], FC at [7]. Check both
-        if (myParent->isServerFor(m[6])) {
-          // Server is correct - in principle. Do we serve the FC?
-          MBSworker callBack = myParent->getWorker(m[6], m[7]);
-          if (callBack) {
-            // Yes, we do. Invoke the worker method to get a response
-            ResponseType data = callBack(m[6], m[7], m.size() - 8, m.data() + 8);
-            // for (auto& byte : data) {
-            //   Serial.printf("%02X ", byte);
-            // }
-            // Serial.println("data received");
-            // Process Response
-            // One of the predefined types?
-            if (data[0] == 0xFF && (data[1] == 0xF0 || data[1] == 0xF1 || data[1] == 0xF2 || data[1] == 0xF3)) {
-              // Yes. Check it
-              switch (data[1]) {
-              case 0xF0: // NIL
-                response.clear();
-                break;
-              case 0xF1: // ECHO
-                response = m;
-                break;
-              case 0xF2: // ERROR
-                response[4] = 0;
-                response[5] = 3;
-                response.push_back(m[6]);
-                response.push_back(m[7] | 0x80);
-                response.push_back(data[2]);
-                break;
-              case 0xF3: // DATA
+
+        // Protocol ID shall be 0x0000 - is it?
+        if (m[2] == 0 && m[3] == 0) {
+          // ServerID shall be at [6], FC at [7]. Check both
+          if (myParent->isServerFor(m[6])) {
+            // Server is correct - in principle. Do we serve the FC?
+            MBSworker callBack = myParent->getWorker(m[6], m[7]);
+            if (callBack) {
+              // Yes, we do. Invoke the worker method to get a response
+              ResponseType data = callBack(m[6], m[7], m.size() - 8, m.data() + 8);
+              // Process Response
+              // One of the predefined types?
+              if (data[0] == 0xFF && (data[1] == 0xF0 || data[1] == 0xF1 || data[1] == 0xF2 || data[1] == 0xF3)) {
+                // Yes. Check it
+                switch (data[1]) {
+                case 0xF0: // NIL
+                  response.clear();
+                  break;
+                case 0xF1: // ECHO
+                  response = m;
+                  break;
+                case 0xF2: // ERROR
+                  response[4] = 0;
+                  response[5] = 3;
+                  response.push_back(m[6]);
+                  response.push_back(m[7] | 0x80);
+                  response.push_back(data[2]);
+                  break;
+                case 0xF3: // DATA
+                  response[4] = (data.size() >> 8) & 0xFF;
+                  response[5] = data.size() & 0xFF;
+                  response.push_back(m[6]);
+                  response.push_back(m[7]);
+                  for (auto byte = data.begin() + 2; byte < data.end(); ++byte) {
+                    response.push_back(*byte);
+                  }
+                  // for (auto& byte : response) {
+                  //   Serial.printf("%02X ", byte);
+                  // }
+                  // Serial.println("Response generated");
+                  break;
+                default:   // Will not get here!
+                  break;
+                }
+              } else {
+                // No. User provided data in free format
                 response[4] = (data.size() >> 8) & 0xFF;
                 response[5] = data.size() & 0xFF;
-                response.push_back(m[6]);
-                response.push_back(m[7]);
-                for (auto byte = data.begin() + 2; byte < data.end(); ++byte) {
-                  response.push_back(*byte);
+                for (auto& byte : data) {
+                  response.push_back(byte);
                 }
-                // for (auto& byte : response) {
-                //   Serial.printf("%02X ", byte);
-                // }
-                // Serial.println("Response generated");
-                break;
-              default:   // Will not get here!
-                break;
               }
             } else {
-              // No. User provided data in free format
-              response[4] = (data.size() >> 8) & 0xFF;
-              response[5] = data.size() & 0xFF;
-              for (auto& byte : data) {
-                response.push_back(byte);
-              }
+              // No, function code is not served here
+              response[4] = 0;
+              response[5] = 3;
+              response.push_back(m[6]);
+              response.push_back(m[7] | 0x80);
+              response.push_back(ILLEGAL_FUNCTION);
             }
           } else {
-            // No, function code is not served here
+            // No, serverID is not served here
             response[4] = 0;
             response[5] = 3;
             response.push_back(m[6]);
             response.push_back(m[7] | 0x80);
-            response.push_back(ILLEGAL_FUNCTION);
+            response.push_back(INVALID_SERVER);
           }
         } else {
-          // No, serverID is not served here
+          // No, protocol ID was something weird
           response[4] = 0;
           response[5] = 3;
           response.push_back(m[6]);
           response.push_back(m[7] | 0x80);
-          response.push_back(INVALID_SERVER);
+          response.push_back(TCP_HEAD_MISMATCH);
         }
       }
       delay(1);
       // Do we have a response to send?
-
-      // Serial.print(" Response: ");
-      // for (auto& byte : response) { Serial.printf(" %02X", byte); }
-      // Serial.println();
-
       if (response.size() >= 8) {
         // Yes. Do it now.
         myClient.write(response.data(), response.size());
@@ -334,7 +336,6 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
       // We did something communicationally - rewind timeout timer
       myLastMessage = millis();
     }
-
     delay(1);
   }
 
