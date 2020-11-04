@@ -8,6 +8,7 @@
 #include <AsyncTCP.h>
 #include "ModbusMessageTCP.h"
 #include "ModbusClient.h"
+#include "Logging.h"
 #include <list>
 #include <map>
 #include <vector>
