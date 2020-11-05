@@ -72,6 +72,25 @@ bool ModbusClientTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout,
   return true;
 }
 
+Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token) {
+    Error rc = SUCCESS;        // Return value
+
+    // Create request, if valid
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, dataLen, data, token);
+
+    // Add it to the queue, if valid
+    if (r) {
+      // Queue add successful?
+      if (!addToQueue(r)) {
+        // No. Return error after deleting the allocated request.
+        rc = REQUEST_QUEUE_FULL;
+        delete r;
+      }
+    }
+
+    return rc;
+  }
+
 // addToQueue: send freshly created request to queue
 bool ModbusClientTCP::addToQueue(TCPRequest *request) {
   bool rc = false;

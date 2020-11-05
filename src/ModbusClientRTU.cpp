@@ -59,6 +59,26 @@ void ModbusClientRTU::setTimeout(uint32_t TOV) {
   MR_timeoutValue = TOV;
 }
 
+// Base addRequest taking a preformatted data buffer and length as parameters
+Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token) {
+  Error rc = SUCCESS;        // Return value
+
+  // Create request, if valid
+  RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, dataLen, data, token);
+
+  // Add it to the queue, if valid
+  if (r) {
+    // Queue add successful?
+    if (!addToQueue(r)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+      delete r;
+    }
+  }
+
+  return rc;
+}
+
 // addToQueue: send freshly created request to queue
 bool ModbusClientRTU::addToQueue(RTURequest *request) {
   bool rc = false;

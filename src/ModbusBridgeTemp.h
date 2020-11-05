@@ -6,7 +6,8 @@
 #define _MODBUS_BRIDGE_TEMP_H
 
 #include <map>
-#include "ModbusClient.h"
+#include "ModbusClientTCP.h"
+#include "ModbusClientRTU.h"
 #include "ModbusServerTCPtemp.h"
 #include "ModbusServerRTU.h"
 
@@ -21,8 +22,8 @@ public:
   ~ModbusBridge();
 
   // Methods to link external servers to the bridge
-  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client);
-  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port);
+  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClientRTU *client);
+  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClientTCP *client, IPAddress host, uint16_t port);
 
 protected:
 
@@ -33,6 +34,7 @@ protected:
     ServerType serverType;
     IPAddress host;
     uint16_t port;
+
 
     // RTU constructor
     ServerData(uint8_t sid, ModbusClient *c) :
@@ -49,6 +51,7 @@ protected:
       serverType(TCP_SERVER),
       host(h),
       port(p) {}
+
   };
 
   struct ResponseBuf {
@@ -58,9 +61,6 @@ protected:
     ResponseBuf() : ready(false) {}
   };
 
-  // link client to bridge
-  void linkServer(uint8_t aliasID, ModbusClient *c);
-
   // Data and Error response handlers
   void bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token);
   void bridgeErrorHandler(Error error, uint32_t token);
@@ -69,7 +69,7 @@ protected:
   ResponseType bridgeWorker(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
 
   // Map of servers attached
-  std::map<uint8_t, ServerData> servers;
+  std::map<uint8_t, ServerData *> servers;
 
   // Timeout for sent requests
   uint32_t requestTimeout;
@@ -96,26 +96,23 @@ ModbusBridge<SERVERCLASS>::~ModbusBridge() {
 }
 
 template<typename SERVERCLASS>
-bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client) {
+bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClientRTU *client) {
   if (servers.find(aliasID) != servers.end()) return false;
-  servers[aliasID] = ServerData(serverID, client);
-  linkServer(aliasID, client);
+  servers[aliasID] = new ServerData(serverID, client);
+  client->onDataHandler(reinterpret_cast<MBOnData>(&ModbusBridge<SERVERCLASS>::bridgeDataHandler));
+  client->onErrorHandler(reinterpret_cast<MBOnError>(&ModbusBridge<SERVERCLASS>::bridgeErrorHandler));
+  this->registerWorker(aliasID, ANY_FUNCTION_CODE, reinterpret_cast<MBSworker>(&ModbusBridge<SERVERCLASS>::bridgeWorker));
   return true;
 }
 
 template<typename SERVERCLASS>
-bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port) {
+bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClientTCP *client, IPAddress host, uint16_t port) {
   if (servers.find(aliasID) != servers.end()) return false;
-  servers[aliasID] = ServerData(serverID, client, host, port);
-  linkServer(aliasID, client);
+  servers[aliasID] = new ServerData(serverID, static_cast<ModbusClient *>(client), host, port);
+  client->onDataHandler(reinterpret_cast<MBOnData>(&ModbusBridge<SERVERCLASS>::bridgeDataHandler));
+  client->onErrorHandler(reinterpret_cast<MBOnError>(&ModbusBridge<SERVERCLASS>::bridgeErrorHandler));
+  this->registerWorker(aliasID, ANY_FUNCTION_CODE, reinterpret_cast<MBSworker>(&ModbusBridge<SERVERCLASS>::bridgeWorker));
   return true;
-}
-
-template<typename SERVERCLASS>
-void ModbusBridge<SERVERCLASS>::linkServer(uint8_t aliasID, ModbusClient *c) {
-  c->onDataHandler(&bridgeDataHandler);
-  c->onErrorHandler(&bridgeErrorHandler);
-  registerWorker(aliasID, ANY_FUNCTION_CODE, &bridgeWorker);
 }
 
 template<typename SERVERCLASS>
@@ -126,8 +123,9 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
   // Find the (alias) serverID
   if (servers.find(aliasID) != servers.end()) {
     // Found it. We may use servers[serverID] now without allocating a new map slot
-    ResponseBuf *responseBuffer = new ResponseBuf();
-    servers[aliasID].client.addRequest(servers[aliasID].serverID, functionCode, dataLen, data, (uint32_t)responseBuffer);
+      ResponseBuf *responseBuffer = new ResponseBuf();
+      servers[aliasID]->client->addRequest(servers[aliasID]->serverID, functionCode, data, dataLen, (uint32_t)responseBuffer);
+      }
     // Loop until the response has arrived or timeout has struck
     while (!responseBuffer->ready && millis() - startRequest >= requestTimeout) {
       delay(10);
@@ -138,10 +136,10 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
       // Size>1?
       if (responseBuffer->data.size() > 1) {
         // Yes, we got a data buffer
-        response = ModbusServer::DataResponse(responseBuffer->data.size(), responseBuffer->data());
+        response = ModbusServer::DataResponse(responseBuffer->data.size(), responseBuffer->data.data());
       } else {
         // No, size==1 - error code
-        response = ModbusServer::ErrorResponse(responseBuffer->data[0]);
+        response = ModbusServer::ErrorResponse(static_cast<Error>(responseBuffer->data[0]));
       }
       delete responseBuffer;
       return response;

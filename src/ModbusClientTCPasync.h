@@ -45,6 +45,9 @@ public:
   // Set maximum amount of messages awaiting a response. Subsequent messages will be queued.
   void setMaxInflightRequests(uint32_t maxInflightRequests);
 
+  // Base addRequest must be present
+  Error addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token);
+
   template <typename... Args>
   Error addRequest(Args&&... args) {
     Error rc = SUCCESS;        // Return value

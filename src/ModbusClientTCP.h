@@ -40,6 +40,9 @@ public:
   // Switch target host (if necessary)
   bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
 
+  // Base addRequest must be present
+  Error addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token);
+
   template <typename... Args>
   Error addRequest(Args&&... args) {
     Error rc = SUCCESS;        // Return value

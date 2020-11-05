@@ -86,6 +86,25 @@ void ModbusClientTCPasync::setMaxInflightRequests(uint32_t maxInflightRequests) 
   MTA_maxInflightRequests = maxInflightRequests;
 }
 
+Error ModbusClientTCPasync::addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token) {
+    Error rc = SUCCESS;        // Return value
+
+    // Create request, if valid
+    TCPRequest *r = TCPRequest::createTCPRequest(rc, MTA_target, serverID, functionCode, dataLen, data, token);
+
+    // Add it to the queue, if valid
+    if (r) {
+      // Queue add successful?
+      if (!addToQueue(r)) {
+        // No. Return error after deleting the allocated request.
+        rc = REQUEST_QUEUE_FULL;
+        delete r;
+      }
+    }
+
+    return rc;
+  }
+
 // addToQueue: send freshly created request to queue
 bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
   // Did we get one?
