@@ -123,30 +123,34 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
   // Find the (alias) serverID
   if (servers.find(aliasID) != servers.end()) {
     // Found it. We may use servers[serverID] now without allocating a new map slot
-      ResponseBuf *responseBuffer = new ResponseBuf();
-      servers[aliasID]->client->addRequest(servers[aliasID]->serverID, functionCode, data, dataLen, (uint32_t)responseBuffer);
-      }
-    // Loop until the response has arrived or timeout has struck
-    while (!responseBuffer->ready && millis() - startRequest >= requestTimeout) {
-      delay(10);
-    }
-    // Did we get a response?
-    if (responseBuffer->ready) {
-      // Yes. return it to the requester
-      // Size>1?
-      if (responseBuffer->data.size() > 1) {
-        // Yes, we got a data buffer
-        response = ModbusServer::DataResponse(responseBuffer->data.size(), responseBuffer->data.data());
-      } else {
-        // No, size==1 - error code
-        response = ModbusServer::ErrorResponse(static_cast<Error>(responseBuffer->data[0]));
-      }
+    ResponseBuf *responseBuffer = new ResponseBuf();
+    Error e = servers[aliasID]->client->addRequest(servers[aliasID]->serverID, functionCode, data, dataLen, (uint32_t)responseBuffer);
+    if (e != SUCCESS) {
       delete responseBuffer;
-      return response;
+      return ModbusServer::ErrorResponse(e);
     } else {
-      // No response received - timeout
-      delete responseBuffer;
-      return ModbusServer::ErrorResponse(TIMEOUT);
+      // Loop until the response has arrived or timeout has struck
+      while (!responseBuffer->ready && millis() - startRequest >= requestTimeout) {
+        delay(10);
+      }
+      // Did we get a response?
+      if (responseBuffer->ready) {
+        // Yes. return it to the requester
+        // Size>1?
+        if (responseBuffer->data.size() > 1) {
+          // Yes, we got a data buffer
+          response = ModbusServer::DataResponse(responseBuffer->data.size(), responseBuffer->data.data());
+        } else {
+          // No, size==1 - error code
+          response = ModbusServer::ErrorResponse(static_cast<Error>(responseBuffer->data[0]));
+        }
+        delete responseBuffer;
+        return response;
+      } else {
+        // No response received - timeout
+        delete responseBuffer;
+        return ModbusServer::ErrorResponse(TIMEOUT);
+      }
     }
   }
   // If we get here, something has gone wrong internally. We send back an error response anyway.
