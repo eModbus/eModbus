@@ -57,7 +57,7 @@ ModbusClientTCPasync::~ModbusClientTCPasync() {
 
 // optionally manually connect to modbus server. Otherwise connection will be made upon first request
 void ModbusClientTCPasync::connect() {
-  Serial.print("connecting\n");
+  log_i("connecting");
   lock_guard<mutex> lockGuard(sLock);
   // only connect if disconnected
   if (MTA_state == DISCONNECTED) {
@@ -68,7 +68,7 @@ void ModbusClientTCPasync::connect() {
 
 // manually disconnect from modbus server. Connection will also auto close after idle time
 void ModbusClientTCPasync::disconnect(bool force) {
-  Serial.print("disconnecting\n");
+  log_i("disconnecting");
   MTA_client.close(force);
 }
 
@@ -132,7 +132,7 @@ bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
 }
 
 void ModbusClientTCPasync::onConnected() {
-  Serial.print("connected\n");
+  log_i("connected");
   lock_guard<mutex> lockGuard(sLock);
   MTA_state = CONNECTED;
   MTA_lastActivity = millis();
@@ -140,7 +140,7 @@ void ModbusClientTCPasync::onConnected() {
 }
 
 void ModbusClientTCPasync::onDisconnected() {
-  Serial.print("disconnected\n");
+  log_i("disconnected");
   lock_guard<mutex> slockGuard(sLock);
   MTA_state = DISCONNECTED;
 
@@ -167,7 +167,7 @@ void ModbusClientTCPasync::onDisconnected() {
 
 void ModbusClientTCPasync::onACError(AsyncClient* c, int8_t error) {
   // onDisconnect will alse be called, so nothing to do here
-  Serial.printf("TCP error: %s\n", c->errorToString(error));
+  log_w("TCP error: %s", c->errorToString(error));
 }
 
 /*
@@ -180,12 +180,12 @@ void onAck(size_t len, uint32_t time) {
 }
 */
 void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
-  Serial.printf("packet received - len %d\n", length);
+  log_i("packet received - len %d", length);
   // reset idle timeout
   MTA_lastActivity = millis();
 
   while (length > 0) {
-    Serial.printf("now processing %d\n", length);
+    log_i("now processing %d", length);
 
     TCPRequest* request = nullptr;
     TCPResponse* response = nullptr;
@@ -206,14 +206,14 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
       messageLength = data[4] << 8 | data[5];
       response = new TCPResponse(messageLength);
       response->add(&data[6], messageLength);
-      Serial.printf("packet validated - len %d\n", messageLength);
+      log_i("packet validated - len %d", messageLength);
 
       // on next iteration: adjust remaining lengt and pointer to data
       length -= 6 + messageLength;
       data += 6 + messageLength;
     } else {
       // invalid packet, abort function
-      Serial.print("packet invalid\n");
+      log_w("packet invalid");
       // try again skipping the first byte
       --length;
       return;
@@ -223,16 +223,16 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
 
     if (response) {
       lock_guard<mutex> lockGuard(qLock);
-      Serial.print("looking for request\n");
+      log_i("looking for request");
       auto i = rxQueue.find(transactionID);
       if (i != rxQueue.end()) {
         // found it, handle it and stop iterating
         request = i->second;
         i = rxQueue.erase(i);
-        Serial.print("matched request\n");
+        log_i("matched request");
       } else {
         // TCP packet did not yield valid modbus response, abort function
-        Serial.print("no matching request found\n");
+        log_w("no matching request found");
         return;
       }
     } else {
@@ -276,7 +276,7 @@ void ModbusClientTCPasync::onPoll() {
   {
   lock_guard<mutex> lockGuard(qLock);
 
-  Serial.printf("Queue sizes: tx: %d rx: %d\n", txQueue.size(), rxQueue.size());
+  log_i("Queue sizes: tx: %d rx: %d", txQueue.size(), rxQueue.size());
 
   // try to send whatever is waiting
   handleSendingQueue();
@@ -285,7 +285,7 @@ void ModbusClientTCPasync::onPoll() {
   if (!rxQueue.empty()) {
     TCPRequest* request = rxQueue.begin()->second;
     if (millis() - request->target.timeout > MTA_timeout) {
-      Serial.print("request timeouts\n");
+      log_i("request timeouts");
       // oldest element timeouts, call onError and clean up
       if (onError) {
         // Handle timeout error
@@ -343,7 +343,7 @@ bool ModbusClientTCPasync::send(TCPRequest* request) {
     // done
     MTA_client.send();
     // reset idle timeout
-    Serial.printf("request sent - msgid: %d\n", request->tcpHead.transactionID);
+    log_i("request sent - msgid: %d", request->tcpHead.transactionID);
     return true;
   }
   return false;
