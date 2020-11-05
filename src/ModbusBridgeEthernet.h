@@ -5,6 +5,7 @@
 #ifndef _MODBUS_BRIDGE_ETHERNET_H
 #define _MODBUS_BRIDGE_ETHERNET_H
 #include <Ethernet.h>
+#include "ModbusServerTCPtemp.h"
 #include "ModbusBridgeTemp.h"
 
 using ModbusBridgeEthernet = ModbusBridge<ModbusServerTCP<EthernetServer, EthernetClient>>;

@@ -5,6 +5,7 @@
 #ifndef _MODBUS_BRIDGE_WIFI_H
 #define _MODBUS_BRIDGE_WIFI_H
 #include <WiFi.h>
+#include "ModbusServerTCPtemp.h"
 #include "ModbusBridgeTemp.h"
 
 using ModbusBridgeWiFi = ModbusBridge<ModbusServerTCP<WiFiServer, WiFiClient>>;

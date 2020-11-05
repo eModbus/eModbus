@@ -6,10 +6,7 @@
 #define _MODBUS_BRIDGE_TEMP_H
 
 #include <map>
-#include "ModbusClientTCP.h"
-#include "ModbusClientRTU.h"
-#include "ModbusServerTCPtemp.h"
-#include "ModbusServerRTU.h"
+#include "ModbusClient.h"
 
 // Known server types: local (plain alias), TCP (client, host/port) and RTU (client)
 enum ServerType : uint8_t { TCP_SERVER, RTU_SERVER };
@@ -22,8 +19,8 @@ public:
   ~ModbusBridge();
 
   // Methods to link external servers to the bridge
-  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClientRTU *client);
-  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClientTCP *client, IPAddress host, uint16_t port);
+  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client);
+  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port);
 
 protected:
 
@@ -62,8 +59,8 @@ protected:
   };
 
   // Data and Error response handlers
-  void bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token);
-  void bridgeErrorHandler(Error error, uint32_t token);
+  static void bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token);
+  static void bridgeErrorHandler(Error error, uint32_t token);
 
   // Default worker function
   ResponseType bridgeWorker(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
@@ -96,22 +93,22 @@ ModbusBridge<SERVERCLASS>::~ModbusBridge() {
 }
 
 template<typename SERVERCLASS>
-bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClientRTU *client) {
+bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client) {
   if (servers.find(aliasID) != servers.end()) return false;
   servers[aliasID] = new ServerData(serverID, client);
-  client->onDataHandler(reinterpret_cast<MBOnData>(&ModbusBridge<SERVERCLASS>::bridgeDataHandler));
-  client->onErrorHandler(reinterpret_cast<MBOnError>(&ModbusBridge<SERVERCLASS>::bridgeErrorHandler));
+  client->onDataHandler(&(this->bridgeDataHandler));
+  client->onErrorHandler(&(this->bridgeErrorHandler));
   this->registerWorker(aliasID, ANY_FUNCTION_CODE, reinterpret_cast<MBSworker>(&ModbusBridge<SERVERCLASS>::bridgeWorker));
   return true;
 }
 
 template<typename SERVERCLASS>
-bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClientTCP *client, IPAddress host, uint16_t port) {
+bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port) {
   if (servers.find(aliasID) != servers.end()) return false;
   servers[aliasID] = new ServerData(serverID, static_cast<ModbusClient *>(client), host, port);
-  client->onDataHandler(reinterpret_cast<MBOnData>(&ModbusBridge<SERVERCLASS>::bridgeDataHandler));
-  client->onErrorHandler(reinterpret_cast<MBOnError>(&ModbusBridge<SERVERCLASS>::bridgeErrorHandler));
-  this->registerWorker(aliasID, ANY_FUNCTION_CODE, reinterpret_cast<MBSworker>(&ModbusBridge<SERVERCLASS>::bridgeWorker));
+  client->onDataHandler(&(this->bridgeDataHandler));
+  client->onErrorHandler(&(this->bridgeErrorHandler));
+  this->registerWorker(aliasID, ANY_FUNCTION_CODE, &bridgeWorker);
   return true;
 }
 
