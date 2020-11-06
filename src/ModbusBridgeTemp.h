@@ -141,7 +141,7 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
         // Size>1?
         if (responseBuffer->data.size() > 1) {
           // Yes, we got a data buffer
-          response = ModbusServer::DataResponse(responseBuffer->data.size(), responseBuffer->data.data());
+          response = ModbusServer::DataResponse(responseBuffer->data.size() - 2, responseBuffer->data.data() + 2);
         } else {
           // No, size==1 - error code
           response = ModbusServer::ErrorResponse(static_cast<Error>(responseBuffer->data[0]));
@@ -164,7 +164,7 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
 template<typename SERVERCLASS>
 void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token) {
   ResponseBuf *responseBuffer = (ResponseBuf *)token;
-  if(responseBuffer->isDone) {
+  if (responseBuffer->isDone) {
     Serial.println("Data response out of sync, dropped");
     delete responseBuffer;
   } else {
@@ -181,7 +181,7 @@ void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t
 template<typename SERVERCLASS>
 void ModbusBridge<SERVERCLASS>::bridgeErrorHandler(Error error, uint32_t token) {
   ResponseBuf *responseBuffer = (ResponseBuf *)token;
-  if(responseBuffer->isDone) {
+  if (responseBuffer->isDone) {
     Serial.println("Error response out of sync, dropped");
     delete responseBuffer;
   } else {
