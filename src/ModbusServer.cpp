@@ -115,14 +115,14 @@ ResponseType ModbusServer::localRequest(uint8_t serverID, uint8_t functionCode, 
     // No. Is there at least one worker for the serverID?
     if (isServerFor(serverID)) {
       // Yes. Respond with "illegal function code"
-      return ErrorResponse(ILLEGAL_FUNCTION);
+      return { serverID, static_cast<uint8_t>(functionCode | 0x80), ILLEGAL_FUNCTION };
     } else {
       // No. Respond with "Invalid server ID"
-      return ErrorResponse(INVALID_SERVER);
+      return { serverID, static_cast<uint8_t>(functionCode | 0x80), INVALID_SERVER };
     }
   }
   // We should never get here...
-  return ErrorResponse(UNDEFINED_ERROR);
+  return { serverID, static_cast<uint8_t>(functionCode | 0x80), UNDEFINED_ERROR };
 }
 
 // Constructor

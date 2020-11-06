@@ -6,6 +6,7 @@
 #define _MODBUS_SERVER_H
 #include <map>
 #include <vector>
+#include <functional>
 #include <mutex>      // NOLINT
 #include "ModbusTypeDefs.h"
 #include "ModbusError.h"
@@ -20,7 +21,8 @@ const ResponseType NIL_RESPONSE = { 0xFF, 0xF0 };
 const ResponseType ECHO_RESPONSE = { 0xFF, 0xF1 };
 
 // MBSworker: function signature for worker functions to handle single serverID/functionCode combinations
-typedef ResponseType (*MBSworker) (uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
+// typedef ResponseType (*MBSworker) (uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
+using MBSworker = std::function<ResponseType(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data)>;
 
 class ModbusServer {
 public:

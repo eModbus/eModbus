@@ -54,8 +54,9 @@ protected:
   struct ResponseBuf {
     ResponseType data;
     bool ready;
+    bool isDone;
 
-    ResponseBuf() : ready(false) {}
+    ResponseBuf() : ready(false), isDone(false) {}
   };
 
   // Data and Error response handlers
@@ -106,9 +107,10 @@ template<typename SERVERCLASS>
 bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port) {
   if (servers.find(aliasID) != servers.end()) return false;
   servers[aliasID] = new ServerData(serverID, static_cast<ModbusClient *>(client), host, port);
+  Serial.printf("attachServer: %02X->%02X %d.%d.%d.%d:%d\n", aliasID, serverID, host[0], host[1], host[2], host[3], port);
   client->onDataHandler(&(this->bridgeDataHandler));
   client->onErrorHandler(&(this->bridgeErrorHandler));
-  this->registerWorker(aliasID, ANY_FUNCTION_CODE, &bridgeWorker);
+  this->registerWorker(aliasID, ANY_FUNCTION_CODE, std::bind(&ModbusBridge<SERVERCLASS>::bridgeWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   return true;
 }
 
@@ -121,13 +123,16 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
   if (servers.find(aliasID) != servers.end()) {
     // Found it. We may use servers[serverID] now without allocating a new map slot
     ResponseBuf *responseBuffer = new ResponseBuf();
+    if (servers[aliasID]->serverType == TCP_SERVER) {
+      reinterpret_cast<ModbusClientTCP *>(servers[aliasID]->client)->setTarget(servers[aliasID]->host, servers[aliasID]->port);
+    }
     Error e = servers[aliasID]->client->addRequest(servers[aliasID]->serverID, functionCode, data, dataLen, (uint32_t)responseBuffer);
     if (e != SUCCESS) {
       delete responseBuffer;
       return ModbusServer::ErrorResponse(e);
     } else {
       // Loop until the response has arrived or timeout has struck
-      while (!responseBuffer->ready && millis() - startRequest >= requestTimeout) {
+      while (!responseBuffer->ready && ((millis() - startRequest) < requestTimeout)) {
         delay(10);
       }
       // Did we get a response?
@@ -142,10 +147,12 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
           response = ModbusServer::ErrorResponse(static_cast<Error>(responseBuffer->data[0]));
         }
         delete responseBuffer;
+        Serial.println("Response!");
         return response;
       } else {
         // No response received - timeout
-        delete responseBuffer;
+        responseBuffer->isDone = true;
+        Serial.println("Timeout!");
         return ModbusServer::ErrorResponse(TIMEOUT);
       }
     }
@@ -157,17 +164,31 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
 template<typename SERVERCLASS>
 void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token) {
   ResponseBuf *responseBuffer = (ResponseBuf *)token;
-  for (uint16_t i = 0; i < length; ++i) {
-    responseBuffer->data.push_back(data[i]);
+  if(responseBuffer->isDone) {
+    Serial.println("Data response out of sync, dropped");
+    delete responseBuffer;
+  } else {
+    Serial.print("Data handler: ");
+    for (uint16_t i = 0; i < length; ++i) {
+      Serial.printf("%02X ", data[i]);
+      responseBuffer->data.push_back(data[i]);
+    }
+    Serial.println();
+    responseBuffer->ready = true;
   }
-  responseBuffer->ready = true;
 }
 
 template<typename SERVERCLASS>
 void ModbusBridge<SERVERCLASS>::bridgeErrorHandler(Error error, uint32_t token) {
   ResponseBuf *responseBuffer = (ResponseBuf *)token;
-  responseBuffer->data.push_back(error);
-  responseBuffer->ready = true;
+  if(responseBuffer->isDone) {
+    Serial.println("Error response out of sync, dropped");
+    delete responseBuffer;
+  } else {
+    Serial.printf("Error handler: %02X\n", error);
+    responseBuffer->data.push_back(error);
+    responseBuffer->ready = true;
+  }
 }
 
 #endif
