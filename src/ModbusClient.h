@@ -17,8 +17,8 @@ typedef void (*MBOnError) (Modbus::Error, uint32_t token);
 
 class ModbusClient {
 public:
-  void onDataHandler(MBOnData handler);   // Accept onData handler 
-  void onErrorHandler(MBOnError handler); // Accept onError handler 
+  void onDataHandler(MBOnData handler, bool ignoreError = false);   // Accept onData handler 
+  void onErrorHandler(MBOnError handler, bool ignoreError = false); // Accept onError handler 
   uint32_t getMessageCount();              // Informative: return number of messages created
   // Virtual addRequest variant needed internally. All others done in the derived client classes by template!
   virtual Error addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token) = 0;

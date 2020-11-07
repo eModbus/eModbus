@@ -15,18 +15,18 @@ ModbusClient::ModbusClient() :
   onError(nullptr) { instanceCounter++; }
 
 // onDataHandler: register callback for data responses
-void ModbusClient::onDataHandler(MBOnData handler) {
+void ModbusClient::onDataHandler(MBOnData handler, bool ignoreError) {
   if (onData) {
-    log_e("onData handler was already claimed\n");
+    if (!ignoreError) log_e("onData handler was already claimed\n");
   } else {
     onData = handler;
   }
 }
 
 // onErrorHandler: register callback for error responses
-void ModbusClient::onErrorHandler(MBOnError handler) {
+void ModbusClient::onErrorHandler(MBOnError handler, bool ignoreError) {
   if (onError) {
-    log_e("onError handler was already claimed\n");
+    if (!ignoreError) log_e("onError handler was already claimed\n");
   } else {
     onError = handler;
   }
