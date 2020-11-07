@@ -5,33 +5,52 @@
 #ifndef _MODBUS_BRIDGE_TEMP_H
 #define _MODBUS_BRIDGE_TEMP_H
 
+#undef LOG_LOCAL_LEVEL
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+
 #include <map>
+#include <functional>
 #include "ModbusClient.h"
+#include "ModbusClientTCP.h"  // Used for setting TCP target
+#include "Logging.h"
+
+using std::bind;
+using std::placeholders::_1;
+using std::placeholders::_2;
+using std::placeholders::_3;
+using std::placeholders::_4;
 
 // Known server types: local (plain alias), TCP (client, host/port) and RTU (client)
 enum ServerType : uint8_t { TCP_SERVER, RTU_SERVER };
 
+// Bridge class template, takes one of ModbusServerRTU, ModbusServerWiFi, ModbusServerEthernet or ModbusServerTCPasync as parameter
 template<typename SERVERCLASS>
 class ModbusBridge : public SERVERCLASS {
 public:
+  // Constructor for TCP server variants. TOV is the timeout while waiting for a client to respond
   explicit ModbusBridge(uint32_t TOV = 10000);
+
+  // Constructor for the RTU variant. Parameters as are for ModbusServerRTU, plus TOV (see before)
   ModbusBridge(HardwareSerial& serial, uint32_t timeout, uint32_t TOV = 10000, int rtsPin = -1);
+
+  // Destructor
   ~ModbusBridge();
 
   // Methods to link external servers to the bridge
+  // RTU client variant
   bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client);
+
+  // TCP client variant
   bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port);
 
 protected:
-
   // ServerData holds all data necessary to address a single server
   struct ServerData {
-    uint8_t serverID;
-    ModbusClient *client;
-    ServerType serverType;
-    IPAddress host;
-    uint16_t port;
-
+    uint8_t serverID;             // External server id
+    ModbusClient *client;         // client to be used to request the server
+    ServerType serverType;        // TCP_SERVER or RTU_SERVER
+    IPAddress host;               // TCP: host IP address
+    uint16_t port;                // TCP: host port number
 
     // RTU constructor
     ServerData(uint8_t sid, ModbusClient *c) :
@@ -48,13 +67,13 @@ protected:
       serverType(TCP_SERVER),
       host(h),
       port(p) {}
-
   };
 
+  // Struct ResponseBuf for transport of response data from bridgeDataHandler and bridgeErrorHandler to bridgeWorker
   struct ResponseBuf {
-    ResponseType data;
-    bool ready;
-    bool isDone;
+    ResponseType data;       // The response proper
+    bool ready;              // set by the handlers to signal response is ready
+    bool isDone;             // set by worker if data is not needed any more and struct can be deleted by the handlers
 
     ResponseBuf() : ready(false), isDone(false) {}
   };
@@ -74,46 +93,71 @@ protected:
 
 };
 
-// Constructor
+// Constructor for TCP variants
 template<typename SERVERCLASS>
 ModbusBridge<SERVERCLASS>::ModbusBridge(uint32_t TOV) :
   SERVERCLASS(),
-  requestTimeout(TOV) {
-  }
+  requestTimeout(TOV) { } 
 
+// Constructor for RTU variant
 template<typename SERVERCLASS>
 ModbusBridge<SERVERCLASS>::ModbusBridge(HardwareSerial& serial, uint32_t timeout, uint32_t TOV, int rtsPin) :
   SERVERCLASS(serial, timeout, rtsPin),
-  requestTimeout(TOV) {
-  }
+  requestTimeout(TOV) { }
 
 // Destructor
 template<typename SERVERCLASS>
 ModbusBridge<SERVERCLASS>::~ModbusBridge() { 
-  // release storage in servers?
+  // Release ServerData storage in servers
+  for (auto itr = servers.begin(); itr != servers.end(); itr++) {
+    delete (itr->second);
+  }
+  servers.clear();
 }
 
+// attachServer, RTU variant: memorize the access data for an external server with ID serverID under bridge ID aliasID
 template<typename SERVERCLASS>
 bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client) {
+  // Is there already an entry for the aliasID? Then return without doing anything.
   if (servers.find(aliasID) != servers.end()) return false;
+
+  // store server data in map
   servers[aliasID] = new ServerData(serverID, client);
-  client->onDataHandler(&(this->bridgeDataHandler));
-  client->onErrorHandler(&(this->bridgeErrorHandler));
-  this->registerWorker(aliasID, ANY_FUNCTION_CODE, reinterpret_cast<MBSworker>(&ModbusBridge<SERVERCLASS>::bridgeWorker));
+
+  log_d("attachServer: %02X->%02X \n", aliasID, serverID);
+
+  // Lock client callbacks, if not already done
+  client->onDataHandler(&(this->bridgeDataHandler), true);
+  client->onErrorHandler(&(this->bridgeErrorHandler), true);
+
+  // Link server to own worker function
+  this->registerWorker(aliasID, ANY_FUNCTION_CODE, std::bind(&ModbusBridge<SERVERCLASS>::bridgeWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+
   return true;
 }
 
+// attachServer, TCP variant: memorize the access data for an external server with ID serverID under bridge ID aliasID
 template<typename SERVERCLASS>
 bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port) {
+  // Is there already an entry for the aliasID? Then return without doing anything.
   if (servers.find(aliasID) != servers.end()) return false;
+
+  // store server data in map
   servers[aliasID] = new ServerData(serverID, static_cast<ModbusClient *>(client), host, port);
-  Serial.printf("attachServer: %02X->%02X %d.%d.%d.%d:%d\n", aliasID, serverID, host[0], host[1], host[2], host[3], port);
-  client->onDataHandler(&(this->bridgeDataHandler));
-  client->onErrorHandler(&(this->bridgeErrorHandler));
+
+  log_d("attachServer: %02X->%02X %d.%d.%d.%d:%d\n", aliasID, serverID, host[0], host[1], host[2], host[3], port);
+
+  // Lock client callbacks, if not already done
+  client->onDataHandler(&(this->bridgeDataHandler), true);
+  client->onErrorHandler(&(this->bridgeErrorHandler), true);
+
+  // Link server to own worker function
   this->registerWorker(aliasID, ANY_FUNCTION_CODE, std::bind(&ModbusBridge<SERVERCLASS>::bridgeWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+
   return true;
 }
 
+// bridgeWorker: default worker function to process bridge requests
 template<typename SERVERCLASS>
 ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
   uint32_t startRequest = millis();
@@ -123,10 +167,15 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
   if (servers.find(aliasID) != servers.end()) {
     // Found it. We may use servers[serverID] now without allocating a new map slot
     ResponseBuf *responseBuffer = new ResponseBuf();
+
+    // TCP servers have a target host/port that needs to be set in the client
     if (servers[aliasID]->serverType == TCP_SERVER) {
       reinterpret_cast<ModbusClientTCP *>(servers[aliasID]->client)->setTarget(servers[aliasID]->host, servers[aliasID]->port);
     }
+
+    // Schedule request
     Error e = servers[aliasID]->client->addRequest(servers[aliasID]->serverID, functionCode, data, dataLen, (uint32_t)responseBuffer);
+    // If request is formally wrong, return error code
     if (e != SUCCESS) {
       delete responseBuffer;
       return ModbusServer::ErrorResponse(e);
@@ -147,12 +196,13 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
           response = ModbusServer::ErrorResponse(static_cast<Error>(responseBuffer->data[0]));
         }
         delete responseBuffer;
-        Serial.println("Response!");
+        log_d("Response!");
         return response;
       } else {
         // No response received - timeout
+        // Signal to the handlers that the response can be discarded
         responseBuffer->isDone = true;
-        Serial.println("Timeout!");
+        log_d("Timeout!");
         return ModbusServer::ErrorResponse(TIMEOUT);
       }
     }
@@ -161,31 +211,43 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
   return ModbusServer::ErrorResponse(INVALID_SERVER);
 }
 
+// bridgeDataHandler: default onData handler for all responses
 template<typename SERVERCLASS>
 void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token) {
+
+  // Get the response buffer's address
   ResponseBuf *responseBuffer = (ResponseBuf *)token;
+
+  // Is it already obsolete?
   if (responseBuffer->isDone) {
-    Serial.println("Data response out of sync, dropped");
+    // Yes, drop it.
+    log_i("Data response out of sync, dropped");
     delete responseBuffer;
   } else {
-    Serial.print("Data handler: ");
+    // No, we need it - copy it into the response buffer
+    ESP_LOG_BUFFER_HEXDUMP("Data handler", data, length, ESP_LOG_DEBUG);
     for (uint16_t i = 0; i < length; ++i) {
-      Serial.printf("%02X ", data[i]);
       responseBuffer->data.push_back(data[i]);
     }
-    Serial.println();
     responseBuffer->ready = true;
   }
 }
 
+// bridgeErrorHandler: default onError handler for all responses
 template<typename SERVERCLASS>
 void ModbusBridge<SERVERCLASS>::bridgeErrorHandler(Error error, uint32_t token) {
+
+  // Get the response buffer's address
   ResponseBuf *responseBuffer = (ResponseBuf *)token;
+
+  // Is it already obsolete?
   if (responseBuffer->isDone) {
-    Serial.println("Error response out of sync, dropped");
+    // Yes, drop it.
+    log_i("Error response out of sync, dropped");
     delete responseBuffer;
   } else {
-    Serial.printf("Error handler: %02X\n", error);
+    // No, we need it - copy it into the response buffer
+    log_d("Error handler: %02X\n", error);
     responseBuffer->data.push_back(error);
     responseBuffer->ready = true;
   }
