@@ -133,3 +133,14 @@ ModbusServer::ModbusServer() :
 ModbusServer::~ModbusServer() {
   
 }
+
+// listServer: Print out all mapped server/FC combinations
+void ModbusServer::listServer() {
+  for (auto it = workerMap.begin(); it != workerMap.end(); ++it) {
+    Serial.printf("Server %3d: ", it->first);
+    for (auto it2 = it->second.begin(); it2 != it->second.end(); it2++) {
+      Serial.printf(" %02X", it2->first);
+    }
+    Serial.println();
+  }
+}

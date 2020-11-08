@@ -48,6 +48,9 @@ public:
   // Local request to the server
   ResponseType localRequest(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t* data);
 
+  // listServer: print out all server/FC combinations served
+  void listServer();
+
 protected:
   // Constructor
   ModbusServer();
