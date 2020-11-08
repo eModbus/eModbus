@@ -5,9 +5,6 @@
 #ifndef _MODBUS_BRIDGE_TEMP_H
 #define _MODBUS_BRIDGE_TEMP_H
 
-#undef LOG_LOCAL_LEVEL
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-
 #include <map>
 #include <functional>
 #include "ModbusClient.h"
@@ -36,12 +33,11 @@ public:
   // Destructor
   ~ModbusBridge();
 
-  // Methods to link external servers to the bridge
-  // RTU client variant
-  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client);
+  // Method to link external servers to the bridge
+  bool attachServer(uint8_t aliasID, uint8_t serverID, uint8_t functionCode, ModbusClient *client, IPAddress host = 0, uint16_t port = 0);
 
-  // TCP client variant
-  bool attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port);
+  // Link a function code to  the server
+  bool addFunctionCode(uint8_t aliasID, uint8_t functionCode);
 
 protected:
   // ServerData holds all data necessary to address a single server
@@ -115,45 +111,65 @@ ModbusBridge<SERVERCLASS>::~ModbusBridge() {
   servers.clear();
 }
 
-// attachServer, RTU variant: memorize the access data for an external server with ID serverID under bridge ID aliasID
+// attachServer, TCP variant: memorize the access data for an external server with ID serverID under bridge ID aliasID
 template<typename SERVERCLASS>
-bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client) {
-  // Is there already an entry for the aliasID? Then return without doing anything.
-  if (servers.find(aliasID) != servers.end()) return false;
+bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, uint8_t functionCode, ModbusClient *client, IPAddress host, uint16_t port) {
+  // Is there already an entry for the aliasID?
+  if (servers.find(aliasID) == servers.end()) {
+    // No. Store server data in map.
 
-  // store server data in map
-  servers[aliasID] = new ServerData(serverID, client);
+    // First loop over all servers entries to find if we already know the client
+    bool hadIt = false;
+    for (auto it = servers.begin(); it != servers.end(); ++it) {
+      // Found it?
+      if (it->second->client == client) {
+        // Yes. stop searching.
+        hadIt = true;
+        break;
+      }
+    }
 
-  log_d("attachServer: %02X->%02X \n", aliasID, serverID);
+    // Do we have a port number?
+    if (port != 0) {
+      // Yes. Must be a TCP client
+      servers[aliasID] = new ServerData(serverID, static_cast<ModbusClient *>(client), host, port);
+    } else {
+      // No - RTU client required
+      servers[aliasID] = new ServerData(serverID, static_cast<ModbusClient *>(client));
+    }
 
-  // Lock client callbacks, if not already done
-  client->onDataHandler(&(this->bridgeDataHandler), true);
-  client->onErrorHandler(&(this->bridgeErrorHandler), true);
+    log_d("attachServer: %02X->%02X %d.%d.%d.%d:%d\n", aliasID, serverID, host[0], host[1], host[2], host[3], port);
 
-  // Link server to own worker function
-  this->registerWorker(aliasID, ANY_FUNCTION_CODE, std::bind(&ModbusBridge<SERVERCLASS>::bridgeWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+    // Now lock client callbacks, if not already done
+    // Did we find the client?
+    if (!hadIt) {
+      // No. Claim the onError and on Data handlers for the bridge
+      bool lockData = client->onDataHandler(&(this->bridgeDataHandler));
+      bool lockError = client->onErrorHandler(&(this->bridgeErrorHandler));
 
+      // Check if the claim was successful
+      if (!lockData || !lockError) {
+        log_w("Warning: onError/onData handler claim was not successful.");
+        return false;
+      }
+    }
+  }
+
+  // Finally register the server/FC combination for the bridgeWorker
+  addFunctionCode(aliasID, functionCode);
   return true;
 }
 
-// attachServer, TCP variant: memorize the access data for an external server with ID serverID under bridge ID aliasID
 template<typename SERVERCLASS>
-bool ModbusBridge<SERVERCLASS>::attachServer(uint8_t aliasID, uint8_t serverID, ModbusClient *client, IPAddress host, uint16_t port) {
-  // Is there already an entry for the aliasID? Then return without doing anything.
-  if (servers.find(aliasID) != servers.end()) return false;
-
-  // store server data in map
-  servers[aliasID] = new ServerData(serverID, static_cast<ModbusClient *>(client), host, port);
-
-  log_d("attachServer: %02X->%02X %d.%d.%d.%d:%d\n", aliasID, serverID, host[0], host[1], host[2], host[3], port);
-
-  // Lock client callbacks, if not already done
-  client->onDataHandler(&(this->bridgeDataHandler), true);
-  client->onErrorHandler(&(this->bridgeErrorHandler), true);
-
-  // Link server to own worker function
-  this->registerWorker(aliasID, ANY_FUNCTION_CODE, std::bind(&ModbusBridge<SERVERCLASS>::bridgeWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-
+bool ModbusBridge<SERVERCLASS>::addFunctionCode(uint8_t aliasID, uint8_t functionCode) {
+  // Is there already an entry for the aliasID?
+  if (servers.find(aliasID) != servers.end()) {
+    // Link server to own worker function
+    this->registerWorker(aliasID, functionCode, std::bind(&ModbusBridge<SERVERCLASS>::bridgeWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+  } else {
+    log_e("Server %d not attached to bridge!\n", aliasID);
+    return false;
+  }
   return true;
 }
 
@@ -221,7 +237,7 @@ void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t
   // Is it already obsolete?
   if (responseBuffer->isDone) {
     // Yes, drop it.
-    log_i("Data response out of sync, dropped");
+    log_d("Data response out of sync, dropped");
     delete responseBuffer;
   } else {
     // No, we need it - copy it into the response buffer
@@ -243,7 +259,7 @@ void ModbusBridge<SERVERCLASS>::bridgeErrorHandler(Error error, uint32_t token) 
   // Is it already obsolete?
   if (responseBuffer->isDone) {
     // Yes, drop it.
-    log_i("Error response out of sync, dropped");
+    log_d("Error response out of sync, dropped");
     delete responseBuffer;
   } else {
     // No, we need it - copy it into the response buffer
