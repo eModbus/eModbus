@@ -190,6 +190,8 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
           if (instance->onData) {
             // Yes. call it
             instance->onData(response->getServerID(), response->getFunctionCode(), response->data(), response->len(), request->getToken());
+          } else {
+            // Serial.printf("No onData handler\n");
           }
         } else {
           // No, something went wrong. All we have is an error
@@ -201,6 +203,8 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
             if (instance->onError) {
               // Yes. Forward the error code to it
               instance->onError(response->getError(), request->getToken());
+            } else {
+              // Serial.printf("No onError handler\n");
             }
           }
         }
