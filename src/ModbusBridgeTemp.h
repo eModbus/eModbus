@@ -39,6 +39,9 @@ public:
   // Link a function code to  the server
   bool addFunctionCode(uint8_t aliasID, uint8_t functionCode);
 
+  // Block a function code (respond with ILLEGAL_FUNCTION error)
+  bool denyFunctionCode(uint8_t aliasID, uint8_t functionCode);
+
 protected:
   // ServerData holds all data necessary to address a single server
   struct ServerData {
@@ -78,8 +81,9 @@ protected:
   static void bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token);
   static void bridgeErrorHandler(Error error, uint32_t token);
 
-  // Default worker function
+  // Default worker functions
   ResponseType bridgeWorker(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
+  ResponseType bridgeDenyWorker(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
 
   // Map of servers attached
   std::map<uint8_t, ServerData *> servers;
@@ -173,6 +177,19 @@ bool ModbusBridge<SERVERCLASS>::addFunctionCode(uint8_t aliasID, uint8_t functio
   return true;
 }
 
+template<typename SERVERCLASS>
+bool ModbusBridge<SERVERCLASS>::denyFunctionCode(uint8_t aliasID, uint8_t functionCode) {
+  // Is there already an entry for the aliasID?
+  if (servers.find(aliasID) != servers.end()) {
+    // Link server to own worker function
+    this->registerWorker(aliasID, functionCode, std::bind(&ModbusBridge<SERVERCLASS>::bridgeDenyWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+  } else {
+    log_e("Server %d not attached to bridge!\n", aliasID);
+    return false;
+  }
+  return true;
+}
+
 // bridgeWorker: default worker function to process bridge requests
 template<typename SERVERCLASS>
 ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
@@ -225,6 +242,12 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
   }
   // If we get here, something has gone wrong internally. We send back an error response anyway.
   return ModbusServer::ErrorResponse(INVALID_SERVER);
+}
+
+// bridgeDenyWorker: worker function to block function codes
+template<typename SERVERCLASS>
+ResponseType ModbusBridge<SERVERCLASS>::bridgeDenyWorker(uint8_t aliasID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+  return ModbusServer::ErrorResponse(ILLEGAL_FUNCTION);
 }
 
 // bridgeDataHandler: default onData handler for all responses
