@@ -777,7 +777,7 @@ All else requests will be answered by the bridge with either ILLEGAL_FUNCTION or
 You will have to include the matching header file in your code for the bridge type you want to use:
 - ``ModbusBridgeEthernet.h`` for the Ethernet-based bridge
 - ``ModbusBridgeWiFi.h`` for the WiFi sibling
-- ``ModbusBridgeRTU`` for a bridge listenimg on a RTU Modbus
+- ``ModbusBridgeRTU`` for a bridge listening on a RTU Modbus
 
 #### ``ModbusBridge()`` and ``ModbusBridge(uint32_t TOV)``
 These are the constructors for a TCP-based bridge. The optional ``TOV`` (="timeout value") parameter sets the maximum time the bridge will wait for the responses from external servers. The default value for this is 10000 - 10 seconds.
