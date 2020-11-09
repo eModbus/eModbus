@@ -2,16 +2,16 @@
 
 ![ModbusUnified](https://github.com/ESP32ModbusUnified/ModbusUnified/workflows/Building/badge.svg)
 
-This is a library to provide Modbus client (formerly known as master) and server (formerly slave) functionalities for both Modbus RTU and TCP protocols.
+This is a library to provide Modbus client (formerly known as master), server (formerly slave) and bridge/gateway functionalities for both Modbus RTU and TCP protocols.
 
 Modbus communication is done in separate tasks, so Modbus requests and responses are non-blocking. Callbacks are provided to prepare or receive the responses asynchronously.
 
 Key features:
 - for use in the Arduino framework
 - non blocking / asynchronous API
-- server and client modes
-- TCP and RTU interfaces
-- all common function codes and user-defined
+- server, client and bridge modes
+- TCP (Ethernet, WiFi and Async) and RTU interfaces
+- all common and user-defined function codes 
 
 This has been developed by enthusiasts. While we do our utmost best to make robust software, do not expect any bullet-proof, industry deployable, guaranteed software. **See the license** to learn about liabilities etc.
 
@@ -37,6 +37,10 @@ Have fun!
     - [ModbusServerWiFi](#modbusserverwifi)
     - [ModbusServerTCPasync](#modbusservertcpasync)
     - [ModbusServerRTU](#modbusserverrtu)
+- [ModbusBridge](#modbusbridge)
+  - [Basic use](#basic-use-2)
+  - [API description](#api-description-2)
+  - [Filtering](#filtering)
 
 ## Requirements
 The library was developed for and on ESP32 MCUs in the Arduino core development environment. In principle it should run in any environment providing these resources:
@@ -50,10 +54,12 @@ The library was developed for and on ESP32 MCUs in the Arduino core development 
   - ``std::mutex``
   - ``std::lock_guard``
   - ``std::forward``
+  - ``std::function``
+  - ``std::bind``
 
 For Modbus RTU you will need a RS485-to-Serial adaptor. Commonly used are the **RS485MAX** adaptors or the **XY-017** adaptors with automatic half duplex control. Do check compatability wrt voltage levels.
 
-Modbus TCP will require either an Ethernet module like the WizNet W5xxx series connected to the SPI interface or an (internal or external) WiFi adaptor. The client library is by the way using the functions defined in ``Client.h`` only, whereas the server library is requiring either ``Ethernet.h`` or ``Wifi.h`` internally. Async versions rely on the [AsyncTCP library](https://github.com/me-no-dev/AsyncTCP).
+Modbus TCP will require either an Ethernet module like the WizNet W5xxx series connected to the SPI interface or an (internal or external) WiFi adaptor. The client library is by the way using the functions defined in ``Client.h`` only, whereas the server and bridge library is requiring either ``Ethernet.h`` or ``Wifi.h`` internally. Async versions rely on the [AsyncTCP library](https://github.com/me-no-dev/AsyncTCP).
 
 ## Installation
 We recommend to use the [PlatformIO IDE](https://platformio.org/). There, in your project's ``platformio.ini`` file, add the Github URL of this library to your ``lib_deps =`` entry in the ``[env:...]`` section of that file:
@@ -73,6 +79,8 @@ lib_deps =
 If you are using the Arduino IDE, you will want to copy the library folder into your library directory. In Windows this will be  ``C:\Users\<user_name>\Documents\Arduino\libraries`` normally. For Arduino IDE, you'll have to install the dependencies manually. These are:
 - AsyncTCP (https://github.com/me-no-dev/AsyncTCP)
 - Ethernet-compatible library (example: https://github.com/maxgerhardt/Ethernet)
+
+[Return to top](#modbusunified)
 
 ## ModbusClient
 
@@ -186,7 +194,7 @@ void func(ModbusClient::Error, uint32_t token);
 ```
 
 The parameters are 
-- ``ModbusClient::Error``, which is one of the ``errorcodes`` defined in ``ModbusTypeDefs.h``:
+- ``ModbusClient::Error``, which is one of the error codes <a name="errorcodes"></a>defined in ``ModbusTypeDefs.h``:
   ```
   enum Error : uint8_t {
     SUCCESS                = 0x00,
@@ -239,7 +247,7 @@ Any ``addRequest`` call will take the same ``serverID`` and ``functionCode`` par
 
 There are 7 different ``addRequest`` calls, covering most of the Modbus standard function codes with their parameter lists.
 
-The function codes may be given numerically or by one of the constant names defined in ``ModbusTypeDefs.h``:
+The function codes <a name="functioncodes"></a>may be given numerically or by one of the constant names defined in ``ModbusTypeDefs.h``:
 ```
 enum FunctionCode : uint8_t {
   ANY_FUNCTION_CODE       = 0x00,  // only valid to be used by ModbusServer!
@@ -448,6 +456,8 @@ The calls are:
 - ``TCPMessage generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode)``
 For a description please see the related calls above in the ModbusClientRTU section and the ``addRequest`` call descriptions in the common section.
 
+[Return to top](#modbusunified)
+
 ## ModbusServer
 ModbusServer (aka slave) allows you to concentrate on the server functionality - data provision, manipulation etc. -, while the library will take care of the communication part.
 
@@ -609,6 +619,14 @@ You may check if a given serverID/functionCode combination has been covered by a
 ##### ``uint32_t getMessageCount()``
 Each request received will be counted. The ``getMessageCount()`` method will return the current state of the counter.
 
+##### ``ResponseType localRequest(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t* data)``
+This function is a simple local interface to issue requests to the server running. Responses are returned immediately - there is no request queueing involved. This call is *blocking* for that reason, so be prepared to have to wait until the response is ready!
+
+A bridge (see below) will respond for all known serverID/function code combinations, so the delegated request to a remote server may be involved as well.
+
+##### ``void listServer()``
+Mostly intended to be used in debug situations, ``listServer()`` will output all servers and their function codes served by the ModbusServer to the Serial Monitor.
+
 #### ModbusServerTCP
 Inconsistencies between the WiFi and Ethernet implementations in the core libraries required a split of ModbusServerTCP into the ``ModbusServerEthernet`` and ``ModbusServerWiFi`` variants.
 
@@ -697,3 +715,132 @@ The optional parameter ``coreID`` may be used to have that background task run o
 ##### ``bool stop()``
 The server background process can be stopped and the task be deleted with the ``stop()`` call. You may start it again with another ``start()`` afterwards.
 In fact a ``start()`` to an already running server will stop and then restart it.
+
+[Return to top](#modbusunified)
+
+## ModbusBridge
+A Modbus "bridge" (or gateway) is basically a Modbus server forwarding requests to other servers, that are in a different Modbus. 
+The bridge will control and translate requests from a TCP Modbus into a RTU Modbus and vice versa. 
+
+Some typical applications:
+- TCP bridge gives access to all servers from a connected RTU Modbus
+- RTU bridge brings a TCP server into a RS485 Modbus
+- bridge collects data from several (TCP and RTU) Modbuses under a single interface
+
+As the bridge is based on a ``ModbusServer``, it also can serve locally in addition to the external servers connected.
+
+### Basic Use
+First you will have to include the matching header file for the type of bridge you are going to set up (talking to Ethernet in this case):
+```
+#include "ModbusBridgeEthernet.h"
+```
+Next the bridge needs to be defined:
+```
+ModbusBridgeEthernet MBbridge(5000);
+```
+We will need at least one ``ModbusClient`` for the bridge to contact external servers:
+```
+#include "ModbusClientRTU.h"
+```
+... and set that up:
+```
+ModbusClientRTU MB(Serial1);
+```
+Then, most probably in ``setup()``, the client is started and the bridge needs to be configured:
+```
+MB.setTimeout(2000);
+MB.begin();
+...
+// ServerID 4: RTU Server with remote serverID 1, accessed through RTU client MB - FC 03 accepted only
+MBbridge.attachServer(4, 1, READ_HOLD_REGISTER, &MB);
+// Add FC 04 to it
+MBbridge.addFunctionCode(4, READ_INPUT_REGISTER);
+
+// ServerID 5: RTU Server with remote serverID 4, accessed through RTU client MB - all FCs accepted
+MBbridge.attachServer(5, 4, ANY_FUNCTION_CODE, &MB);
+// Remove FC 04 from it
+MBbridge.denyFunctionCode(5, READ_INPUT_REGISTER);
+```
+And finally the bridge is started:
+```
+MBbridge.start(port, 4, 600);
+```
+That's it!
+
+From now on all requests for serverID 4, function codes 3 and 4 are forwarded to the RTU-based server 1, its responses are given back. Same applies to server ID 5 and all possible function codes - with the exception of FC 4.
+
+All else requests will be answered by the bridge with either ILLEGAL_FUNCTION or INVALID_SERVER.
+
+### API description
+**Note**: all API calls for ``ModbusServer`` are valid for the bridge as well (except the constructors of course) - see the [ModbusServer API description](#api-description-1) for these.
+
+#### ``ModbusBridge()`` and ``ModbusBridge(uint32_t TOV)``
+These are the constructors for a TCP-based bridge. The optional ``TOV`` (="timeout value") parameter sets the maximum time the bridge will wait for the responses from external servers. The default value for this is 10000 - 10 seconds.
+
+**Note**: this is a value common for all servers connected, so choose the value sensibly to cover all normal response times of the servers. 
+Else you will be losing responses from those servers taking longer to respond. Their responses will be dropped unread if arriving after the bridge's timeout had struck.
+
+#### ``ModbusBridge(HardwareSerial& serial, uint32_t timeout)``, ``ModbusBridge(HardwareSerial& serial, uint32_t timeout, uint32_t TOV)`` and ``ModbusBridge(HardwareSerial& serial, uint32_t timeout, uint32_t TOV, int rtsPin)``
+The corresponding constructors for the RTU bridge variant. With the exception of ``TOV`` all parameters are those of the underlying RTU server.
+The duplicity of ``timeout`` and ``TOV`` may look irritating at the first moment, but while ``timeout`` denotes the timeout the bridge will use when waiting for messages as a _server_, the ``TOV`` value is the _bridge_ timeout as described above.
+
+#### ``bool attachServer(uint8_t aliasID, uint8_t serverID, uint8_t functionCode, ModbusClient *client)`` and ``bool attachServer(uint8_t aliasID, uint8_t serverID, uint8_t functionCode, ModbusClient *client, IPAddress host, uint16_t port)``
+These calls are used to bind ``ModbusClient``s to the bridge. 
+The former call is for RTU clients, the latter for their TCP pendants.
+The call parameters are:
+- ``aliasID``: the server ID, that will be visible externally for the attached server. As connected servers in different Modbus environments may have the same server IDs, these need to be unified for requests to the bridge.
+The ``aliasID`` must be unique for the bridge. Attempts to attach the same ``aliasID`` to another server/client will be denied by the bridge.
+The call will return ``false`` in these cases.
+- ``serverID``: the server ID of the remote server. This is the ID the server natively is using on the Modbus the client is connected to.
+- ``functionCode``: the function code that shall be accessed on the remote server.
+This may be any FC allowed by the Modbus standard (see [Function Codes](#functioncodes) above), including the special ``ALL_FUNCTION_CODES`` non-standard value. The latter will open the bridge for any function code sent without further checking. See [Filtering](#filtering) for some refined recipes.
+- ``*client``: this must be a pointer to any ``ModbusClient`` type, that is connecting to the external Modbus the remote server is living in.
+
+The TCP ``attachServer`` call has two more parameters needed to address the TCP host where the server is located:
+- ``host``: the IP address of the target host
+- ``port``: the port number to connect to the TCP Modbus on that host.
+
+At least one ``attachServer()`` call has to be made before any of the following make any sense!
+
+#### ``bool addFunctionCode(uint8_t aliasID, uint8_t functionCode)``
+With ``addFunctionCode()`` you may add another function code for the server known behind the ``aliasID``, that will be forwarded by the bridge. One by one you can add those function codes you would like to have served by the bridge.
+The ``aliasID`` has to be attached already before you may use this call successfully. If it is not, the call will return ``false``.
+
+#### ``bool denyFunctionCode(uint8_t aliasID, uint8_t functionCode)``
+This call is the opposite to ``addFunctionCode()`` - the function code you give here as a parameter will **not** be served by the bridge, but responded to with an ILLEGAL_FUNCTION error response.
+Like its sibling, this call will return ``false`` if the ``aliasID`` was not yet ``attached`` to the bridge.
+
+### Filtering
+Given the means of both the underlying ``ModbusServer`` and the ``ModbusBridge`` itself, the access to the remote servers can be controlled in multiple ways.
+
+As a principle, the bridge will only react on server IDs made known to it - either by the ``attachServer()`` bridge call or by the server's ``registerWorker()`` call for a locally served function code. So a server ID filter is intrinsically always active. Server IDs not known will not be served.
+
+A finer level of control is possible on the function code level. We have two different ways to restrict function code uses:
+- allow most, deny some
+- deny most, allow some
+
+You will want to choose the method that will require the least effort for your application.
+
+#### Allow most, deny some
+This is achieved by first attaching a server for the special ``ANY_FUNCTION_CODE`` value. It will open the server to all possible function codes regardless.
+
+To now restrict the use of a few function codes, you will call ``denyFunctionCode()`` for each of these. Following that the bridge will return the ``ILLEGAL_FUNCTION`` error response if a request for that code is sent to the bridge.
+
+#### Deny most, allow some
+You have to refrain from using the ``ANY_FUNCTION_CODE`` value here and only use those function codes in ``attachServer()`` and ``addFunctionCode()`` that you will allow to be served.
+
+#### More subtle methods
+There is one basic server rule, that also applies to the bridge: "specialized beats generic". That means, if the server/bridge has a detailed order for a server ID/function code combination, it will use that, even if there is another for the same server ID and ANY_FUNCTION_CODE.
+Second rule is "last register counts": whatever was known to the server/bridge on how to serve a server ID/function code combination, will be replaced by a later ``registerWorker()`` call for the same combination without a trace.
+
+You can make use of that in interesting ways:
+- add a local function to serve a certain server ID/function code combination that normally would be served on a remote server. Thus you can mask the external server for that function code at will.
+- add your own local function to respond with a different error than the default ILLEGAL_FUNCTION - or not at all.
+- after attaching some explicit function codes for an external server add a local worker for that server ID and ``ALL_FUNCTION_CODES`` to cover all other codes not explicitly named with a default response.
+
+So besides plain filtering you may modify parts or all of the responses the external server would give.
+
+**Warning**: registering local worker functions for the serverID of a remote server may completely block the external server! There is no way to go back once you did that!
+
+
+[Return to top](#modbusunified)
