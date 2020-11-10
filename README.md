@@ -11,7 +11,7 @@ Key features:
 - non blocking / asynchronous API
 - server, client and bridge modes
 - TCP (Ethernet, WiFi and Async) and RTU interfaces
-- all common and user-defined function codes 
+- all common and user-defined Modbus standard function codes 
 
 This has been developed by enthusiasts. While we do our utmost best to make robust software, do not expect any bullet-proof, industry deployable, guaranteed software. **See the license** to learn about liabilities etc.
 
@@ -33,9 +33,9 @@ Have fun!
   - [API description](#api-description-1)
     - [Common concepts](#common-concepts-1)
     - [ModbusServerTCP](#modbusservertcp)
-    - [ModbusServerEthernet](#modbusserverethernet)
-    - [ModbusServerWiFi](#modbusserverwifi)
-    - [ModbusServerTCPasync](#modbusservertcpasync)
+      - [ModbusServerEthernet](#modbusserverethernet)
+      - [ModbusServerWiFi](#modbusserverwifi)
+      - [ModbusServerTCPasync](#modbusservertcpasync)
     - [ModbusServerRTU](#modbusserverrtu)
 - [ModbusBridge](#modbusbridge)
   - [Basic use](#basic-use-2)
@@ -57,7 +57,7 @@ The library was developed for and on ESP32 MCUs in the Arduino core development 
   - ``std::function``
   - ``std::bind``
 
-For Modbus RTU you will need a RS485-to-Serial adaptor. Commonly used are the **RS485MAX** adaptors or the **XY-017** adaptors with automatic half duplex control. Do check compatability wrt voltage levels.
+For Modbus RTU you will need a RS485-to-Serial adaptor. Commonly used are the **RS485MAX** adaptors or the **XY-017** adaptors with automatic half duplex control. Be sure to check compatibility of voltage levels.
 
 Modbus TCP will require either an Ethernet module like the WizNet W5xxx series connected to the SPI interface or an (internal or external) WiFi adaptor. The client library is by the way using the functions defined in ``Client.h`` only, whereas the server and bridge library is requiring either ``Ethernet.h`` or ``Wifi.h`` internally. Async versions rely on the [AsyncTCP library](https://github.com/me-no-dev/AsyncTCP).
 
@@ -96,10 +96,10 @@ For ModbusClientRTU a Serial interface is required, that connects to your RS485 
 
 ```
 ModbusClientRTU RS485(Serial2);          // for auto half-duplex
-ModbusclientRTU RS485(Serial2, rtsPin);  // use rtsPin to toggle DE/RE in half-duplex
+ModbusClientRTU RS485(Serial2, rtsPin);  // use rtsPin to toggle DE/RE in half-duplex
 ```
 
-Next we will define a callback function for data responses coming in. This example will print out a hexadecimal response data:
+Next we will define a callback function for data responses coming in. This example will print out a hexadecimal dump of the response data:
 
 ```
 void handleData(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token) 
@@ -142,7 +142,7 @@ void setup() {
 }
 ```
 
-You can start making requests now. In the code below a "read holding register" request is sent to server ``#1``, requesting one data word at address 10. Please disregard the ``token`` value of 0x12345678 for now, it will be explained further below:
+You can start making requests now. In the code below a "read holding register" request is sent to server id ``1``, requesting one data word at address 10. Please disregard the ``token`` value of 0x12345678 for now, it will be explained further below:
 
 ```
 Error err = RS485.addRequest(1, READ_HOLD_REGISTER, 10, 1, 0x12345678);
@@ -161,7 +161,7 @@ Core concepts are the same for all interfaces. We will first describe the API el
 #### Common concepts
 Internally the Modbus message contents for requests and responses are held separately from the elements the protocols will require. Hence several API elements are common to both protocols.
 
-##### ``void onDataHandler(MBOnData handler)``
+##### ``bool onDataHandler(MBOnData handler)``
 This is the interface to register a callback function to be called when a response was received. The only parameter is a pointer to a function with this signature:
 
 ```
@@ -173,6 +173,8 @@ void func(uint8_t serverID, uint8_t functionCode, const uint8_t *data, uint16_t 
 - ``*data`` and ``data_length``: data points to a buffer containing the response message bytes, ``data_length`` gives the number of bytes in the message.
 - ``token``: this is a general concept throughout the library, see below.
 
+**Note**: a handler can only be claimed once. If that already has been done before, subsequent calls are returning a ``false`` value.
+
 #### The ``token`` concept
 Each request must be given a user-defined ``token`` value. This token is saved with each request and is returned in the callback. No processing whatsoever is done on the token, you will get what you gave. This enables a user to keep track of the sent requests when receiving a response.
 
@@ -182,7 +184,7 @@ If you only want to have a single onData and onError function handling all respo
 
 Your token you gave at request time will tell you that, as the response will return exactly that token.
 
-##### `void onErrorHandler(MBOnError handler)`
+##### `bool onErrorHandler(MBOnError handler)`
 Very similar to the ``onDataHandler`` call, this allows to catch all error responses with a callback function.
 
 **Note:** it is not *required* to have an error callback registered. But if there is none, errors will go unnoticed!
@@ -329,7 +331,7 @@ This service function takes the integral value of type ``T`` provided as paramet
 In any case the function will return the number of bytes written. A typical application may look like:
 
 ```
-uint8_t u = 4;  // 0x04
+uint8_t u = 4;      // 0x04
 uint16_t w = 1276;  // 0x04FC 
 uint32_t l = 0xDEADBEEF;
 uint8_t buffer[24];
@@ -382,17 +384,17 @@ There is one more ``generate`` call to create a properly formed error response m
 
 The ``errorCode`` parameter takes an ``Error`` value as defined above. The resulting message returned also will have the correct CRC16 data added to it.
 
-##### ``RTUutils::calcCRC16(uint8_t *data, uint16_t len)``
+##### ``uint16_t RTUutils::calcCRC16(uint8_t *data, uint16_t len)``
 This is a convenient method to calculate a CRC16 value for a given block of bytes. ``*data`` points to this block, ``len`` gives the number of bytes to consider.
 The call will return the 16-bit CRC16 value.
 
-##### ``bool validCRC(const uint8_t *data, uint16_t len)``
+##### ``bool RTUutils::validCRC(const uint8_t *data, uint16_t len)``
 If you got a buffer holding a Modbus message including a CRC, ``validCRC()`` will tell you if it is correct - by calculating the CRC16 again and comparing it to the last two bytes of the message buffer.
 
-##### ``bool validCRC(const uint8_t *data, uint16_t len, uint16_t CRC)``
+##### ``bool RTUutils::validCRC(const uint8_t *data, uint16_t len, uint16_t CRC)``
 ``validCRC()`` has a second variant, where you can provide a pre-calculated (or otherwise obtained) CRC16 to be compared to that of the given message buffer.
 
-##### ``void addCRC(RTUMessage& raw)``
+##### ``void RTUutils::addCRC(RTUMessage& raw)``
 If you have a ``RTUMessage`` (see above), you can calculate a valid CRC16 tnd have it pushed o its end with ``addCRC()``.
 
 #### ModbusClientTCP API elements
@@ -412,7 +414,7 @@ The optional ``queueLimit`` parameter lets you define the maximum number of requ
 ##### ``ModbusClientTCP(Client& client, IPAddress host, uint16_t port)`` and ``ModbusClientTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit)``
 Alternatively you may give the initial target host IP address and port number to be used for communications. This can be sensible if you have to set up a ModbusClientTCP client dedicated to one single target host.
 
-##### ``ModbusClientTCPasync(IPAddress host, uint16_t port)`` and ``ModbusClientTCPasync(IPAddress host, uint16_t port, uint16_t queueLimit)``
+##### _**AsyncTCP only**_ ``ModbusClientTCPasync(IPAddress host, uint16_t port)`` and ``ModbusClientTCPasync(IPAddress host, uint16_t port, uint16_t queueLimit)``
 The asynchronous version takes 3 arguments: the target host IP address and port number of the modbus server and an optionally queue size limit (defaults to 100). The async version connects to one modbus server.
 
 ##### ``void setTimeout(uint32_t timeout)`` and ``void setTimeout(uint32_t timeout, uint32_t interval)`` 
@@ -424,19 +426,25 @@ The optional ``interval`` parameter also is given in milliseconds and specifies 
 
 **Note:** the interval is also applied for each attempt to send a request, it will add to the timeout! To give an example: ``timeout=2000`` and ``interval=200`` will result in 6600ms inactivity, if the target host notoriously does not answer.
 
-**Note:** The timeout mechanism on the async version works lightly different. Every 500msec, only the oldest request is checked for a possible timeout. A newer request will only timeout if a previous has been processed (answer is received or has struck timeout). For example: 3 requests are made at the same time. The first timeouts after 2000msec. The second after 2500msec and the last at 3000msec.
+**_AsyncTCP only_:** The timeout mechanism on the async version works slightly different. 
+Every 500msec, only the oldest request is checked for a possible timeout. 
+A newer request will only time out if a previous has been processed (answer is received or has hit timeout). 
+For example: 3 requests are made at the same time. 
+The first times out after 2000msec, the second after 2500msec and the last at 3000msec.
 
-##### ``void setIdleTimeout(uint32_t timeout)`` (only async)
+##### _**AsyncTCP only**_ ``void setIdleTimeout(uint32_t timeout)``
 Sets the time after which the client closes the TCP connection to the server.
-The async version tries to maintain the connection to the server open. Upon the first request, a connection is made to the server and is kept open. If no data has been received from the server after the idle timeout, the client will close the connection.
+The async version tries to keep the connection to the server open. Upon the first request, a connection is made to the server and is kept open. 
+If no data has been received from the server after the idle timeout, the client will close the connection.
+
 Mind that the client will only reset the idle timeout timer upon data reception.
 
 ##### ``bool setTarget(IPAddress host, uint16_t port [, uint32_t timeout [, uint32_t interval]]``
+_**This method is not available in the async client.**_
+
 This function is necessary at least once to set the target host IP address and port number (unless that has been done with the constructor already). All requests will be directed to that host/port, until another ``setTarget()`` call is issued.
 
 The optional ``timeout`` and ``interval`` parameters will let you override the standards set with the ``setTimeout()`` method **for just those requests sent from now on to the targeted host/port**. The next ``setTarget()`` will return to the standard values, if not specified differently again.
-
-**This method is not available in the async client.**
 
 ##### Message generating calls (no communication)
 The ModbusClientTCP ``generate`` calls are identical in function to those described in the ModbusClientRTU section, with the following differences:
@@ -592,7 +600,8 @@ There is no limit in registered callbacks, but a second register for a certain s
 **Note**: there is a special function code ``ANY_FUNCTION_CODE``, that will register your callback to any function code except those you have explicitly registered otherwise.
 This is meant for applications where the standard function code and response handling does not fit the needs of the user.
 There will be no automatic ``ILLEGAL_FUNCTION_CODE`` response anymore for this server!
-You may combine this with the ``NIL_RESPONSE`` response variant described below to have a server that will gobble all incoming requests.
+
+_Hint_: You may combine this with the ``NIL_RESPONSE`` response variant described below to have a server that will gobble all incoming requests.
 With RTU, this will give you a copy of all messages directed to another server on the bus, but without interfering with it.
 
 A ``MBSworker`` callback must return a data object of ``ResponseType``. This is in fact a ``std::vector<uint8_t>`` and may be used likewise. There are basically five different ``ResponseType`` return variants:
@@ -622,7 +631,7 @@ Each request received will be counted. The ``getMessageCount()`` method will ret
 ##### ``ResponseType localRequest(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t* data)``
 This function is a simple local interface to issue requests to the server running. Responses are returned immediately - there is no request queueing involved. This call is *blocking* for that reason, so be prepared to have to wait until the response is ready!
 
-A bridge (see below) will respond for all known serverID/function code combinations, so the delegated request to a remote server may be involved as well.
+A bridge (see below) will respond to this call for all known serverID/function code combinations, so the delegated request to a remote server may be involved as well.
 
 ##### ``void listServer()``
 Mostly intended to be used in debug situations, ``listServer()`` will output all servers and their function codes served by the ModbusServer to the Serial Monitor.
@@ -634,10 +643,6 @@ Both are sharing the majority of methods etc., but need to be included with diff
 
 All relevant calls after initialization of the respective ModbusServer object are identical.
 
-You can use the ``TCPMODE`` macro to tell in your code, which variant you are using - ``#if TCPMODE == ETHERNET`` will be true in the Ethernet case, ``#if TCPMODE == WIFI`` in the other.
-
-##### ModbusServerEthernet
-To use the Ethernet version, you will have to use
 ```
 #include "ModbusServerEthernet.h"
 ...
@@ -687,7 +692,7 @@ The ``start()`` call will create a TCP server task in the background that is lis
 
 A client task is stopped again, if the timeout hits or if the far side has closed the connection.
 
-The asynchronous version does not rely on client tasks but on events from a single async TPC task which are forwarded to this library.
+The asynchronous version does not rely on client tasks but on events from a single async TCP task which are forwarded to this library.
 
 ##### ``bool stop()``
 The ``stop()`` call will close all open connections, free allocated memory and finally stop the server task. At this time your Modbus server will not respond to any connection request any more. 
