@@ -17,7 +17,7 @@ ModbusClient::ModbusClient() :
 // onDataHandler: register callback for data responses
 bool ModbusClient::onDataHandler(MBOnData handler) {
   if (onData) {
-    log_e("onData handler was already claimed\n");
+    LOG_E("onData handler was already claimed\n");
     return false;
   } 
   onData = handler;
@@ -27,7 +27,7 @@ bool ModbusClient::onDataHandler(MBOnData handler) {
 // onErrorHandler: register callback for error responses
 bool ModbusClient::onErrorHandler(MBOnError handler) {
   if (onError) {
-    log_e("onError handler was already claimed\n");
+    LOG_E("onError handler was already claimed\n");
     return false;
   } 
   onError = handler;
