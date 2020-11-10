@@ -34,7 +34,7 @@ public:
   ~ModbusBridge();
 
   // Method to link external servers to the bridge
-  bool attachServer(uint8_t aliasID, uint8_t serverID, uint8_t functionCode, ModbusClient *client, IPAddress host = 0, uint16_t port = 0);
+  bool attachServer(uint8_t aliasID, uint8_t serverID, uint8_t functionCode, ModbusClient *client, IPAddress host = IPAddress(0, 0, 0, 0), uint16_t port = 0);
 
   // Link a function code to  the server
   bool addFunctionCode(uint8_t aliasID, uint8_t functionCode);
