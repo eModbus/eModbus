@@ -14,7 +14,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
        ascbuf[16] = 0;
 
   // Print out header
-  output.printf("[%s] %s %08X/%d:\n", letter, label, (uint32_t)data, length);
+  output.printf("[%s] %s: %08X/%d:\n", letter, label, (uint32_t)data, length);
 
   // loop over data in steps of 16
   for (cnt = 0; cnt < length; ++cnt) {
