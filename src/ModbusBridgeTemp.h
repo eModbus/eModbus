@@ -213,6 +213,7 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
 
     // Schedule request
     Error e = servers[aliasID]->client->addRequest(servers[aliasID]->serverID, functionCode, data, dataLen, (uint32_t)responseBuffer);
+    LOG_D("Request (%02X/%02X) sent\n", servers[aliasID]->serverID, functionCode);
     // If request is formally wrong, return error code
     if (e != SUCCESS) {
       delete responseBuffer;
@@ -234,7 +235,6 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
           response = ModbusServer::ErrorResponse(static_cast<Error>(responseBuffer->data[0]));
         }
         delete responseBuffer;
-        LOG_D("Response!\n");
         return response;
       } else {
         // No response received - timeout
@@ -269,7 +269,7 @@ void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t
     delete responseBuffer;
   } else {
     // No, we need it - copy it into the response buffer
-    HEXDUMP_D("Response", data, length);
+    HEXDUMP_D("Server response", data, length);
     for (uint16_t i = 0; i < length; ++i) {
       responseBuffer->data.push_back(data[i]);
     }
