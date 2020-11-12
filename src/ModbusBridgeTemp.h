@@ -10,7 +10,6 @@
 #include "ModbusClient.h"
 #include "ModbusClientTCP.h"  // Needed for client.setTarget()
 
-#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 using std::bind;
@@ -269,7 +268,8 @@ void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t
     delete responseBuffer;
   } else {
     // No, we need it - copy it into the response buffer
-    HEXDUMP_D("Server response", data, length);
+    LOG_D("Server responded.\n");
+    HEXDUMP_V("Server response", data, length);
     for (uint16_t i = 0; i < length; ++i) {
       responseBuffer->data.push_back(data[i]);
     }
@@ -291,8 +291,7 @@ void ModbusBridge<SERVERCLASS>::bridgeErrorHandler(Error error, uint32_t token) 
     delete responseBuffer;
   } else {
     // No, we need it - copy it into the response buffer
-    LOG_D("%02X ", error);
-    LOGRAW_D("%s\n", (const char *)ModbusError(error));
+    LOG_D("%d - %s\n", error, (const char *)ModbusError(error));
     responseBuffer->data.push_back(error);
     responseBuffer->ready = true;
   }
