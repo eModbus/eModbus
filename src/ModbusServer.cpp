@@ -5,10 +5,14 @@
 #include <Arduino.h>
 #include "ModbusServer.h"
 
+#undef LOCAL_LOG_LEVEL
+#include "Logging.h"
+
 // registerWorker: register a worker function for a certain serverID/FC combination
 // If there is one already, it will be overwritten!
 void ModbusServer::registerWorker(uint8_t serverID, uint8_t functionCode, MBSworker worker) {
   workerMap[serverID][functionCode] = worker;
+  LOG_D("Registered worker for %02X/%02X\n", serverID, functionCode);
 }
 
 // getWorker: if a worker function is registered, return its address, nullptr otherwise
@@ -22,6 +26,7 @@ MBSworker ModbusServer::getWorker(uint8_t serverID, uint8_t functionCode) {
     // Found it?
     if (fcmap != svmap->second.end()) {
       // Yes. Return the function pointer for it.
+      LOG_D("Worker found for %02X/%02X\n", serverID, functionCode);
       return fcmap->second;
       // No, no explicit worker found, but may be there is one for ANY_FUNCTION_CODE?
     } else {
@@ -29,11 +34,13 @@ MBSworker ModbusServer::getWorker(uint8_t serverID, uint8_t functionCode) {
       // Found it?
       if (fcmap != svmap->second.end()) {
         // Yes. Return the function pointer for it.
+        LOG_D("Worker found for %02X/ANY\n", serverID);
         return fcmap->second;
       }
     }
   }
   // No matching function pointer found
+  LOG_D("No matching worker found\n");
   return nullptr;
 }
 
@@ -77,12 +84,17 @@ ResponseType ModbusServer::DataResponse(uint16_t dataLen, uint8_t *data) {
 
 // LocalRequest: get response from locally running server.
 ResponseType ModbusServer::localRequest(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+  LOG_D("Local request for %02X/%02X\n", serverID, functionCode);
+  HEXDUMP_V("Request", data, dataLen);
   // Try to get a worker for the request
   MBSworker worker = getWorker(serverID, functionCode);
   // Did we get one?
   if (worker != nullptr) {
     // Yes. call it and return the response
+    LOG_D("Call worker\n");
     ResponseType m = worker(serverID, functionCode, dataLen, data);
+    LOG_D("Worker responded\n");
+    HEXDUMP_V("Worker response", m.data(), m.size());
     // Process Response. Is it one of the predefined types?
     if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1 || m[1] == 0xF2 || m[1] == 0xF3)) {
       // Yes. Check it
@@ -110,8 +122,10 @@ ResponseType ModbusServer::localRequest(uint8_t serverID, uint8_t functionCode, 
         break;
       }
     }
+    HEXDUMP_V("Response", m.data(), m.size());
     return m;
   } else {
+    LOG_D("No worker found. Error response.\n");
     // No. Is there at least one worker for the serverID?
     if (isServerFor(serverID)) {
       // Yes. Respond with "illegal function code"
@@ -122,6 +136,7 @@ ResponseType ModbusServer::localRequest(uint8_t serverID, uint8_t functionCode, 
     }
   }
   // We should never get here...
+  LOG_C("Internal problem: should not get here!\n");
   return { serverID, static_cast<uint8_t>(functionCode | 0x80), UNDEFINED_ERROR };
 }
 
@@ -137,10 +152,10 @@ ModbusServer::~ModbusServer() {
 // listServer: Print out all mapped server/FC combinations
 void ModbusServer::listServer() {
   for (auto it = workerMap.begin(); it != workerMap.end(); ++it) {
-    Serial.printf("Server %3d: ", it->first);
+    LOG_N("Server %3d: ", it->first);
     for (auto it2 = it->second.begin(); it2 != it->second.end(); it2++) {
-      Serial.printf(" %02X", it2->first);
+      LOGRAW_N(" %02X", it2->first);
     }
-    Serial.println();
+    LOGRAW_N("\n");
   }
 }

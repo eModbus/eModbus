@@ -7,8 +7,9 @@
 
 #include <Arduino.h>
 #include <mutex>  // NOLINT
-
 #include "ModbusServer.h"
+#undef LOCAL_LOG_LEVEL
+#include "Logging.h"
 
 extern "C" {
 #include <freertos/FreeRTOS.h>
@@ -146,6 +147,7 @@ template <typename ST, typename CT>
 
     // Start task to handle the client
     xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
+    LOG_D("Server task %s started (%d).\n", taskName, (uint32_t)serverTask);
 
     return true;
   }
@@ -162,12 +164,14 @@ template <typename ST, typename CT>
         delay(50);
         // Kill the client task
         vTaskDelete(clients[i]->task);
+        LOG_D("Killed client %d task %d\n", i, (uint32_t)(clients[i]->task));
         delete clients[i];
         clients[i] = nullptr;
       }
     }
     if (serverTask != nullptr) {
       vTaskDelete(serverTask);
+      LOG_D("Killed server task %d\n", (uint32_t)(serverTask));
       serverTask = nullptr;
     }
     return true;
@@ -189,10 +193,12 @@ bool ModbusServerTCP<ST, CT>::accept(CT& client, uint32_t timeout, int coreID) {
 
       // Start task to handle the client
       xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, clients[i], 5, &clients[i]->task, coreID >= 0 ? coreID : NULL);
+      LOG_D("Started client %d task %d\n", i, (uint32_t)(clients[i]->task));
 
       return true;
     }
   }
+  LOG_D("No client slot available.\n");
   return false;
 }
 
@@ -214,7 +220,7 @@ void ModbusServerTCP<ST, CT>::serve(ModbusServerTCP<ST, CT> *myself) {
       if (ec) {
         // Yes. Forward it to the Modbus server
         myself->accept(ec, myself->serverTimeout, 0);
-        // Serial.printf("Accepted connection - %d clients running\n", myself->activeClients());
+        LOG_D("Accepted connection - %d clients running\n", myself->activeClients());
       }
     }
     // Give scheduler room to breathe
@@ -285,10 +291,7 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
                   for (auto byte = data.begin() + 2; byte < data.end(); ++byte) {
                     response.push_back(*byte);
                   }
-                  // for (auto& byte : response) {
-                  //   Serial.printf("%02X ", byte);
-                  // }
-                  // Serial.println("Response generated");
+                  LOG_D("Response generated\n");
                   break;
                 default:   // Will not get here!
                   break;
@@ -300,6 +303,7 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
                 for (auto& byte : data) {
                   response.push_back(byte);
                 }
+                LOG_D("Free-form user response\n");
               }
             } else {
               // No, function code is not served here
@@ -332,6 +336,7 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
         // Yes. Do it now.
         myClient.write(response.data(), response.size());
         myClient.flush();
+        HEXDUMP_V("Response", response.data(), response.size());
       }
       // We did something communicationally - rewind timeout timer
       myLastMessage = millis();
@@ -340,6 +345,7 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   }
 
   // Timeout!
+  LOG_D("Worker stopping due to timeout.\n");
   // Read away all that may still hang in the buffer
   while (myClient.available()) { myClient.read(); }
   // Now stop the client
