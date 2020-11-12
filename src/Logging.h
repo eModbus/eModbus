@@ -55,6 +55,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #else
 #define LOG_N(format, ...)
 #define LOGRAW_N(format, ...)
+#define HEXDUMP_N(label, address, length)
 #endif
 
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_CRITICAL
@@ -64,6 +65,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #else
 #define LOG_c(format, ...)
 #define LOGRAW_C(format, ...)
+#define HEXDUMP_C(label, address, length)
 #endif
 
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_ERROR
@@ -73,6 +75,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #else
 #define LOG_E(format, ...)
 #define LOGRAW_E(format, ...)
+#define HEXDUMP_E(label, address, length)
 #endif
 
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_WARNING
@@ -82,6 +85,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #else
 #define LOG_W(format, ...)
 #define LOGRAW_W(format, ...)
+#define HEXDUMP_W(label, address, length)
 #endif
 
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_INFO
@@ -91,6 +95,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #else
 #define LOG_I(format, ...)
 #define LOGRAW_I(format, ...)
+#define HEXDUMP_I(label, address, length)
 #endif
 
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_DEBUG
@@ -100,6 +105,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #else
 #define LOG_D(format, ...)
 #define LOGRAW_D(format, ...)
+#define HEXDUMP_D(label, address, length)
 #endif
 
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_VERBOSE
@@ -109,6 +115,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #else
 #define LOG_V(format, ...)
 #define LOGRAW_V(format, ...)
+#define HEXDUMP_V(label, address, length)
 #endif
 
 #endif
