@@ -111,7 +111,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_VERBOSE
 #define LOG_V(format, ...) LOG_LINE_T(LOG_LEVEL_VERBOSE, V, format, ##__VA_ARGS__)
 #define LOGRAW_V(format, ...) LOG_RAW_T(LOG_LEVEL_VERBOSE, V, format, ##__VA_ARGS__)
-#define HEXDUMP_V(label, address, length) HEX_DUMP_T(v, LOG_LEVEL_VERBOSE, label, address, length)
+#define HEXDUMP_V(label, address, length) HEX_DUMP_T(V, LOG_LEVEL_VERBOSE, label, address, length)
 #else
 #define LOG_V(format, ...)
 #define LOGRAW_V(format, ...)
