@@ -23,11 +23,11 @@ constexpr const char* str_end(const char *str) {
 }
 
 constexpr bool str_slant(const char *str) {
-    return *str == '/' ? true : (*str ? str_slant(str + 1) : false);
+    return ((*str == '/') || (*str == '\\')) ? true : (*str ? str_slant(str + 1) : false);
 }
 
 constexpr const char* r_slant(const char* str) {
-    return *str == '/' ? (str + 1) : r_slant(str - 1);
+    return ((*str == '/') || (*str == '\\')) ? (str + 1) : r_slant(str - 1);
 }
 constexpr const char* file_name(const char* str) {
     return str_slant(str) ? r_slant(str_end(str)) : str;
@@ -44,7 +44,7 @@ constexpr const char* file_name(const char* str) {
 extern int MBUlogLvl;
 void logHexDump(Print& output, const char *letter, const char *label, const uint8_t *data, const size_t length);
 
-#define LOG_LINE_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf("[" #x "] %s:%d:%s: " format, file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
+#define LOG_LINE_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf("[" #x "] %s [%d]: %s: " format, file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
 #define LOG_RAW_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf(format, ##__VA_ARGS__)
 #define HEX_DUMP_T(x, level, label, address, length) if (MBUlogLvl >= level) logHexDump(LOGDEVICE, #x, label, address, length)
 

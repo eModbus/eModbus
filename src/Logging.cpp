@@ -14,7 +14,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
        ascbuf[16] = 0;
 
   // Print out header
-  output.printf("[%s] %s: %08X/%d:\n", letter, label, (uint32_t)data, length);
+  output.printf("[%s] %s: @%08X/%d:\n", letter, label, (uint32_t)data, length);
 
   // loop over data in steps of 16
   for (cnt = 0; cnt < length; ++cnt) {
@@ -22,7 +22,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
     // New line?
     if (step == 0) {
       // Yes. Print header and clear ascii 
-      output.printf("  %c %04X: ", letter[0], cnt);
+      output.printf("  %c %04X: ", limiter, cnt);
       memset(ascbuf, ' ', 16);
       // No, but first block of 8 done?
     } else if (step == 8) {
