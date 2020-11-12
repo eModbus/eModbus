@@ -2,6 +2,15 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
+#ifndef LOG_LEVEL
+#define LOG_LEVEL LOG_LEVEL_ERROR
+#endif
+
+#ifndef LOCAL_LOG_LEVEL
+#define LOCAL_LOG_LEVEL LOG_LEVEL
+#endif
+
+// The following needs to be defined only once
 #ifndef _MODBUS_LOGGING
 #define _MODBUS_LOGGING
 
@@ -33,17 +42,39 @@ constexpr const char* file_name(const char* str) {
     return str_slant(str) ? r_slant(str_end(str)) : str;
 }
 
-#ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_ERROR
-#endif
-
-#ifndef LOCAL_LOG_LEVEL
-#define LOCAL_LOG_LEVEL LOG_LEVEL
-#endif
-
 extern int MBUlogLvl;
 void logHexDump(Print& output, const char *letter, const char *label, const uint8_t *data, const size_t length);
+#endif  // _MODBUS_LOGGING
 
+// The remainder may need to be redefined if LOCAL_LOG_LEVEL was set differently before
+#ifdef LOG_LINE_T
+#undef LOG_LINE_T
+#undef LOG_RAW_T
+#undef HEX_DUMP_T
+#undef LOG_N
+#undef LOG_C
+#undef LOG_E
+#undef LOG_W
+#undef LOG_I
+#undef LOG_D
+#undef LOG_V
+#undef LOGRAW_N
+#undef LOGRAW_C
+#undef LOGRAW_E
+#undef LOGRAW_W
+#undef LOGRAW_I
+#undef LOGRAW_D
+#undef LOGRAW_V
+#undef HEXDUMP_N
+#undef HEXDUMP_C
+#undef HEXDUMP_E
+#undef HEXDUMP_W
+#undef HEXDUMP_I
+#undef HEXDUMP_D
+#undef HEXDUMP_V
+#endif
+
+// Now we can define the macros based on LOCAL_LOG_LEVEL
 #define LOG_LINE_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf("[" #x "] %s [%d]: %s: " format, file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
 #define LOG_RAW_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf(format, ##__VA_ARGS__)
 #define HEX_DUMP_T(x, level, label, address, length) if (MBUlogLvl >= level) logHexDump(LOGDEVICE, #x, label, address, length)
@@ -118,4 +149,3 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #define HEXDUMP_V(label, address, length)
 #endif
 
-#endif
