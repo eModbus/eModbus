@@ -10,6 +10,7 @@
 #include "ModbusClient.h"
 #include "ModbusClientTCP.h"  // Needed for client.setTarget()
 
+#undef LOCAL_LOG_LEVEL
 #include "Logging.h"
 
 using std::bind;

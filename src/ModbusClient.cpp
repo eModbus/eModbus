@@ -3,6 +3,7 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusClient.h"
+#undef LOCAL_LOG_LEVEL
 #include "Logging.h"
 
 uint16_t ModbusClient::instanceCounter = 0;

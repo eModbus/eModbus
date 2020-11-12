@@ -2,9 +2,9 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
- #include "ModbusClientTCP.h"
-
- #include "Logging.h"
+#include "ModbusClientTCP.h"
+#undef LOCAL_LOG_LEVEL
+#include "Logging.h"
 
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
 ModbusClientTCP::ModbusClientTCP(Client& client, uint16_t queueLimit) :
