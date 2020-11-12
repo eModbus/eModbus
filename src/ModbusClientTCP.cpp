@@ -4,6 +4,9 @@
 // =================================================================================================
  #include "ModbusClientTCP.h"
 
+#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
+ #include "Logging.h"
+
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
 ModbusClientTCP::ModbusClientTCP(Client& client, uint16_t queueLimit) :
   ModbusClient(),
@@ -42,6 +45,7 @@ ModbusClientTCP::~ModbusClientTCP() {
       requests.pop();
     }
   }
+  LOG_D("TCP client worker killed.\n");
   // Kill task
   vTaskDelete(worker);
 }
@@ -53,6 +57,7 @@ void ModbusClientTCP::begin(int coreID) {
   snprintf(taskName, 12, "Modbus%02XTCP", instanceCounter);
   // Start task to handle the queue
   xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
+  LOG_D("TCP client worker %s started\n", taskName);
 }
 
 // Set default timeout value (and interval)
@@ -68,6 +73,7 @@ bool ModbusClientTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout,
   MT_target.port = port;
   MT_target.timeout = timeout ? timeout : MT_defaultTimeout;
   MT_target.interval = interval ? interval : MT_defaultInterval;
+  LOG_D("Target set: %d.%d.%d.%d:%d\n", host[0], host[1], host[2], host[3], port);
   if (MT_target.host == MT_lastTarget.host && MT_target.port == MT_lastTarget.port) return false;
   return true;
 }
@@ -88,6 +94,7 @@ Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint8_
       }
     }
 
+    LOG_D("Add TCP request result: %02X\n", rc);
     return rc;
   }
 
@@ -150,6 +157,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
       // Yes. pull it.
       TCPRequest *request = instance->requests.front();
       doNotPop = false;
+      LOG_D("Got request from queue\n");
 
       // Do we have a connection open?
       if (instance->MT_client.connected()) {
@@ -157,6 +165,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         if (instance->MT_lastTarget.host != request->target.host || instance->MT_lastTarget.port != request->target.port) {
           // It is different. Disconnect it.
           instance->MT_client.stop();
+          LOG_D("Target different, disconnect\n");
           delay(1);  // Give scheduler room to breathe
         } else {
           // it is the same host/port.
@@ -173,11 +182,13 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         // Serial.println("Client reconnecting");
         // It is disconnected. connect to host/port from queue
         instance->MT_client.connect(request->target.host, request->target.port);
+        LOG_D("Target connect.\n");
 
         delay(1);  // Give scheduler room to breathe
       }
       // Are we connected (again)?
       if (instance->MT_client.connected()) {
+        LOG_D("Is connected. Send request.\n");
         // Yes. Send the request via IP
         instance->send(request);
 
@@ -187,24 +198,26 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         // Did we get a normal response?
         if (response->getError()==SUCCESS) {
           // Yes. Do we have an onData handler registered?
+          LOG_D("Data response.\n");
           if (instance->onData) {
             // Yes. call it
             instance->onData(response->getServerID(), response->getFunctionCode(), response->data(), response->len(), request->getToken());
           } else {
-            // Serial.printf("No onData handler\n");
+            LOG_D("No onData handler\n");
           }
         } else {
           // No, something went wrong. All we have is an error
           if (response->getError() == TIMEOUT && retryCounter--) {
-            // Serial.println("Retry on timeout...");
+            LOG_D("Retry on timeout...\n");
             doNotPop = true;
           } else {
             // Do we have an onError handler?
+            LOG_D("Error response.\n");
             if (instance->onError) {
               // Yes. Forward the error code to it
               instance->onError(response->getError(), request->getToken());
             } else {
-              // Serial.printf("No onError handler\n");
+              LOG_D("No onError handler\n");
             }
           }
         }
@@ -217,7 +230,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         if (retryCounter--) {
           instance->MT_client.stop();
           delay(10);
-          // Serial.println("Retry on connect failure...");
+          LOG_D("Retry on connect failure...\n");
           doNotPop = true;
         } else {
           // Do we have an onError handler?
@@ -237,6 +250,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         retryCounter = RETRIES;
         // Delete request
         delete request;   // object created from addRequest()
+        LOG_D("Request popped from queue.\n");
       }
       lastRequest = millis();
     } else {
@@ -257,6 +271,7 @@ void ModbusClientTCP::send(TCPRequest *request) {
   MT_client.write(sbuf, rl + 6);
   // Done. Are we?
   MT_client.flush();
+  HEXDUMP_V("Request packet", sbuf, rl + 6);
 }
 
 // receive: get response via Client connection
@@ -285,6 +300,8 @@ TCPResponse* ModbusClientTCP::receive(TCPRequest *request) {
   }
   // Did we get some data?
   if (hadData) {
+    LOG_D("Received response.\n");
+    HEXDUMP_V("Response packet", data, dataPtr);
     // Yes. check it for validity
     // First transactionID and protocolID shall be identical, length has to match the remainder.
     ModbusTCPhead head(request->tcpHead.transactionID, request->tcpHead.protocolID, dataPtr - 6);

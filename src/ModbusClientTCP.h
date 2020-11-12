@@ -59,7 +59,6 @@ public:
         delete r;
       }
     }
-
     return rc;
   }
 
