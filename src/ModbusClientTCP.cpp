@@ -4,7 +4,6 @@
 // =================================================================================================
  #include "ModbusClientTCP.h"
 
-#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
  #include "Logging.h"
 
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
