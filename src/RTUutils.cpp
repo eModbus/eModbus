@@ -3,6 +3,8 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "RTUutils.h"
+#undef LOCAL_LOG_LEVEL
+#include "Logging.h"
 
 // calcCRC: calculate Modbus CRC16 on a given array of bytes
 uint16_t RTUutils::calcCRC(const uint8_t *data, uint16_t len) {
@@ -95,6 +97,9 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
   // serial.flush();
   // Toggle rtsPin, if necessary
   if (rtsPin >= 0) digitalWrite(rtsPin, LOW);
+
+  HEXDUMP_D("Sent packet", data, len);
+
   // Mark end-of-message time for next interval
   lastMicros = micros();
 }
@@ -211,7 +216,8 @@ RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t&
   }
   // Deallocate buffer
   delete[] buffer;
-  // Serial.printf("%s rv: %d %02X\n", lbl, rv.size(), rv[0]);
+
+  HEXDUMP_D("Received packet", rv.data(), rv.size());
 
   return rv;
 }

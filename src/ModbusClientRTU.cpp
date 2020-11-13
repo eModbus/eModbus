@@ -3,6 +3,8 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusClientRTU.h"
+#undef LOCAL_LOG_LEVEL
+#include "Logging.h"
 
 // Constructor takes Serial reference and optional DE/RE pin
 ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit) :
@@ -33,6 +35,7 @@ ModbusClientRTU::~ModbusClientRTU() {
   }
   // Kill task
   vTaskDelete(worker);
+  LOG_D("Worker task %d killed.\n", (uint32_t)worker);
 }
 
 // begin: start worker task
@@ -52,17 +55,21 @@ void ModbusClientRTU::begin(int coreID) {
   // silent interval is at least 3.5x character time
   MR_interval = 35000000UL / MR_serial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
 
+  LOG_D("Worker task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
+
 }
 
 // setTimeOut: set/change the default interface timeout
 void ModbusClientRTU::setTimeout(uint32_t TOV) {
   MR_timeoutValue = TOV;
+  LOG_D("Timeout set to %d\n", TOV);
 }
 
 // Base addRequest taking a preformatted data buffer and length as parameters
 Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
+  LOG_D("request for %02X/%02X\n", serverID, functionCode);
   // Create request, if valid
   RTURequest *r = RTURequest::createRTURequest(rc, serverID, functionCode, dataLen, data, token);
 
@@ -76,6 +83,7 @@ Error ModbusClientRTU::addRequest(uint8_t serverID, uint8_t functionCode, uint8_
     }
   }
 
+  LOG_D("RC=%02X\n", rc);
   return rc;
 }
 
@@ -93,6 +101,7 @@ bool ModbusClientRTU::addToQueue(RTURequest *request) {
     messageCount++;
   }
 
+  LOG_D("RC=%02X\n", rc);
   return rc;
 }
 
@@ -134,17 +143,20 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
     if (!instance->requests.empty()) {
       // Yes. pull it.
       RTURequest *request = instance->requests.front();
-      /*
-      for (uint16_t i = 0; i< request->len(); ++i) {
-        Serial.printf("%02X ", request->data()[i]);
-      }
-      Serial.println("Request sent");
-      */
+
+      LOG_D("Pulled request from queue\n");
+
       // Send it via Serial
       RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MR_rtsPin, request->data(), request->len(), "CLN REQ");
+
+      LOG_D("Request sent.\n");
+
       // Get the response - if any
       RTUResponse *response;
       RTUMessage rv = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval, "CLN RSP");
+
+      LOG_D("%s response received.\n", rv.size()>1 ? "Data" : "Error");
+
       // No error in receive()?
       if (rv.size() > 1) {
         // No. Check message contents
@@ -184,6 +196,9 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
         response->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));
         response->add(rv[0]);
       }
+
+      LOG_D("Response generated.\n");
+      HEXDUMP_V("Response packet", response->data(), response->len());
 
       // Did we get a normal response?
       if (response->getError()==SUCCESS) {
