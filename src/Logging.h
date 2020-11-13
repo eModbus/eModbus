@@ -27,6 +27,14 @@
 #define LOG_LEVEL_DEBUG (5)
 #define LOG_LEVEL_VERBOSE (6)
 
+#define LL_RED "\e[1;31m"
+#define LL_GREEN "\e[1;32m"
+#define LL_YELLOW "\e[1;33m"
+#define LL_BLUE "\e[1;34m"
+#define LL_MAGENTA "\e[35m"
+#define LL_CYAN "\e[36m"
+#define LL_NORM "\e[0m"
+
 constexpr const char* str_end(const char *str) {
     return *str ? str_end(str + 1) : str;
 }
@@ -48,6 +56,8 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 
 // The remainder may need to be redefined if LOCAL_LOG_LEVEL was set differently before
 #ifdef LOG_LINE_T
+#undef LOG_LINE_C
+#undef LOG_LINE_E
 #undef LOG_LINE_T
 #undef LOG_RAW_T
 #undef HEX_DUMP_T
@@ -75,6 +85,8 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #endif
 
 // Now we can define the macros based on LOCAL_LOG_LEVEL
+#define LOG_LINE_C(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf(LL_RED "[" #x "] %s [%d]: %s: " format LL_NORM, file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
+#define LOG_LINE_E(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf(LL_YELLOW "[" #x "] %s [%d]: %s: " format LL_NORM, file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
 #define LOG_LINE_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf("[" #x "] %s [%d]: %s: " format, file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
 #define LOG_RAW_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE.printf(format, ##__VA_ARGS__)
 #define HEX_DUMP_T(x, level, label, address, length) if (MBUlogLvl >= level) logHexDump(LOGDEVICE, #x, label, address, length)
