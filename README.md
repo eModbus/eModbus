@@ -887,15 +887,35 @@ Every log level includes all lower level output as well!
 In all statements, ``X`` has to be one of the log level letters as specified above.
 - ``LOG_X(format, ...);`` is a printf-style statement that will print a standard line header like 
 ```
-  [D] ModbusBridgeTemp.h:294:bridgeErrorHandler
+ +----------------------------------------------- log level
+ |     +----------------------------------------- millis()
+ |     |    +------------------------------------ source file name
+ |     |    |                       +------------ line number
+ |     |    |                       |    +------- function name
+ |     |    |                       |    |    +-- user output
+ v     v    v                       v    v    v 
+[N] 101973| main.cpp             [ 258] loop: 05/03 @8/13? (heap=343524)
 ```
   followed by the specified formatted data.
 - ``LOGRAW_X(format, ...);`` does the same, but without the line header. This is handy to collect several log output on one line
 - ``HEXDUMP_X(label, address, length)`` will print out a hexadecimal and ASCII dump of ``length`` bytes, starting at ``address``:
+  Dump header:
 ```
-[N] Bridge response: @3FFB3338/31:
-  | 0000: 04 03 0E 5A 67 00 01 C0  A8 C7 28 FF FF FF 00 C0  |...Zg.....(.....|
-  | 0010: A8 C7 01 C0 A8 C7 01 00  14 01 02 0B DB 00 02     |............... |
+ +-------------------------------- log level
+ |  +----------------------------- user-defined label
+ |  |                 +----------- starting address
+ |  |                 |        +-- number of bytes
+ v  v                 v        v
+[N] Bridge response: @3FFB49FC/29:
+```
+  Dump body:
+```
+    +----------------------------------------------------------- offset (hex)
+    |     +----------------------------------------------------- hexadecimal dump
+    |     |                                                  +-- ASCII dump
+    v     v                                                  v
+  | 0000: 05 03 0D 49 38 52 72 49  32 30 8A 00 00 00 00 00  |...I8RrI20......|
+  | 0010: 00 00 00 45 4D 48 00 09  01 45 4D 48 00           |...EMH...EMH.   |
 ```
 
 [Return to top](#modbusunified)
