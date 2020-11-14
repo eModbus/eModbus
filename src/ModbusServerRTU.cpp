@@ -4,6 +4,10 @@
 // =================================================================================================
 #include "ModbusServerRTU.h"
 
+#undef LOG_LEVEL_LOCAL
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
+#include "Logging.h"
+
 // Init number of created ModbusServerRTU objects
 uint8_t ModbusServerRTU::instanceCounter = 0;
 
@@ -35,6 +39,7 @@ bool ModbusServerRTU::start(int coreID) {
   if (serverTask != nullptr) {
     // Yes. stop it first
     stop();
+    LOG_D("Server task was running - stopped.\n");
   }
 
   // silent interval is at least 3.5x character time
@@ -48,6 +53,7 @@ bool ModbusServerRTU::start(int coreID) {
   // Start task to handle the client
   xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
 
+  LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
   // Serial.printf("Created server task %d\n", (uint32_t)serverTask);
 
   return true;
@@ -57,6 +63,7 @@ bool ModbusServerRTU::start(int coreID) {
 bool ModbusServerRTU::stop() {
   if (serverTask != nullptr) {
     vTaskDelete(serverTask);
+    LOG_D("Server task %d stopped.\n", (uint32_t)serverTask);
     serverTask = nullptr;
   }
   return true;
@@ -79,24 +86,18 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
 
     // Wait for and read an request
     request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval, "SRV REQ");
-    /*
-    if (request.size() > 1) {
-      for (auto& byte : request) {
-        Serial.printf("%02X ", byte);
-      }
-      Serial.println("Requested");
-    } else {
-      Serial.println("Request size <= 1?");
-    }
-    */
 
     // Request longer than 1 byte (that will signal an error in receive())? 
     if (request.size() > 1) {
+      LOG_D("Request received.\n");
+
       // Yes. Do we have a callback function registered for it?
       MBSworker callBack = myServer->getWorker(request[0], request[1]);
       if (callBack) {
+        LOG_D("Callback found.\n");
         // Yes, we do. Is the request valid (CRC correct)?
         if (RTUutils::validCRC(request.data(), request.size())) {
+          LOG_D("CRC okay.\n");
           // Yes, is valid. First count it
           {
             lock_guard<mutex> cntLock(myServer->m);
@@ -106,6 +107,8 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           // Length is 4 bytes less than received, to omit serverID, FC and CRC bytes
           // Offset is 2 to skip the serverID and FC
           m = callBack(request[0], request[1], request.size() - 4, request.data() + 2);
+          LOG_D("Callback called.\n");
+          HEXDUMP_V("Callback response", m.data(), m.size());
 
           // Process Response. Is it one of the predefined types?
           if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1 || m[1] == 0xF2 || m[1] == 0xF3)) {
@@ -158,6 +161,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       if (response.size() >= 3) {
         // Yes. send it back.
         RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRrtsPin, response, "SRV RSP");
+        LOG_D("Response sent.\n");
       }
     } else {
       // No, we got a 1-byte request, meaning an error has happened in receive()
@@ -165,7 +169,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       if (request[0] != TIMEOUT) {
         // Any other error could be important for debugging, so print it
         ModbusError me((Error)request[0]);
-        Serial.printf("RTU receive: %02X - %s\n", (int)me, (const char *)me);
+        LOG_E("RTU receive: %02X - %s\n", (int)me, (const char *)me);
       }
     }
     // Give scheduler room to breathe
