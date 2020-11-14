@@ -28,9 +28,9 @@
 #define LOG_LEVEL_VERBOSE (6)
 
 #define LL_RED "\e[1;31m"
-#define LL_GREEN "\e[1;32m"
+#define LL_GREEN "\e[32m"
 #define LL_YELLOW "\e[1;33m"
-#define LL_BLUE "\e[1;34m"
+#define LL_BLUE "\e[34m"
 #define LL_MAGENTA "\e[35m"
 #define LL_CYAN "\e[36m"
 #define LL_NORM "\e[0m"
