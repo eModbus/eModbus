@@ -7,7 +7,7 @@
 
 #include <list>
 #include <queue>
-#include <mutex>
+#include <mutex> // NOLINT
 #include <vector>
 
 #include <Arduino.h>  // for millis()
@@ -15,7 +15,6 @@
 #include <AsyncTCP.h>
 
 #include "ModbusServer.h"
-#include "Logging.h"
 
 using std::lock_guard;
 using TCPMessage = std::vector<uint8_t>;
