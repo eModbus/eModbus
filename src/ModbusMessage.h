@@ -80,10 +80,6 @@ protected:
   
   virtual void isInstance() = 0;   // Make this class abstract
 
-#ifdef TESTING
-  void dump(const char *header);
-#endif
-  
   uint8_t   *MM_data;            // Message data buffer
   uint16_t    MM_len;            // Allocated length of MM_data
   uint16_t  MM_index;            // Pointer into MM_data
