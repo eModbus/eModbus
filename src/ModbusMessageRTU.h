@@ -40,10 +40,6 @@ protected:
 
   void isInstance() { return; }        // Make class instantiable
 
-#ifdef TESTING
-// ************************** Test *******************
-  void dump(const char *label);
-#endif
 };
 
 class RTUResponse : public ModbusResponse {
@@ -58,10 +54,6 @@ protected:
   bool isValidCRC();             // Check CRC and report back.
   void setCRC(uint16_t crc);     // Set CRC value externally (as received)
 
-#ifdef TESTING
-// ************************** Test *******************
-  void dump(const char *label);
-#endif
 };
 
 #endif
