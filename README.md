@@ -634,6 +634,8 @@ This function is a simple local interface to issue requests to the server runnin
 
 A bridge (see below) will respond to this call for all known serverID/function code combinations, so the delegated request to a remote server may be involved as well.
 
+**Note**: the ``localRequest()`` call will work even if the server has not been started (yet) by ``start()``, so if you need to communicate in other ways than RTU or TCP, you may make use of that!
+
 ##### ``void listServer()``
 Mostly intended to be used in debug situations, ``listServer()`` will output all servers and their function codes served by the ModbusServer to the Serial Monitor.
 
