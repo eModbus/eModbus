@@ -175,7 +175,6 @@ void ModbusServerTCPasync::mb_client::generateResponse(Modbus::Error e,  Respons
 }
 
 void ModbusServerTCPasync::mb_client::addResponseToOutbox() {
-  LOG_D("adding response to outbox");
   if (currentResponse->size() > 0) { 
     std::lock_guard<std::mutex> lock(m);
     outbox.push(currentResponse);  // outbox owns the pointer now
@@ -185,7 +184,6 @@ void ModbusServerTCPasync::mb_client::addResponseToOutbox() {
 }
 
 void ModbusServerTCPasync::mb_client::handleOutbox() {
-  LOG_D("processing outbox");
   std::lock_guard<std::mutex> lock(m);
   while (!outbox.empty()) {
     ResponseType* r = outbox.front();
@@ -206,7 +204,7 @@ ModbusServerTCPasync::ModbusServerTCPasync() :
   clients(),
   maxNoClients(5),
   idle_timeout(60000) {
-
+    // setup will be done in 'start'
 }
 
 
@@ -236,6 +234,7 @@ bool ModbusServerTCPasync::start(uint16_t port, uint8_t maxClients, uint32_t tim
     LOG_D("modbus server started");
     return true;
   }
+  LOG_E("could not start server");
   return false;
 }
 
@@ -251,24 +250,24 @@ bool ModbusServerTCPasync::stop() {
     delete clients.front();
     clients.pop_front();
   }
-  LOG_D("gmodbus server stopped");
+  LOG_D("modbus server stopped");
   return true;
 }
 
 void ModbusServerTCPasync::onClientConnect(AsyncClient* client) {
-  LOG_D("New client");
+  LOG_D("new client");
   std::lock_guard<std::mutex> cntLock(m);
   if (clients.size() < maxNoClients) {
     clients.emplace_back(new mb_client(this, client));
     LOG_D("nr clients: %d", clients.size());
   } else {
+    LOG_D("max number of clients reached, closing new");
     client->close(true);
     delete client;
   }
 }
 
 void ModbusServerTCPasync::onClientDisconnect(mb_client* client) {
-  LOG_D("Cleanup client");
   std::lock_guard<std::mutex> cntLock(m);
   // delete mb_client from list
   clients.remove_if([client](mb_client* i) { return i->client == client->client; });

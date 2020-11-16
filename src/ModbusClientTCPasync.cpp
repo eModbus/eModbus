@@ -130,6 +130,7 @@ bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
       }
       return true;
     }
+    LOG_E("queue is full");
   }
   return false;
 }
@@ -183,12 +184,12 @@ void onAck(size_t len, uint32_t time) {
 }
 */
 void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
-  LOG_D("packet received - len %d", length);
+  LOG_D("packet received (len:%d)", length);
   // reset idle timeout
   MTA_lastActivity = millis();
 
   while (length > 0) {
-    LOG_D("now processing %d", length);
+    LOG_D("parsing (len:%d)", length + 1);
 
     TCPRequest* request = nullptr;
     TCPResponse* response = nullptr;
@@ -209,7 +210,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
       messageLength = data[4] << 8 | data[5];
       response = new TCPResponse(messageLength);
       response->add(&data[6], messageLength);
-      LOG_D("packet validated - len %d", messageLength);
+      LOG_D("packet validated (len:%d)", messageLength);
 
       // on next iteration: adjust remaining lengt and pointer to data
       length -= 6 + messageLength;
@@ -226,7 +227,6 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
 
     if (response) {
       lock_guard<mutex> lockGuard(qLock);
-      LOG_D("looking for request");
       auto i = rxQueue.find(transactionID);
       if (i != rxQueue.end()) {
         // found it, handle it and stop iterating
@@ -279,7 +279,7 @@ void ModbusClientTCPasync::onPoll() {
   {
   lock_guard<mutex> lockGuard(qLock);
 
-  LOG_D("Queue sizes: tx: %d rx: %d", txQueue.size(), rxQueue.size());
+  LOG_D("Queue sizes: tx:%d rx:%d", txQueue.size(), rxQueue.size());
 
   // try to send whatever is waiting
   handleSendingQueue();
@@ -346,7 +346,7 @@ bool ModbusClientTCPasync::send(TCPRequest* request) {
     // done
     MTA_client.send();
     // reset idle timeout
-    LOG_D("request sent - msgid: %d", request->tcpHead.transactionID);
+    LOG_D("request sent (msgid:%d)", request->tcpHead.transactionID);
     return true;
   }
   return false;
