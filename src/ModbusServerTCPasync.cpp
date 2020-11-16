@@ -139,7 +139,8 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
 
 void ModbusServerTCPasync::mb_client::onPoll() {
   handleOutbox();
-  if (millis() - lastActiveTime > server->idle_timeout) {
+  if (server->idle_timeout > 0 && 
+      millis() - lastActiveTime > server->idle_timeout) {
     LOG_D("client idle, closing");
     client->close();
   }
