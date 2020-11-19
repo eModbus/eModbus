@@ -137,6 +137,9 @@ RTUMessage ModbusClientRTU::generateErrorResponse(uint8_t serverID, uint8_t func
 // handleConnection: worker task
 // This was created in begin() to handle the queue entries
 void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
+  // initially clean the serial buffer
+  while (instance->MR_serial.available()) instance->MR_serial.read();
+
   // Loop forever - or until task is killed
   while (1) {
     // Do we have a reuest in queue?
