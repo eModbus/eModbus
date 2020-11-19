@@ -393,12 +393,12 @@ ModbusResponse::ModbusResponse(uint16_t dataLen) :
 Error ModbusResponse::getError() {
   // Default: everything OK - SUCCESS
   // Do we have data long enough?
-  if (MM_data && MM_index >= 3) {
+  if (data() && len() >= 3) {
     // Yes. Does it indicate an error?
-    if (MM_data[1] > 0x80)
+    if (data()[1] > 0x80)
     {
       // Yes. Get it.
-      MRS_error = static_cast<Modbus::Error>(MM_data[2]);
+      MRS_error = static_cast<Modbus::Error>(data()[2]);
     }
   }
   return MRS_error;
