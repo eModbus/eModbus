@@ -24,7 +24,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     // Yes, all fine. Create new RTURequest instance
     returnPtr = new RTURequest(2, token);
     returnPtr->add(serverID, functionCode);
-    returnPtr->CRC = RTUutils::calcCRC(returnPtr->MM_data, returnPtr->MM_index);
+    returnPtr->CRC = RTUutils::calcCRC(returnPtr->data(), returnPtr->len());
   }
   return returnPtr;
 }
@@ -40,7 +40,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     // Yes, all fine. Create new RTURequest instance
     returnPtr = new RTURequest(4, token);
     returnPtr->add(serverID, functionCode, p1);
-    returnPtr->CRC = RTUutils::calcCRC(returnPtr->MM_data, returnPtr->MM_index);
+    returnPtr->CRC = RTUutils::calcCRC(returnPtr->data(), returnPtr->len());
   }
   return returnPtr;
 }
@@ -56,7 +56,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     // Yes, all fine. Create new RTURequest instance
     returnPtr = new RTURequest(6, token);
     returnPtr->add(serverID, functionCode, p1, p2);
-    returnPtr->CRC = RTUutils::calcCRC(returnPtr->MM_data, returnPtr->MM_index);
+    returnPtr->CRC = RTUutils::calcCRC(returnPtr->data(), returnPtr->len());
   }
   return returnPtr;
 }
@@ -72,7 +72,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     // Yes, all fine. Create new RTURequest instance
     returnPtr = new RTURequest(8, token);
     returnPtr->add(serverID, functionCode, p1, p2, p3);
-    returnPtr->CRC = RTUutils::calcCRC(returnPtr->MM_data, returnPtr->MM_index);
+    returnPtr->CRC = RTUutils::calcCRC(returnPtr->data(), returnPtr->len());
   }
   return returnPtr;
 }
@@ -92,7 +92,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     for (uint8_t i = 0; i < (count >> 1); ++i) {
       returnPtr->add(arrayOfWords[i]);
     }
-    returnPtr->CRC = RTUutils::calcCRC(returnPtr->MM_data, returnPtr->MM_index);
+    returnPtr->CRC = RTUutils::calcCRC(returnPtr->data(), returnPtr->len());
   }
   return returnPtr;
 }
@@ -112,7 +112,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     for (uint8_t i = 0; i < count; ++i) {
       returnPtr->add(arrayOfBytes[i]);
     }
-    returnPtr->CRC = RTUutils::calcCRC(returnPtr->MM_data, returnPtr->MM_index);
+    returnPtr->CRC = RTUutils::calcCRC(returnPtr->data(), returnPtr->len());
   }
   return returnPtr;
 }
@@ -131,7 +131,7 @@ RTURequest *RTURequest::createRTURequest(Error& returnCode, uint8_t serverID, ui
     for (uint8_t i = 0; i < count; ++i) {
       returnPtr->add(arrayOfBytes[i]);
     }
-    returnPtr->CRC = RTUutils::calcCRC(returnPtr->MM_data, returnPtr->MM_index);
+    returnPtr->CRC = RTUutils::calcCRC(returnPtr->data(), returnPtr->len());
   }
   return returnPtr;
 }
@@ -143,8 +143,8 @@ RTUResponse::RTUResponse(uint16_t dataLen) :
 // isValidCRC: check if CRC value matches CRC calculated over MM_data.
 // *** Note: assumption is made that ModbusRTU has already extracted the CRC from the received message!
 bool RTUResponse::isValidCRC() {
-  if (MM_data && MM_index) {
-    if (CRC == RTUutils::calcCRC(MM_data, MM_index)) return true;
+  if (data() && len()) {
+    if (CRC == RTUutils::calcCRC(data(), len())) return true;
   }
   return false;
 }
