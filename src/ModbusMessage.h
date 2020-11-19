@@ -79,10 +79,6 @@ protected:
   uint8_t getServerID();      // returns 0 if MM_data is invalid/nullptr
   
   virtual void isInstance() = 0;   // Make this class abstract
-
-  uint8_t   *MM_data;            // Message data buffer
-  uint16_t    MM_len;            // Allocated length of MM_data
-  uint16_t  MM_index;            // Pointer into MM_data
   
   // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0
   template <class T> uint16_t add(T v) {
@@ -111,6 +107,11 @@ protected:
   add(T v, Args... args) {
       return add(v) + add(args...);
   }
+
+private:
+  uint8_t   *MM_data;            // Message data buffer
+  uint16_t    MM_len;            // Allocated length of MM_data
+  uint16_t  MM_index;            // Pointer into MM_data
 };
 
 class ModbusRequest : public ModbusMessage {
@@ -149,6 +150,7 @@ protected:
   // 7. generic constructor for preformatted data ==> count is counting bytes!
   static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
 
+private:
   uint32_t MRQ_token;            // User defined token to uniquely identify request
 };
 
@@ -160,6 +162,7 @@ protected:
   // getError() - returns error code
   Error getError();
 
+private:
   Error MRS_error;             // Error code (0 if ok)
 };
 
