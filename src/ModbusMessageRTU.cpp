@@ -154,23 +154,3 @@ bool RTUResponse::isValidCRC() {
 void RTUResponse::setCRC(uint16_t crc) {
   CRC = crc;
 }
-
-#ifdef TESTING
-// Test: Output CRC and message to Serial.
-void RTURequest::dump(const char *label) {
-  char buffer[80];
-
-  snprintf(buffer, 80, "%s CRC:%04X", label, CRC);
-  Serial.println(buffer);
-  ModbusMessage::dump("Data");
-}
-
-// ********************** Test: Output CRC and message to Serial.
-void RTUResponse::dump(const char *label) {
-  char buffer[80];
-
-  snprintf(buffer, 80, "%s CRC:%04X", label, CRC);
-  Serial.println(buffer);
-  ModbusMessage::dump("Data");
-}
-#endif
