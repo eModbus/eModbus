@@ -7,8 +7,10 @@
 #include "ModbusTypeDefs.h"
 #include "ModbusError.h"
 #include <type_traits>
+#include <vector>
 
 using Modbus::Error;
+using std::vector;
 
 // Definition of the classes for MODBUS messages - Request and Response
 // all classes are abstract, a concrete class has to be derived from these.
@@ -25,6 +27,19 @@ template <typename T> uint16_t addValue(uint8_t *target, uint16_t targetLength, 
       sz--;
       target[index++] = (v >> (sz << 3)) & 0xFF;
     }
+  }
+  return index;
+}
+
+// Service method to fill a given std::vector<uint8_t> with Modbus MSB-first values. Returns number of bytes written.
+template <typename T> uint16_t addValue(std::vector<uint8_t> target, T v) {
+  uint16_t sz = sizeof(v);    // Size of value to be added
+  uint16_t index = 0;              // Byte pointer in target
+
+  while (sz) {
+    sz--;
+    target.push_back((v >> (sz << 3)) & 0xFF);
+    index++;
   }
   return index;
 }
@@ -50,10 +65,10 @@ template <typename T> uint16_t getValue(uint8_t *target, uint16_t targetLength, 
 
 class ModbusMessage {
 protected:
-  // Default Constructor - takes size of MM_data
-  explicit ModbusMessage(uint16_t dataLen);
+  // Default Constructor - takes expected size of MM_data
+  explicit ModbusMessage(uint16_t dataLen = 0);
   
-  // Destructor - takes care of MM_data deletion
+  // Destructor
   virtual ~ModbusMessage();
 
   // Assignment operator - take care of MM_data
@@ -61,41 +76,47 @@ protected:
   
   // Copy constructor - take care of MM_data
   ModbusMessage(const ModbusMessage& m);
+
+  // Move constructor
+	ModbusMessage(ModbusMessage&& m) noexcept;
   
+	// Move assignment
+	ModbusMessage& operator=(ModbusMessage&& m) noexcept;
+
   // Equality comparison
   bool operator==(const ModbusMessage& m);
   
   // Inequality comparison
   bool operator!=(const ModbusMessage& m);
   
-  // data() - return address of MM_data or NULL
-  const uint8_t   *data();
+  // data() - return address of MM_data
+  const uint8_t   *data() { return MM_data.data(); }
   
-  // len() - return MM_index (used length of MM_data)
-  uint16_t    len();
+  // len() - return used length in MM_data
+  // size() - return used length in MM_data
+  uint16_t    len()  { return MM_data.size(); }
+  uint16_t    size() { return MM_data.size(); }
+
+  // Export std::vector functions
+  void push_back(const uint8_t& val) { MM_data.push_back(val); }
 
   // Get MM_data[0] (server ID) and MM_data[1] (function code)
-  uint8_t getFunctionCode();  // returns 0 if MM_data is invalid/nullptr
-  uint8_t getServerID();      // returns 0 if MM_data is invalid/nullptr
+  uint8_t getFunctionCode();  // returns 0 if MM_data is shorter than 3
+  uint8_t getServerID();      // returns 0 if MM_data is shorter than 3
   
   virtual void isInstance() = 0;   // Make this class abstract
   
-  // add() - add a single data element MSB first to MM_data. Returns updated MM_index or 0
+  // add() - add a single data element MSB first to MM_data. Returns updated size
   template <class T> uint16_t add(T v) {
     uint16_t sz = sizeof(T);    // Size of value to be added
 
-    // Will it fit?
-    if (MM_data && sz <= (MM_len - MM_index)) {
-      // Yes. Copy it MSB first
-      while (sz) {
-        sz--;
-        MM_data[MM_index++] = (v >> (sz << 3)) & 0xFF;
-      }
-      // Return updated MM_index (logical length of message so far)
-      return MM_index;
+    // Copy it MSB first
+    while (sz) {
+      sz--;
+      MM_data.push_back((v >> (sz << 3)) & 0xFF);
     }
-    // No, will not fit - return 0
-    return 0;
+    // Return updated size (logical length of message so far)
+    return MM_data.size();
   }
 
   // add() variant to copy a buffer into MM_data. Returns updated MM_index or 0
@@ -109,15 +130,25 @@ protected:
   }
 
 private:
-  uint8_t   *MM_data;            // Message data buffer
-  uint16_t    MM_len;            // Allocated length of MM_data
-  uint16_t  MM_index;            // Pointer into MM_data
+  std::vector<uint8_t> MM_data;  // Message data buffer
 };
 
 class ModbusRequest : public ModbusMessage {
 protected:
   // Default constructor
-  explicit ModbusRequest(uint16_t dataLen, uint32_t token = 0);
+  explicit ModbusRequest(uint16_t dataLen = 0, uint32_t token = 0);
+
+  // Assignment operator - take care of MRQ_token
+  ModbusRequest& operator=(const ModbusRequest& m);
+  
+  // Copy constructor - take care of RQ_token
+  ModbusRequest(const ModbusRequest& m);
+
+  // Move constructor
+	ModbusRequest(ModbusRequest&& m) noexcept;
+  
+	// Move assignment
+	ModbusRequest& operator=(ModbusRequest&& m) noexcept;
 
   // Get token
   uint32_t getToken();
@@ -157,7 +188,19 @@ private:
 class ModbusResponse : public ModbusMessage {
 protected:
   // Default constructor
-  explicit ModbusResponse(uint16_t dataLen);
+  explicit ModbusResponse(uint16_t dataLen = 0);
+
+  // Assignment operator - take care of MRS_error
+  ModbusResponse& operator=(const ModbusResponse& m);
+  
+  // Copy constructor - take care of MRS_error
+  ModbusResponse(const ModbusResponse& m);
+
+  // Move constructor
+	ModbusResponse(ModbusResponse&& m) noexcept;
+  
+	// Move assignment
+	ModbusResponse& operator=(ModbusResponse&& m) noexcept;
 
   // getError() - returns error code
   Error getError();

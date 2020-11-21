@@ -11,56 +11,62 @@
 // ModbusMessage class implementations
 // ****************************************
 
-// Default Constructor - takes size of MM_data to allocate memory
-ModbusMessage::ModbusMessage(uint16_t dataLen) :
-  MM_len(dataLen),
-  MM_index(0) {
-  MM_data = new uint8_t[dataLen];
+// Default Constructor - takes optional size of MM_data to allocate memory
+ModbusMessage::ModbusMessage(uint16_t dataLen) {
+  if (dataLen) MM_data.reserve(dataLen);
 }
 
-// Destructor - takes care of MM_data deletion
-ModbusMessage::~ModbusMessage() {
-  if (MM_data) delete[] MM_data;
-}
+// Destructor
+ModbusMessage::~ModbusMessage() { }
 
 // Assignment operator - take care of MM_data
 ModbusMessage& ModbusMessage::operator=(const ModbusMessage& m) {
   // Do anything only if not self-assigning
   if (this != &m) {
-    // Size of target the same as size of source?
-    if (MM_len != m.MM_len) {
-        // No. We need to delete the current memory block
-        if (MM_data) delete[] MM_data;
-        // Allocate another in the right size
-        MM_data = new uint8_t[m.MM_len];
-        MM_len = m.MM_len;
-    }
     // Copy data from source to target
-    memcpy(MM_data, m.MM_data, MM_len);
-    // MM_index shall point to the identical byte
-    MM_index = m.MM_index;
+    MM_data = m.MM_data;
   }
   return *this;
 }
 
 // Copy constructor - take care of MM_data
 ModbusMessage::ModbusMessage(const ModbusMessage& m) {
-  // Take over m's length and index
-  MM_len = m.MM_len;
-  MM_index = m.MM_index;
-  // Allocate memory for MM_data
-  MM_data = new uint8_t[MM_len];
   // Copy data from m
-  memcpy(MM_data, m.MM_data, MM_len);
+  MM_data = m.MM_data;
+}
+
+// Move constructor
+// Transfer ownership of m.MM_data
+ModbusMessage::ModbusMessage(ModbusMessage&& m) noexcept : 
+  MM_data(m.MM_data) {
+  m.MM_data.clear();
+}
+
+// Move assignment
+// Transfer ownership of m.MM_data
+ModbusMessage& ModbusMessage::operator=(ModbusMessage&& m) noexcept
+{
+  // Self-assignment detection
+  if (&m != this) {
+    // Transfer ownership 
+    MM_data = m.MM_data;
+    m.MM_data.clear();
+  }
+  return *this;
 }
 
 // Equality comparison
 bool ModbusMessage::operator==(const ModbusMessage& m) {
-  // We will compare bytes up to the MM_indexth, the remainder up to MM_len is regardless.
-  // If MM_index is different, we assume inequality
-  if (MM_index != m.MM_index) return false;
+  // Prevent self-compare
+  if (this == &m) return true;
+  // If size is different, we assume inequality
+  if (MM_data.size() != m.MM_data.size()) return false;
+  // We will compare bytes manually - for uint8_t it should work out-of-the-box,
+  // but the data type might be changed later.
   // If we find a difference byte, we found inequality
-  if (memcmp(MM_data, m.MM_data, MM_index)) return false;
+  for (uint16_t i = 0; i < MM_data.size(); ++i) {
+    if (MM_data[i] != m.MM_data[i]) return false;
+  }
   // Both tests passed ==> equality
   return true;
 }
@@ -70,49 +76,29 @@ bool ModbusMessage::operator!=(const ModbusMessage& m) {
   return (!(*this == m));
 }
 
-// data() - return address of MM_data or NULL
-const uint8_t *ModbusMessage::data() {
-  // If we have a memory address and a length, return MM_data
-  if (MM_data && MM_len) return MM_data;
-  // else return NULL
-  return nullptr;
-}
-
-// len() - return MM_index (used length of MM_data)
-uint16_t ModbusMessage::len() {
-  // If we have a memory address and a length, return MM_index
-  if (MM_data && MM_len) return MM_index;
-  // else return zero
-  return 0;
-}
-
 // Get MM_data[0] (server ID) and MM_data[1] (function code)
 uint8_t ModbusMessage::getFunctionCode() {
-  // Only if we have data and it is at lest as long to fit serverID and function code, return FC
-  if (MM_data && MM_index > 1) return MM_data[1];
+  // Only if we have data and it is at least as long to fit serverID and function code, return FC
+  if (MM_data.size() > 2) { return MM_data[1]; }
   // Else return 0 - which is no valid Modbus FC.
   return 0;
 }
 
 uint8_t ModbusMessage::getServerID() {
-  // Only if we have data and it is at lest as long to fit serverID and function code, return serverID
-  if (MM_data && MM_index > 1) return MM_data[0];
+  // Only if we have data and it is at least as long to fit serverID and function code, return serverID
+  if (MM_data.size() > 2) { return MM_data[0]; }
   // Else return 0 - normally the Broadcast serverID, but we will not support that. Full stop. :-D
   return 0;
 }
 
-// add() variant to copy a buffer into MM_data. Returns updated MM_index or 0
+// add() variant to copy a buffer into MM_data. Returns updated size
 uint16_t ModbusMessage::add(uint8_t *arrayOfBytes, uint16_t count) {
-  // Will it fit?
-  if (MM_data && count <= (MM_len - MM_index)) {
-    // Yes. Copy it
-    memcpy(MM_data + MM_index, arrayOfBytes, count);
-    MM_index += count;
-    // Return updated MM_index (logical length of message so far)
-    return MM_index;
+  // Copy it
+  while (count--) {
+    MM_data.push_back(*arrayOfBytes++);
   }
-  // No, will not fit - return 0
-  return 0;
+  // Return updated size (logical length of message so far)
+  return MM_data.size();
 }
 
 // ****************************************
@@ -123,7 +109,46 @@ ModbusRequest::ModbusRequest(uint16_t dataLen, uint32_t token) :
   ModbusMessage(dataLen),
   MRQ_token(token) {}
 
-// check token to find a match
+// Assignment operator - take care of MRQ_token
+ModbusRequest& ModbusRequest::operator=(const ModbusRequest& m) {
+  // Self-assignment detection
+  if (&m != this) {
+    // Transfer ownership
+    ModbusMessage::operator=(m);
+    MRQ_token = m.MRQ_token;
+  }
+  return *this;
+}
+
+// Copy constructor - take care of MRQ_token
+ModbusRequest::ModbusRequest(const ModbusRequest& m) : 
+  ModbusMessage(m),
+  MRQ_token(m.MRQ_token) {
+}
+
+// Move constructor
+// Transfer ownership of m.MM_data
+ModbusRequest::ModbusRequest(ModbusRequest&& m) noexcept : 
+  ModbusMessage(m), 
+  MRQ_token(m.MRQ_token)
+{
+  m.MRQ_token = 0;
+}
+
+// Move assignment
+ModbusRequest& ModbusRequest::operator=(ModbusRequest&& m) noexcept
+{
+  // Self-assignment detection
+  if (&m != this) {
+    // Transfer ownership
+    ModbusMessage::operator=(m);
+    MRQ_token = m.MRQ_token;
+    m.MRQ_token = 0;
+  }
+  return *this;
+}
+
+// Get token
 uint32_t ModbusRequest::getToken() {
   return MRQ_token;
 }
@@ -380,7 +405,6 @@ Error ModbusRequest::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   return checkServerFC(serverID, functionCode);
 }
 
-
 // ****************************************
 // ModbusResponse class implementations
 // ****************************************
@@ -389,13 +413,51 @@ ModbusResponse::ModbusResponse(uint16_t dataLen) :
   ModbusMessage(dataLen),
   MRS_error(SUCCESS) {}
 
+// Assignment operator - take care of MRS_error
+ModbusResponse& ModbusResponse::operator=(const ModbusResponse& m) {
+  // Self-assignment detection
+  if (&m != this) {
+    // Transfer ownership
+    ModbusMessage::operator=(m);
+    MRS_error = m.MRS_error;
+  }
+  return *this;
+}
+
+// Copy constructor - take care of MRS_error
+ModbusResponse::ModbusResponse(const ModbusResponse& m) :
+  ModbusMessage(m),
+  MRS_error(m.MRS_error) {
+}
+
+// Move constructor
+// Transfer ownership of m.MM_data
+ModbusResponse::ModbusResponse(ModbusResponse&& m) noexcept :
+  ModbusMessage(m), 
+  MRS_error(m.MRS_error) {
+  m.MRS_error = SUCCESS;
+}
+
+// Move assignment
+ModbusResponse& ModbusResponse::operator=(ModbusResponse&& m) noexcept
+{
+  // Self-assignment detection
+  if (&m != this) {
+    // Transfer ownership
+    ModbusMessage::operator=(m);
+    MRS_error = m.MRS_error;
+    m.MRS_error = SUCCESS;
+  }
+  return *this;
+}
+
 // getError() - returns error code
 Error ModbusResponse::getError() {
   // Default: everything OK - SUCCESS
   // Do we have data long enough?
-  if (data() && len() >= 3) {
+  if (size() > 2) {
     // Yes. Does it indicate an error?
-    if (data()[1] > 0x80)
+    if (getFunctionCode() > 0x80)
     {
       // Yes. Get it.
       MRS_error = static_cast<Modbus::Error>(data()[2]);
