@@ -101,6 +101,14 @@ uint16_t ModbusMessage::add(uint8_t *arrayOfBytes, uint16_t count) {
   return MM_data.size();
 }
 
+// provide restricted operator[] interface
+const uint8_t ModbusMessage::operator[](uint16_t index) {
+  if (index < MM_data.size()) {
+    return MM_data[index];
+  }
+  return 0;
+}
+
 // ****************************************
 // ModbusRequest class implementations
 // ****************************************
@@ -457,10 +465,10 @@ Error ModbusResponse::getError() {
   // Do we have data long enough?
   if (size() > 2) {
     // Yes. Does it indicate an error?
-    if (getFunctionCode() > 0x80)
+    if (getFunctionCode() & 0x80)
     {
       // Yes. Get it.
-      MRS_error = static_cast<Modbus::Error>(data()[2]);
+      MRS_error = static_cast<Modbus::Error>((*this)[2]);
     }
   }
   return MRS_error;

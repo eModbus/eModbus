@@ -103,6 +103,14 @@ protected:
   // Get MM_data[0] (server ID) and MM_data[1] (function code)
   uint8_t getFunctionCode();  // returns 0 if MM_data is shorter than 3
   uint8_t getServerID();      // returns 0 if MM_data is shorter than 3
+
+  // provide iterator interface on MM_data
+  typedef std::vector<uint8_t>::const_iterator const_iterator;
+  const_iterator begin() const { return MM_data.begin(); }
+  const_iterator end() const { return MM_data.end(); }
+
+  // provide restricted operator[] interface
+  const uint8_t operator[](uint16_t index);
   
   virtual void isInstance() = 0;   // Make this class abstract
   
