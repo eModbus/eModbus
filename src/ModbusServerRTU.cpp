@@ -85,7 +85,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     m.clear();
 
     // Wait for and read an request
-    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval, "SRV REQ");
+    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval);
 
     // Request longer than 1 byte (that will signal an error in receive())? 
     if (request.size() > 1) {
@@ -160,7 +160,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       // Do we have gathered a valid response now?
       if (response.size() >= 3) {
         // Yes. send it back.
-        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRrtsPin, response, "SRV RSP");
+        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRrtsPin, response);
         LOG_D("Response sent.\n");
       }
     } else {

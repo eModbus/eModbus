@@ -37,11 +37,11 @@ protected:
   RTUutils() = delete;
 
 // receive: get a Modbus message from serial, maintaining timeouts etc.
-  static RTUMessage receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval, const char *lbl);
+  static RTUMessage receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval);
 
 // send: send a Modbus message in either format (RTUMessage or data/len)
-  static void send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, const uint8_t *data, uint16_t len, const char *lbl);
-  static void send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, RTUMessage raw, const char *lbl);
+  static void send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, const uint8_t *data, uint16_t len);
+  static void send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, RTUMessage raw);
 };
 
 #endif
