@@ -109,6 +109,17 @@ const uint8_t ModbusMessage::operator[](uint16_t index) {
   return 0;
 }
 
+  // Add append() for two ModbusMessages or a std::vector<uint8_t> to be appended
+  void ModbusMessage::append(ModbusMessage& m) { 
+    MM_data.reserve(size() + m.size()); 
+    MM_data.insert(MM_data.end(), m.begin(), m.end()); 
+  }
+
+  void ModbusMessage::append(std::vector<uint8_t>& m) { 
+    MM_data.reserve(size() + m.size()); 
+    MM_data.insert(MM_data.end(), m.begin(), m.end()); 
+  }
+
 // ****************************************
 // ModbusRequest class implementations
 // ****************************************

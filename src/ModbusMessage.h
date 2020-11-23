@@ -100,6 +100,10 @@ protected:
   // Export std::vector functions
   void push_back(const uint8_t& val) { MM_data.push_back(val); }
 
+  // Add append() for two ModbusMessages or a std::vector<uint8_t> to be appended
+  void append(ModbusMessage& m);
+  void append(std::vector<uint8_t>& m);
+
   // Get MM_data[0] (server ID) and MM_data[1] (function code)
   uint8_t getFunctionCode();  // returns 0 if MM_data is shorter than 3
   uint8_t getServerID();      // returns 0 if MM_data is shorter than 3
