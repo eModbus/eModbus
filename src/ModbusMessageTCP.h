@@ -28,6 +28,12 @@ protected:
       return *this;
     }
     
+    inline TargetHost(TargetHost& t) :
+      host(t.host),
+      port(t.port),
+      timeout(t.timeout),
+      interval(t.interval) {}
+    
     inline TargetHost() :
       host(IPAddress(0, 0, 0, 0)),
       port(0),

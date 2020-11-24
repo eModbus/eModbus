@@ -105,7 +105,7 @@ Error ModbusMessage::getError() {
 }
 
 // add() variant to copy a buffer into MM_data. Returns updated size
-uint16_t ModbusMessage::add(uint8_t *arrayOfBytes, uint16_t count) {
+uint16_t ModbusMessage::add(const uint8_t *arrayOfBytes, uint16_t count) {
   // Copy it
   while (count--) {
     MM_data.push_back(*arrayOfBytes++);

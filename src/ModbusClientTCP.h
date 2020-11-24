@@ -15,7 +15,6 @@
 using std::queue;
 using std::mutex;
 using std::lock_guard;
-using TCPMessage = std::vector<uint8_t>;
 
 #define TARGETHOSTINTERVAL 10
 #define DEFAULTTIMEOUT 2000
@@ -48,7 +47,7 @@ public:
     Error rc = SUCCESS;        // Return value
 
     // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, this->MT_target, std::forward<Args>(args) ...);
+    ModbusMessageTCP *r = ModbusMessageTCP::createTCPRequest(rc, this->MT_target, std::forward<Args>(args) ...);
 
     // Add it to the queue, if valid
     if (r) {
@@ -63,67 +62,65 @@ public:
   }
 
   template <typename... Args>
-  TCPMessage generateRequest(uint16_t transactionID, Args&&... args) {
+  ModbusMessageTCP generateRequest(uint16_t transactionID, Args&&... args) {
     Error rc = SUCCESS;       // Return code from generating the request
-    TCPMessage rv;       // Returned std::vector with the message or error code
-    TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
+    ModbusMessageTCP *rv;       // Returned std::vector with the message or error code
+    ModbusMessageTCP::TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
 
     // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, std::forward<Args>(args) ..., 0xDEADDEAD);
+    ModbusMessageTCP *r = ModbusMessageTCP::createTCPRequest(rc, dummyHost, std::forward<Args>(args) ..., 0xDEADDEAD);
 
     // Was the message generated?
     if (rc != SUCCESS) {
       // No. Return the Error code only - vector size is 1
-      rv.reserve(1);
-      rv.push_back(rc);
+      rv = new ModbusMessageTCP(MMT_REQUEST, dummyHost, 1);
+      rv->push_back(rc);
     // If it was successful - did we get a message?
     } else if (r) {
       // Yes, obviously. 
-      // Resize the vector to take tcpHead (6 bytes) + message proper
-      rv.reserve(r->len() + 6);
-      rv.resize(r->len() + 6);
+      rv = new ModbusMessageTCP(MMT_REQUEST, dummyHost, r->size() + 6);
       r->tcpHead.transactionID = transactionID;
 
       // Do a fast (non-C++-...) copy
-      uint8_t *cp = rv.data();
+      uint8_t *cp = rv->data();
       // Copy in TCP header
       memcpy(cp, (const uint8_t *)r->tcpHead, 6);
       // Copy in message contents
-      memcpy(cp + 6, r->data(), r->len());
+      rv->append(*r);
     }
     
     // Delete request again, if one was created
     if (r) delete r;
 
     // Move back vector contents
-    return rv;
+    return *rv;
   }
 
   // Method to generate an error response - properly enveloped for TCP
-  TCPMessage generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode);
+  ModbusMessageTCP generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode);
 
 protected:
   // addToQueue: send freshly created request to queue
-  bool addToQueue(TCPRequest *request);
+  bool addToQueue(ModbusMessageTCP *request);
 
   // handleConnection: worker task method
   static void handleConnection(ModbusClientTCP *instance);
 
   // send: send request via Client connection
-  void send(TCPRequest *request);
+  void send(ModbusMessageTCP *request);
 
   // receive: get response via Client connection
-  TCPResponse* receive(TCPRequest *request);
+  ModbusMessageTCP* receive(ModbusMessageTCP *request);
 
   // Create standard error response 
-  TCPResponse* errorResponse(Error e, TCPRequest *request);
+  ModbusMessageTCP* errorResponse(Error e, ModbusMessageTCP *request);
 
   void isInstance() { return; }   // make class instantiable
-  queue<TCPRequest *> requests;   // Queue to hold requests to be processed
+  queue<ModbusMessageTCP *> requests;   // Queue to hold requests to be processed
   mutex qLock;                    // Mutex to protect queue
   Client& MT_client;              // Client reference for Internet connections (EthernetClient or WifiClient)
-  TargetHost MT_lastTarget;       // last used server
-  TargetHost MT_target;           // Description of target server
+  ModbusMessageTCP::TargetHost MT_lastTarget;       // last used server
+  ModbusMessageTCP::TargetHost MT_target;           // Description of target server
   uint32_t MT_defaultTimeout;     // Standard timeout value taken if no dedicated was set
   uint32_t MT_defaultInterval;    // Standard interval value taken if no dedicated was set
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue

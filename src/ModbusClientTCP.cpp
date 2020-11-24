@@ -37,7 +37,7 @@ ModbusClientTCP::~ModbusClientTCP() {
     // Get all queue entries one by one
     while (!requests.empty()) {
       // Pull front entry
-      TCPRequest *r = requests.front();
+      ModbusMessageTCP *r = requests.front();
       // Delete request
       delete r;
       // Remove front entry
@@ -81,7 +81,7 @@ Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint8_
     Error rc = SUCCESS;        // Return value
 
     // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, MT_target, serverID, functionCode, dataLen, data, token);
+    ModbusMessageTCP *r = ModbusMessageTCP::createTCPRequest(rc, MT_target, serverID, functionCode, dataLen, data, token);
 
     // Add it to the queue, if valid
     if (r) {
@@ -98,7 +98,7 @@ Error ModbusClientTCP::addRequest(uint8_t serverID, uint8_t functionCode, uint8_
   }
 
 // addToQueue: send freshly created request to queue
-bool ModbusClientTCP::addToQueue(TCPRequest *request) {
+bool ModbusClientTCP::addToQueue(ModbusMessageTCP *request) {
   bool rc = false;
   // Did we get one?
   if (request) {
@@ -117,28 +117,28 @@ bool ModbusClientTCP::addToQueue(TCPRequest *request) {
 
 
 // Method to generate an error response - properly enveloped for TCP
-TCPMessage ModbusClientTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
-  TCPMessage rv;       // Returned std::vector
+ModbusMessageTCP ModbusClientTCP::generateErrorResponse(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error errorCode) {
+  ModbusMessageTCP *rv;       // Returned std::vector
+  ModbusMessageTCP::TargetHost dummyHost;
 
-  Error rc = TCPRequest::checkServerFC(serverID, functionCode);
+  Error rc = ModbusMessageTCP::checkServerFC(serverID, functionCode);
   if (rc != SUCCESS) {
-    rv.reserve(1);
-    rv.push_back(rc);
+    rv = new ModbusMessageTCP(MMT_RESPONSE, dummyHost, 1);
+    rv->push_back(rc);
   } else {
-    rv.reserve(9);            // 6 bytes TCP header plus serverID, functionCode and error code
-    rv.resize(9);
+    // 6 bytes TCP header plus serverID, functionCode and error code
+    rv = new ModbusMessageTCP(MMT_RESPONSE, dummyHost, 9);
 
     // Copy in TCP header
-    uint8_t *cp = rv.data();
-    ModbusTCPhead head(transactionID, 0, 3);
-    memcpy(cp, (const uint8_t *)head, 6);
+    ModbusMessageTCP::ModbusTCPhead head(transactionID, 0, 3);
+    rv->add((const uint8_t *)head, 6);
 
     // Add payload
-    rv[6] = serverID;
-    rv[7] = (functionCode | 0x80);
-    rv[8] = errorCode;
+    rv->add(serverID);
+    rv->add(static_cast<uint8_t>(functionCode | 0x80));
+    rv->add(errorCode);
   }
-  return rv;
+  return *rv;
 }
 
 // handleConnection: worker task
@@ -154,7 +154,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
     // Do we have a request in queue?
     if (!instance->requests.empty()) {
       // Yes. pull it.
-      TCPRequest *request = instance->requests.front();
+      ModbusMessageTCP *request = instance->requests.front();
       doNotPop = false;
       LOG_D("Got request from queue\n");
 
@@ -192,7 +192,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         instance->send(request);
 
         // Get the response - if any
-        TCPResponse *response = instance->receive(request);
+        ModbusMessageTCP *response = instance->receive(request);
 
         // Did we get a normal response?
         if (response->getError()==SUCCESS) {
@@ -200,7 +200,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
           LOG_D("Data response.\n");
           if (instance->onData) {
             // Yes. call it
-            instance->onData(response->getServerID(), response->getFunctionCode(), response->data(), response->len(), request->getToken());
+            instance->onData(response->getServerID(), response->getFunctionCode(), response->data(), response->size(), request->getToken());
           } else {
             LOG_D("No onData handler\n");
           }
@@ -259,11 +259,11 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
 }
 
 // send: send request via Client connection
-void ModbusClientTCP::send(TCPRequest *request) {
+void ModbusClientTCP::send(ModbusMessageTCP *request) {
   // We have a established connection here, so we can write right away.
   // Move tcpHead and request into one continuous buffer, since the very first request tends to 
   // take too long to be sent to be recognized.
-  uint16_t rl = request->len();
+  uint16_t rl = request->size();
   uint8_t sbuf[rl + 6];
   memcpy(sbuf, (const uint8_t *)request->tcpHead, 6);
   memcpy(sbuf + 6, request->data(), rl);
@@ -274,13 +274,13 @@ void ModbusClientTCP::send(TCPRequest *request) {
 }
 
 // receive: get response via Client connection
-TCPResponse* ModbusClientTCP::receive(TCPRequest *request) {
+ModbusMessageTCP* ModbusClientTCP::receive(ModbusMessageTCP *request) {
   uint32_t lastMillis = millis();     // Timer to check for timeout
   bool hadData = false;               // flag data received
   const uint16_t dataLen(300);          // Modbus Packet supposedly will fit (260<300)
   uint8_t data[dataLen];              // Local buffer to collect received data
   uint16_t dataPtr = 0;               // Pointer into data
-  TCPResponse *response = nullptr;    // Response structure to be returned
+  ModbusMessageTCP *response = nullptr;    // Response structure to be returned
 
   // wait for packet data, overflow or timeout
   while (millis() - lastMillis < request->target.timeout && dataPtr < dataLen && !hadData) {
@@ -303,7 +303,7 @@ TCPResponse* ModbusClientTCP::receive(TCPRequest *request) {
     HEXDUMP_V("Response packet", data, dataPtr);
     // Yes. check it for validity
     // First transactionID and protocolID shall be identical, length has to match the remainder.
-    ModbusTCPhead head(request->tcpHead.transactionID, request->tcpHead.protocolID, dataPtr - 6);
+    ModbusMessageTCP::ModbusTCPhead head(request->tcpHead.transactionID, request->tcpHead.protocolID, dataPtr - 6);
     // Matching head?
     if (memcmp((const uint8_t *)head, data, 6)) {
       // No. return Error response
@@ -316,7 +316,7 @@ TCPResponse* ModbusClientTCP::receive(TCPRequest *request) {
       response = errorResponse(FC_MISMATCH, request);
     } else {
       // Looks good.
-      response = new TCPResponse(dataPtr - 6);
+      response = new ModbusMessageTCP(MMT_RESPONSE, request->target, dataPtr - 6, request->getToken());
       response->add(data + 6, dataPtr - 6);
       response->tcpHead = head;
     }
@@ -327,8 +327,8 @@ TCPResponse* ModbusClientTCP::receive(TCPRequest *request) {
   return response;
 }
 
-TCPResponse* ModbusClientTCP::errorResponse(Error e, TCPRequest *request) {
-  TCPResponse *errResponse = new TCPResponse(3);
+ModbusMessageTCP* ModbusClientTCP::errorResponse(Error e, ModbusMessageTCP *request) {
+  ModbusMessageTCP *errResponse = new ModbusMessageTCP(MMT_RESPONSE, request->target, 3, request->getToken());
   
   errResponse->add(request->getServerID());
   errResponse->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));

@@ -63,11 +63,11 @@ template <typename T> uint16_t getValue(uint8_t *target, uint16_t targetLength, 
   return index;
 }
 
+// ModbusMessage types
+enum ModbusMessageType : uint8_t { MMT_REQUEST, MMT_RESPONSE, MMT_PUSH };
+
 class ModbusMessage {
 protected:
-  // ModbusMesage types
-  enum ModbusMessageType : uint8_t { MMT_REQUEST, MMT_RESPONSE, MMT_PUSH };
-
   // Default Constructor - takes expected size of MM_data
   explicit ModbusMessage(ModbusMessageType t, uint16_t dataLen = 0, uint32_t token = 0);
   
@@ -141,7 +141,7 @@ protected:
   }
 
   // add() variant to copy a buffer into MM_data. Returns updated MM_index or 0
-  uint16_t add(uint8_t *arrayOfBytes, uint16_t count);
+  uint16_t add(const uint8_t *arrayOfBytes, uint16_t count);
 
   // Template function to extend add(A) to add(A, B, C, ...)
   template <class T, class... Args> 
