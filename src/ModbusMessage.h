@@ -65,11 +65,14 @@ template <typename T> uint16_t getValue(uint8_t *target, uint16_t targetLength, 
 
 class ModbusMessage {
 protected:
+  // ModbusMesage types
+  enum ModbusMessageType : uint8_t { MMT_REQUEST, MMT_RESPONSE, MMT_PUSH };
+
   // Default Constructor - takes expected size of MM_data
-  explicit ModbusMessage(uint16_t dataLen = 0);
+  explicit ModbusMessage(ModbusMessageType t, uint16_t dataLen = 0, uint32_t token = 0);
   
   // Destructor
-  virtual ~ModbusMessage();
+  ~ModbusMessage();
 
   // Assignment operator - take care of MM_data
   ModbusMessage& operator=(const ModbusMessage& m);
@@ -92,11 +95,12 @@ protected:
   // data() - return address of MM_data
   const uint8_t   *data() { return MM_data.data(); }
   
-  // len() - return used length in MM_data
   // size() - return used length in MM_data
-  uint16_t    len()  { return MM_data.size(); }
   uint16_t    size() { return MM_data.size(); }
 
+  // provide restricted operator[] interface
+  const uint8_t operator[](uint16_t index);
+  
   // Export std::vector functions
   void push_back(const uint8_t& val) { MM_data.push_back(val); }
 
@@ -104,20 +108,25 @@ protected:
   void append(ModbusMessage& m);
   void append(std::vector<uint8_t>& m);
 
-  // Get MM_data[0] (server ID) and MM_data[1] (function code)
-  uint8_t getFunctionCode();  // returns 0 if MM_data is shorter than 3
-  uint8_t getServerID();      // returns 0 if MM_data is shorter than 3
-
   // provide iterator interface on MM_data
   typedef std::vector<uint8_t>::const_iterator const_iterator;
   const_iterator begin() const { return MM_data.begin(); }
-  const_iterator end() const { return MM_data.end(); }
+  const_iterator end() const   { return MM_data.end(); }
 
-  // provide restricted operator[] interface
-  const uint8_t operator[](uint16_t index);
+  // Data retrieval methods
+  uint8_t getFunctionCode();  // returns 0 if MM_data is shorter than 3
+  uint8_t getServerID();      // returns 0 if MM_data is shorter than 3
+  Error getError();           // getError() - returns error code (MM_data[2], if MM_data[1] > 0x7F)
+  uint32_t getToken() { return MM_token; } // Get token
+
+  // check token to find a match
+  inline bool isToken(uint32_t token) { return (MM_token == token); }
   
-  virtual void isInstance() = 0;   // Make this class abstract
-  
+  // Checks for message types
+  inline bool isRequest()  { return (MM_type == MMT_REQUEST); }
+  inline bool isResponse() { return (MM_type == MMT_RESPONSE); }
+  inline bool isPush()     { return (MM_type == MMT_PUSH); }
+
   // add() - add a single data element MSB first to MM_data. Returns updated size
   template <class T> uint16_t add(T v) {
     uint16_t sz = sizeof(T);    // Size of value to be added
@@ -140,33 +149,6 @@ protected:
   add(T v, Args... args) {
       return add(v) + add(args...);
   }
-
-private:
-  std::vector<uint8_t> MM_data;  // Message data buffer
-};
-
-class ModbusRequest : public ModbusMessage {
-protected:
-  // Default constructor
-  explicit ModbusRequest(uint16_t dataLen = 0, uint32_t token = 0);
-
-  // Assignment operator - take care of MRQ_token
-  ModbusRequest& operator=(const ModbusRequest& m);
-  
-  // Copy constructor - take care of RQ_token
-  ModbusRequest(const ModbusRequest& m);
-
-  // Move constructor
-	ModbusRequest(ModbusRequest&& m) noexcept;
-  
-	// Move assignment
-	ModbusRequest& operator=(ModbusRequest&& m) noexcept;
-
-  // Get token
-  uint32_t getToken();
-
-  // check token to find a match
-  bool isToken(uint32_t token);
 
   // Data validation methods for the different factory calls
   // 0. serverID and function code - used by all of the below
@@ -194,31 +176,9 @@ protected:
   static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
 
 private:
-  uint32_t MRQ_token;            // User defined token to uniquely identify request
-};
-
-class ModbusResponse : public ModbusMessage {
-protected:
-  // Default constructor
-  explicit ModbusResponse(uint16_t dataLen = 0);
-
-  // Assignment operator - take care of MRS_error
-  ModbusResponse& operator=(const ModbusResponse& m);
-  
-  // Copy constructor - take care of MRS_error
-  ModbusResponse(const ModbusResponse& m);
-
-  // Move constructor
-	ModbusResponse(ModbusResponse&& m) noexcept;
-  
-	// Move assignment
-	ModbusResponse& operator=(ModbusResponse&& m) noexcept;
-
-  // getError() - returns error code
-  Error getError();
-
-private:
-  Error MRS_error;             // Error code (0 if ok)
+  std::vector<uint8_t> MM_data;  // Message data buffer
+  uint32_t MM_token;             // User defined token to uniquely identify request
+  ModbusMessageType MM_type;     // Type of this message
 };
 
 #endif
