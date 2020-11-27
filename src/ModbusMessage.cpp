@@ -54,6 +54,12 @@ bool ModbusMessage::operator!=(const ModbusMessage& m) {
   return (!(*this == m));
 }
 
+// Conversion to bool
+ModbusMessage::operator bool() {
+  if (MM_data.size() > 2) return true;
+  return false;
+}
+
 // Exposed methods of std::vector
 const uint8_t *ModbusMessage::data() { return MM_data.data(); }
 uint16_t       ModbusMessage::size() { return MM_data.size(); }
@@ -66,6 +72,11 @@ const uint8_t  ModbusMessage::operator[](uint16_t index) {
   }
   LOG_W("Index %d out of bounds (>=%d).\n", index, MM_data.size());
   return 0;
+}
+// Resize internal MM_data
+uint16_t ModbusMessage::resize(uint16_t newSize) { 
+  MM_data.resize(newSize); 
+  return MM_data.size(); 
 }
 
 // Add append() for two ModbusMessages or a std::vector<uint8_t> to be appended

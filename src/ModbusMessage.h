@@ -80,6 +80,7 @@ public:
   // Comparison operators
   bool operator==(const ModbusMessage& m);
   bool operator!=(const ModbusMessage& m);
+  operator bool();
   
   // Exposed methods of std::vector
   const uint8_t   *data();  // address of MM_data
@@ -87,6 +88,7 @@ public:
   const uint8_t    operator[](uint16_t index); // provide restricted operator[] interface
   void push_back(const uint8_t& val); // add a byte at the end of MM_data
   void clear();             // delete message contents
+  uint16_t resize(uint16_t newSize);  // resize MM_data
 
   // provide iterator interface on MM_data
   typedef std::vector<uint8_t>::const_iterator const_iterator;
