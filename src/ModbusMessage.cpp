@@ -64,6 +64,7 @@ const uint8_t  ModbusMessage::operator[](uint16_t index) {
   if (index < MM_data.size()) {
     return MM_data[index];
   }
+  LOG_W("Index %d out of bounds (>=%d).\n", index, MM_data.size());
   return 0;
 }
 

@@ -133,7 +133,7 @@ template <typename T> uint16_t get(uint16_t index, T& retval) {
   retval = 0;                      // return value
 
   // Will it fit?
-  if (index < MM_data.size() - sz) {
+  if (index <= MM_data.size() - sz) {
     // Yes. Copy it MSB first
     while (sz) {
       sz--;
