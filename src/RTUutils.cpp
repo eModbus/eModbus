@@ -4,7 +4,8 @@
 // =================================================================================================
 #include "ModbusMessage.h"
 #include "RTUutils.h"
-#undef LOCAL_LOG_LEVEL
+// #undef LOCAL_LOG_LEVEL
+#define LOCAL_LOG_LEVEL LOG_LEVEL_WARNING
 #include "Logging.h"
 
 // calcCRC: calculate Modbus CRC16 on a given array of bytes

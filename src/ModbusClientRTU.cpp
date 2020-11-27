@@ -3,7 +3,8 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusClientRTU.h"
-#undef LOCAL_LOG_LEVEL
+// #undef LOCAL_LOG_LEVEL
+#define LOCAL_LOG_LEVEL LOG_LEVEL_WARNING
 #include "Logging.h"
 
 // Constructor takes Serial reference and optional DE/RE pin
