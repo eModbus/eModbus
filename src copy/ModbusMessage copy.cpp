@@ -2,24 +2,22 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
+#include <string.h>
+#include <stdio.h>
 #include <Arduino.h>
 #include "ModbusMessage.h"
-#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
-#include "Logging.h"
 
 // Default Constructor - takes optional size of MM_data to allocate memory
-ModbusMessage::ModbusMessage(uint16_t dataLen) {
+ModbusMessage::ModbusMessage(ModbusMessageType t, uint16_t dataLen, uint32_t token) :
+  MM_type(t),
+  MM_token(token) {
   if (dataLen) MM_data.reserve(dataLen);
-  LOG_D("default constructor, len=%d\n", dataLen);
 }
 
 // Destructor
-ModbusMessage::~ModbusMessage() { 
-  // If paranoid, one can use the below :D
-  // std::vector<uint8_t>().swap(MM_data);
-}
+ModbusMessage::~ModbusMessage() { }
 
-// Assignment operator
+// Assignment operator - take care of MM_data
 ModbusMessage& ModbusMessage::operator=(const ModbusMessage& m) {
   // Do anything only if not self-assigning
   if (this != &m) {
@@ -29,9 +27,31 @@ ModbusMessage& ModbusMessage::operator=(const ModbusMessage& m) {
   return *this;
 }
 
-// Copy constructor
-ModbusMessage::ModbusMessage(const ModbusMessage& m) :
-  MM_data(m.MM_data) { }
+// Copy constructor - take care of MM_data
+ModbusMessage::ModbusMessage(const ModbusMessage& m) {
+  // Copy data from m
+  MM_data = m.MM_data;
+}
+
+// Move constructor
+// Transfer ownership of m.MM_data
+ModbusMessage::ModbusMessage(ModbusMessage&& m) noexcept : 
+  MM_data(m.MM_data) {
+  m.MM_data.clear();
+}
+
+// Move assignment
+// Transfer ownership of m.MM_data
+ModbusMessage& ModbusMessage::operator=(ModbusMessage&& m) noexcept
+{
+  // Self-assignment detection
+  if (&m != this) {
+    // Transfer ownership 
+    MM_data = m.MM_data;
+    m.MM_data.clear();
+  }
+  return *this;
+}
 
 // Equality comparison
 bool ModbusMessage::operator==(const ModbusMessage& m) {
@@ -54,42 +74,18 @@ bool ModbusMessage::operator!=(const ModbusMessage& m) {
   return (!(*this == m));
 }
 
-// Exposed methods of std::vector
-const uint8_t *ModbusMessage::data() { return MM_data.data(); }
-uint16_t       ModbusMessage::size() { return MM_data.size(); }
-void           ModbusMessage::push_back(const uint8_t& val) { MM_data.push_back(val); }
-void           ModbusMessage::clear() { MM_data.clear(); }
-// provide restricted operator[] interface
-const uint8_t  ModbusMessage::operator[](uint16_t index) {
-  if (index < MM_data.size()) {
-    return MM_data[index];
-  }
+// Get MM_data[0] (server ID) and MM_data[1] (function code)
+uint8_t ModbusMessage::getFunctionCode() {
+  // Only if we have data and it is at least as long to fit serverID and function code, return FC
+  if (MM_data.size() > 2) { return MM_data[1]; }
+  // Else return 0 - which is no valid Modbus FC.
   return 0;
-}
-
-// Add append() for two ModbusMessages or a std::vector<uint8_t> to be appended
-void ModbusMessage::append(ModbusMessage& m) { 
-  MM_data.reserve(size() + m.size()); 
-  MM_data.insert(MM_data.end(), m.begin(), m.end()); 
-}
-
-void ModbusMessage::append(std::vector<uint8_t>& m) { 
-  MM_data.reserve(size() + m.size()); 
-  MM_data.insert(MM_data.end(), m.begin(), m.end()); 
 }
 
 uint8_t ModbusMessage::getServerID() {
   // Only if we have data and it is at least as long to fit serverID and function code, return serverID
   if (MM_data.size() > 2) { return MM_data[0]; }
   // Else return 0 - normally the Broadcast serverID, but we will not support that. Full stop. :-D
-  return 0;
-}
-
-// Get MM_data[0] (server ID) and MM_data[1] (function code)
-uint8_t ModbusMessage::getFunctionCode() {
-  // Only if we have data and it is at least as long to fit serverID and function code, return FC
-  if (MM_data.size() > 2) { return MM_data[1]; }
-  // Else return 0 - which is no valid Modbus FC.
   return 0;
 }
 
@@ -116,6 +112,25 @@ uint16_t ModbusMessage::add(const uint8_t *arrayOfBytes, uint16_t count) {
   }
   // Return updated size (logical length of message so far)
   return MM_data.size();
+}
+
+// provide restricted operator[] interface
+const uint8_t ModbusMessage::operator[](uint16_t index) {
+  if (index < MM_data.size()) {
+    return MM_data[index];
+  }
+  return 0;
+}
+
+// Add append() for two ModbusMessages or a std::vector<uint8_t> to be appended
+void ModbusMessage::append(ModbusMessage& m) { 
+  MM_data.reserve(size() + m.size()); 
+  MM_data.insert(MM_data.end(), m.begin(), m.end()); 
+}
+
+void ModbusMessage::append(std::vector<uint8_t>& m) { 
+  MM_data.reserve(size() + m.size()); 
+  MM_data.insert(MM_data.end(), m.begin(), m.end()); 
 }
 
 // Data validation methods for the different factory calls
@@ -364,148 +379,3 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
   return checkServerFC(serverID, functionCode);
 }
-
-// Factory methods to create valid Modbus messages from the parameters
-// 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode) {
-  // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode);
-  // No error? 
-  if (returnCode == SUCCESS)
-  {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(2);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, functionCode);
-  }
-  return returnCode;
-}
-
-// 2. one uint16_t parameter (FC 0x18)
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t p1) {
-  // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode, p1);
-  // No error? 
-  if (returnCode == SUCCESS)
-  {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(4);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, functionCode, p1);
-  }
-  return returnCode;
-}
-
-// 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
-  // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode, p1, p2);
-  // No error? 
-  if (returnCode == SUCCESS)
-  {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(6);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, functionCode, p1, p2);
-  }
-  return returnCode;
-}
-
-// 4. three uint16_t parameters (FC 0x16)
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
-  // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode, p1, p2, p3);
-  // No error? 
-  if (returnCode == SUCCESS)
-  {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(8);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, functionCode, p1, p2, p3);
-  }
-  return returnCode;
-}
-
-// 5. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of words (FC 0x10)
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
-  // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode, p1, p2, count, arrayOfWords);
-  // No error? 
-  if (returnCode == SUCCESS)
-  {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(7 + count * 2);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, functionCode, p1, p2);
-    add(count);
-    for (uint8_t i = 0; i < (count >> 1); ++i) {
-      add(arrayOfWords[i]);
-    }
-  }
-  return returnCode;
-}
-
-// 6. two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of bytes (FC 0x0f)
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
-  // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode, p1, p2, count, arrayOfBytes);
-  // No error? 
-  if (returnCode == SUCCESS)
-  {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(7 + count);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, functionCode, p1, p2);
-    add(count);
-    for (uint8_t i = 0; i < (count >> 1); ++i) {
-      add(arrayOfBytes[i]);
-    }
-  }
-  return returnCode;
-}
-
-// 7. generic constructor for preformatted data ==> count is counting bytes!
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
-  // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode, count, arrayOfBytes);
-  // No error? 
-  if (returnCode == SUCCESS)
-  {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(2 + count);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, functionCode);
-    for (uint8_t i = 0; i < (count >> 1); ++i) {
-      add(arrayOfBytes[i]);
-    }
-  }
-  return returnCode;
-}
-
-// 8. Error response generator
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, Error errorCode) {
-  // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode);
-  // No error? 
-  if (returnCode == SUCCESS) {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(3);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, static_cast<uint8_t>((functionCode | 0x80) & 0xFF), static_cast<uint8_t>(errorCode));
-  }
-  return returnCode;
-}
-
-// Error output in case a message constructor will fail
-void ModbusMessage::printError(const char *file, int lineNo, Error e) {
-  LOG_E("(%s, line %d) Error in constructor: %02X - %s\n", file_name(file), lineNo, e, (const char *)(ModbusError(e)));
-}
-
