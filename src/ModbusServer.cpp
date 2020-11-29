@@ -6,7 +6,7 @@
 #include "ModbusServer.h"
 
 #undef LOCAL_LOG_LEVEL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_DEBUG
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_DEBUG
 #include "Logging.h"
 
 // registerWorker: register a worker function for a certain serverID/FC combination

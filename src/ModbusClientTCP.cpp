@@ -294,20 +294,20 @@ ModbusMessage ModbusClientTCP::receive(RequestEntry *request) {
     // Matching head?
     if (memcmp((const uint8_t *)head, data, 6)) {
       // No. return Error response
-      response.setMessage(request->msg.getServerID(), request->msg.getFunctionCode(), TCP_HEAD_MISMATCH);
+      response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), TCP_HEAD_MISMATCH);
       // If the server id does not match that of the request, report error
     } else if (data[6] != request->msg.getServerID()) {
-      response.setMessage(request->msg.getServerID(), request->msg.getFunctionCode(), SERVER_ID_MISMATCH);
+      response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), SERVER_ID_MISMATCH);
       // If the function code does not match that of the request, report error
     } else if ((data[7] & 0x7F) != request->msg.getFunctionCode()) {
-      response.setMessage(request->msg.getServerID(), request->msg.getFunctionCode(), FC_MISMATCH);
+      response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), FC_MISMATCH);
     } else {
       // Looks good.
       response.add(data + 6, dataPtr - 6);
     }
   } else {
     // No, timeout must have struck
-    response.setMessage(request->msg.getServerID(), request->msg.getFunctionCode(), TIMEOUT);
+    response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), TIMEOUT);
   }
   return response;
 }

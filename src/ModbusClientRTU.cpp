@@ -135,15 +135,15 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
         // Does the serverID match the requested?
         if (request.msg.getServerID() != response.getServerID()) {
           // No. Return error response
-          response.setMessage(request.msg.getServerID(), request.msg.getFunctionCode(), SERVER_ID_MISMATCH);
+          response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), SERVER_ID_MISMATCH);
         // ServerID ok, but does the FC match as well?
         } else if (request.msg.getFunctionCode() != (response.getFunctionCode() & 0x7F)) {
           // No. Return error response
-          response.setMessage(request.msg.getServerID(), request.msg.getFunctionCode(), FC_MISMATCH);
+          response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), FC_MISMATCH);
         // Both serverID and FC are ok - how about the CRC?
         } else if (!RTUutils::validCRC(response)) {
           // CRC faulty - return error
-          response.setMessage(request.msg.getServerID(), request.msg.getFunctionCode(), CRC_ERROR);
+          response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), CRC_ERROR);
         // Everything seems okay
         } else {
           // Build response from received message (cut off CRC)
@@ -152,7 +152,7 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       } else {
         // No, we got an error code from receive()
         // Return it as error response
-        response.setMessage(request.msg.getServerID(), request.msg.getFunctionCode(), response[0]);
+        response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), static_cast<Error>(response[0]));
       }
 
       LOG_D("Response generated.\n");

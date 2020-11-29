@@ -5,7 +5,7 @@
 #include <Arduino.h>
 #include "ModbusMessage.h"
 #undef LOCAL_LOG_LEVEL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_ERROR
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_ERROR
 #include "Logging.h"
 
 // Default Constructor - takes optional size of MM_data to allocate memory

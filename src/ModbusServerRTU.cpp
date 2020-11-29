@@ -5,7 +5,7 @@
 #include "ModbusServerRTU.h"
 
 #undef LOG_LEVEL_LOCAL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_DEBUG
+#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 // Init number of created ModbusServerRTU objects
@@ -134,13 +134,13 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           }
         } else {
           // No, CRC is wrong. Send error response
-          response.setMessage(request.getServerID(), request.getFunctionCode(), CRC_ERROR);
+          response.setError(request.getServerID(), request.getFunctionCode(), CRC_ERROR);
         }
       } else {
         // No callback. Is at least the serverID valid?
         if (myServer->isServerFor(request[0])) {
           // Yes. Send back a ILLEGAL_FUNCTION error
-          response.setMessage(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
+          response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
         }
         // Else we will ignore the request, as it is not meant for us!
       }
