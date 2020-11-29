@@ -15,9 +15,6 @@ extern "C" {
 #include <freertos/task.h>
 }
 
-using std::vector;
-using RTUMessage = std::vector<uint8_t>;
-
 class ModbusServerRTU : public ModbusServer {
 public:
   // Constructor

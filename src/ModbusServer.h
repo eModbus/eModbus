@@ -12,17 +12,16 @@
 #include "ModbusError.h"
 #include "ModbusMessage.h"
 
-using ResponseType = std::vector<uint8_t>;
 using std::mutex;
 using std::lock_guard;
 
 // Standard response variants for "no response" and "echo the request"
-const ResponseType NIL_RESPONSE = { 0xFF, 0xF0 };
-const ResponseType ECHO_RESPONSE = { 0xFF, 0xF1 };
+const ModbusMessage NIL_RESPONSE = { 0xFF, 0xF0 };
+const ModbusMessage ECHO_RESPONSE = { 0xFF, 0xF1 };
 
 // MBSworker: function signature for worker functions to handle single serverID/functionCode combinations
 // typedef ResponseType (*MBSworker) (uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
-using MBSworker = std::function<ResponseType(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data)>;
+using MBSworker = std::function<ModbusMessage(ModbusMessage msg)>;
 
 class ModbusServer {
 public:
@@ -39,14 +38,8 @@ public:
   // getMessageCount: read number of messages processed
   uint32_t getMessageCount();
 
-  // ErrorResponse: create an error response message from an error code
-  static ResponseType ErrorResponse(Error errorCode);
-
-  // DataResponse: create a regular response from given data
-  static ResponseType DataResponse(uint16_t dataLen, uint8_t *data);
-
   // Local request to the server
-  ResponseType localRequest(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t* data);
+  ModbusMessage localRequest(ModbusMessage msg);
 
   // listServer: print out all server/FC combinations served
   void listServer();

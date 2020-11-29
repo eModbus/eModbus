@@ -6,7 +6,7 @@
 #include "ModbusServer.h"
 
 #undef LOCAL_LOG_LEVEL
-// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
+#define LOCAL_LOG_LEVEL LOG_LEVEL_DEBUG
 #include "Logging.h"
 
 // registerWorker: register a worker function for a certain serverID/FC combination
@@ -65,39 +65,23 @@ uint32_t ModbusServer::getMessageCount() {
   return retCnt;
 }
 
-// ErrorResponse: create an error response message from an error code
-ResponseType ModbusServer::ErrorResponse(Error errorCode) {
-  ResponseType r = { 0xFF, 0xF2, errorCode };
-  return r;
-}
-
-// DataResponse: create a regular response from given data
-ResponseType ModbusServer::DataResponse(uint16_t dataLen, uint8_t *data) {
-  ResponseType r = { 0xFF, 0xF3 };
-
-  if (data) {
-    while (dataLen--) {
-      r.push_back(*data++);
-    }
-  }
-  return r;
-}
-
 // LocalRequest: get response from locally running server.
-ResponseType ModbusServer::localRequest(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
+  uint8_t serverID = msg.getServerID();
+  uint8_t functionCode = msg.getFunctionCode();
   LOG_D("Local request for %02X/%02X\n", serverID, functionCode);
-  HEXDUMP_V("Request", data, dataLen);
+  HEXDUMP_V("Request", msg.data(), msg.size());
   // Try to get a worker for the request
   MBSworker worker = getWorker(serverID, functionCode);
   // Did we get one?
   if (worker != nullptr) {
     // Yes. call it and return the response
     LOG_D("Call worker\n");
-    ResponseType m = worker(serverID, functionCode, dataLen, data);
+    ModbusMessage m = worker(msg);
     LOG_D("Worker responded\n");
     HEXDUMP_V("Worker response", m.data(), m.size());
     // Process Response. Is it one of the predefined types?
-    if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1 || m[1] == 0xF2 || m[1] == 0xF3)) {
+    if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
       // Yes. Check it
       switch (m[1]) {
       case 0xF0: // NIL
@@ -105,19 +89,7 @@ ResponseType ModbusServer::localRequest(uint8_t serverID, uint8_t functionCode, 
         break;
       case 0xF1: // ECHO
         m.clear();
-        m.push_back(serverID);
-        m.push_back(functionCode);
-        for (uint16_t i = 0; i < dataLen; ++i) {
-          m.push_back(data[i]);
-        }
-        break;
-      case 0xF2: // ERROR
-        m[0] = serverID;
-        m[1] = functionCode | 0x80;
-        break;
-      case 0xF3: // DATA
-        m[0] = serverID;
-        m[1] = functionCode;
+        m.append(msg);
         break;
       default:   // Will not get here, but lint likes it!
         break;
@@ -147,7 +119,6 @@ ModbusServer::ModbusServer() :
 
 // Destructor
 ModbusServer::~ModbusServer() {
-  
 }
 
 // listServer: Print out all mapped server/FC combinations
