@@ -169,7 +169,7 @@ template <typename T> uint16_t get(uint16_t index, T& retval) {
   Error setMessage(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
 
   // 8. error response
-  Error setMessage(uint8_t serverID, uint8_t functionCode, Error errorCode);
+  Error setError(uint8_t serverID, uint8_t functionCode, Error errorCode);
   
 protected:
   // Data validation methods - used by the above!

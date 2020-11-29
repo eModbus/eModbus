@@ -4,13 +4,13 @@
 // =================================================================================================
 #include <Arduino.h>
 #include "ModbusMessage.h"
-#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
+#undef LOCAL_LOG_LEVEL
+#define LOCAL_LOG_LEVEL LOG_LEVEL_ERROR
 #include "Logging.h"
 
 // Default Constructor - takes optional size of MM_data to allocate memory
 ModbusMessage::ModbusMessage(uint16_t dataLen) {
   if (dataLen) MM_data.reserve(dataLen);
-  LOG_D("default constructor, len=%d\n", dataLen);
 }
 
 // Destructor
@@ -148,6 +148,7 @@ Error ModbusMessage::checkServerFC(uint8_t serverID, uint8_t functionCode) {
 
 // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode) {
+  LOG_V("Check data #1\n");
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
@@ -183,6 +184,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode) {
 
 // 2. one uint16_t parameter (FC 0x18)
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1) {
+  LOG_V("Check data #2\n");
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
@@ -219,6 +221,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 
 // 3. two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2) {
+  LOG_V("Check data #3\n");
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
@@ -260,6 +263,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 
 // 4. three uint16_t parameters (FC 0x16)
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3) {
+  LOG_V("Check data #4\n");
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
@@ -296,6 +300,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 
 // 5. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of words (FC 0x10)
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords) {
+  LOG_V("Check data #5\n");
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
@@ -335,6 +340,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 
 // 6. two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes) {
+  LOG_V("Check data #6\n");
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
@@ -374,6 +380,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 
 // 7. generic constructor for preformatted data ==> count is counting bytes!
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
+  LOG_V("Check data #7\n");
   return checkServerFC(serverID, functionCode);
 }
 
@@ -502,9 +509,9 @@ Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t
 }
 
 // 8. Error response generator
-Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, Error errorCode) {
+Error ModbusMessage::setError(uint8_t serverID, uint8_t functionCode, Error errorCode) {
   // Check parameter for validity
-  Error returnCode = checkData(serverID, functionCode);
+  Error returnCode = checkServerFC(serverID, functionCode);
   // No error? 
   if (returnCode == SUCCESS) {
     // Yes, all fine. Create new ModbusMessage
