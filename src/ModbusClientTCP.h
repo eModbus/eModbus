@@ -41,9 +41,6 @@ public:
   // Base addRequest must be present
   Error addRequest(ModbusMessage msg, uint32_t token);
 
-  // Alternate form with a target host
-  Error addRequest(ModbusMessage msg, uint32_t token, IPAddress targetHost, uint16_t targetPort);
-
 // Template variant for last set target host
 template <typename... Args>
 Error addRequest(uint32_t token, Args&&... args) {
@@ -57,27 +54,6 @@ Error addRequest(uint32_t token, Args&&... args) {
   if (rc == SUCCESS) {
     // Queue add successful?
     if (!addToQueue(token, m, MT_target)) {
-      // No. Return error after deleting the allocated request.
-      rc = REQUEST_QUEUE_FULL;
-    }
-  }
-  return rc;
-}
-
-// Template variant for new target host
-template <typename... Args>
-Error addRequest(uint32_t token, IPAddress host, uint16_t port, Args&&... args) {
-  Error rc = SUCCESS;        // Return value
-
-  // Create request, if valid
-  ModbusMessage m;
-  rc = m.setMessage(std::forward<Args>(args) ...);
-
-  // Add it to the queue, if valid
-  if (rc == SUCCESS) {
-    // Queue add successful?
-    TargetHost th(host, port, MT_defaultTimeout, MT_defaultInterval);
-    if (!addToQueue(token, m, th)) {
       // No. Return error after deleting the allocated request.
       rc = REQUEST_QUEUE_FULL;
     }

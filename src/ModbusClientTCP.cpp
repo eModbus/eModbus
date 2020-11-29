@@ -73,24 +73,6 @@ bool ModbusClientTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout,
   return true;
 }
 
-// Base addRequest for preformatted ModbusMessage and new target host
-Error ModbusClientTCP::addRequest(ModbusMessage msg, uint32_t token, IPAddress host, uint16_t port) {
-  Error rc = SUCCESS;        // Return value
-
-  // Add it to the queue, if valid
-  if (msg) {
-    // Queue add successful?
-    TargetHost th(host, port, MT_defaultTimeout, MT_defaultInterval);
-    if (!addToQueue(token, msg, th)) {
-      // No. Return error after deleting the allocated request.
-      rc = REQUEST_QUEUE_FULL;
-    }
-  }
-
-  LOG_D("Add TCP request result: %02X\n", rc);
-  return rc;
-}
-
 // Base addRequest for preformatted ModbusMessage and last set target
 Error ModbusClientTCP::addRequest(ModbusMessage msg, uint32_t token) {
   Error rc = SUCCESS;        // Return value
