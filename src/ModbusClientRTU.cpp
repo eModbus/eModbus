@@ -37,23 +37,27 @@ ModbusClientRTU::~ModbusClientRTU() {
 
 // begin: start worker task
 void ModbusClientRTU::begin(int coreID) {
-  // If rtsPin is >=0, the RS485 adapter needs send/receive toggle
-  if (MR_rtsPin >= 0) {
-    pinMode(MR_rtsPin, OUTPUT);
-    digitalWrite(MR_rtsPin, LOW);
+  // Only start worker if HardwareSerial has been initialized!
+  if (MR_serial.baudRate()) {
+    // If rtsPin is >=0, the RS485 adapter needs send/receive toggle
+    if (MR_rtsPin >= 0) {
+      pinMode(MR_rtsPin, OUTPUT);
+      digitalWrite(MR_rtsPin, LOW);
+    }
+
+    // silent interval is at least 3.5x character time
+    MR_interval = 35000000UL / MR_serial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
+
+    // Create unique task name
+    char taskName[12];
+    snprintf(taskName, 12, "Modbus%02XRTU", instanceCounter);
+    // Start task to handle the queue
+    xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 6, &worker, coreID >= 0 ? coreID : NULL);
+
+    LOG_D("Worker task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
+  } else {
+    LOG_E("Worker task could not be started! HardwareSerial not initialized?\n");
   }
-
-  // Create unique task name
-  char taskName[12];
-  snprintf(taskName, 12, "Modbus%02XRTU", instanceCounter);
-  // Start task to handle the queue
-  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 6, &worker, coreID >= 0 ? coreID : NULL);
-
-  // silent interval is at least 3.5x character time
-  MR_interval = 35000000UL / MR_serial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
-
-  LOG_D("Worker task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
-
 }
 
 // setTimeOut: set/change the default interface timeout
