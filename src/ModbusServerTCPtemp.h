@@ -187,7 +187,6 @@ bool ModbusServerTCP<ST, CT>::accept(CT& client, uint32_t timeout, int coreID) {
     if (clients[i] == nullptr) {
       // Yes. allocate new client data in slot
       clients[i] = new ClientData(0, client, timeout, this);
-      LOG_V("ClientData=%d\n", sizeof(ClientData));
 
       // Create unique task name
       char taskName[12];
@@ -238,12 +237,12 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   // TaskHandle_t myTask = myData->task;
   ModbusServerTCP<ST, CT> *myParent = myData->parent;
   uint32_t myLastMessage = millis();
-  ModbusMessage response;               // Data buffer to hold prepared response
 
   LOG_D("Worker started, timeout=%d\n", myTimeOut);
 
   // loop forever, if timeout is 0, or until timeout was hit
   while (myClient.connected() && (!myTimeOut || (millis() - myLastMessage < myTimeOut))) {
+    ModbusMessage response;               // Data buffer to hold prepared response
     // Get a request
     if (myClient.available()) {
       response.clear();
