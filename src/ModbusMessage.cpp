@@ -120,6 +120,19 @@ Error ModbusMessage::getError() {
   return SUCCESS;
 }
 
+// Modbus data manipulation
+void    ModbusMessage::setServerID(uint8_t serverID) {
+  // We accept here that [0] may allocate a byte!
+  MM_data[0] = serverID;
+}
+
+void    ModbusMessage::setFunctionCode(uint8_t FC) {
+  // We accept here that [0], [1] may allocate bytes!
+  // No serverID set yet? use a 0 to initialize it to an error-generating value
+  if (MM_data.size() < 2) MM_data[0] = 0; // intentional invalid server ID!
+  MM_data[1] = FC;
+}
+
 // add() variant to copy a buffer into MM_data. Returns updated size
 uint16_t ModbusMessage::add(const uint8_t *arrayOfBytes, uint16_t count) {
   // Copy it

@@ -104,6 +104,10 @@ public:
   uint8_t getFunctionCode();  // returns FC or 0 if MM_data is shorter than 3
   Error   getError();         // getError() - returns error code (MM_data[2], if MM_data[1] > 0x7F, else SUCCESS)
 
+  // Modbus data manipulation
+  void    setServerID(uint8_t serverID); // Change server ID
+  void    setFunctionCode(uint8_t FC);   // Change function code
+
   // add() variant to copy a buffer into MM_data. Returns updated size
   uint16_t add(const uint8_t *arrayOfBytes, uint16_t count);
 
