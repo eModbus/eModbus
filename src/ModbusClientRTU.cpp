@@ -3,8 +3,8 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusClientRTU.h"
-// #undef LOCAL_LOG_LEVEL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_WARNING
+#undef LOCAL_LOG_LEVEL
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 // Constructor takes Serial reference and optional DE/RE pin
@@ -109,6 +109,7 @@ bool ModbusClientRTU::addToQueue(uint32_t token, ModbusMessage request) {
 void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
   // initially clean the serial buffer
   while (instance->MR_serial.available()) instance->MR_serial.read();
+  delay(100);
 
   // Loop forever - or until task is killed
   while (1) {
