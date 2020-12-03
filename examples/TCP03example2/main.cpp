@@ -8,6 +8,7 @@
 
 // Includes: <Arduino.h> for Serial etc., EThernet.h for Ethernet support
 #include <Arduino.h>
+#include <SPI.h>
 #include <Ethernet.h>
 
 // W5500 reset pin 
@@ -27,13 +28,11 @@ ModbusClientTCP MB(theClient);
 // Define an onData handler function to receive the regular responses
 // Arguments are Modbus server ID, the function code requested, the message data and length of it, 
 // plus a user-supplied token to identify the causing request
-void handleData(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token) 
+void handleData(ModbusMessage response, uint32_t token) 
 {
-  Serial.printf("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", (unsigned int)serverAddress, (unsigned int)fc, token, length);
-  const uint8_t *cp = data;
-  uint16_t      i = length;
-  while (i--) {
-    Serial.printf("%02X ", *cp++);
+  Serial.printf("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+  for (auto& byte : response) {
+    Serial.printf("%02X ", byte);
   }
   Serial.println("");
 }
@@ -108,15 +107,15 @@ void setup() {
 
 // Create request for
 // (Fill in your data here!)
-// - server ID = 20
-// - function code = 0x03 (read holding register)
-// - start address to read = word 10
-// - number of words to read = 4
 // - token to match the response with the request. We take the current millis() value for it.
+// - server ID = 4
+// - function code = 0x03 (read holding register)
+// - start address to read = word 2
+// - number of words to read = 6
 //
 // If something is missing or wrong with the call parameters, we will immediately get an error code 
 // and the request will not be issued
-  Error err = MB.addRequest(20, READ_HOLD_REGISTER, 10, 4, (uint32_t)millis());
+  Error err = MB.addRequest((uint32_t)millis(), 4, READ_HOLD_REGISTER, 2, 6);
   if (err!=SUCCESS) {
     ModbusError e(err);
     Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
@@ -127,9 +126,9 @@ void setup() {
 // The output on the Serial Monitor will be (depending on your network and Modbus the data will be different):
 //     __ OK __
 //     Resetting Wiz W5500 Ethernet Board...  Done.
-//     My IP address: 192.168.178.81
-//     Response: serverID=20, FC=3, Token=00000564, length=11:
-//     14 03 04 01 F6 FF FF FF 00 C0 A8
+//     My IP address: 192.168.178.46
+//     Response: serverID=4, FC=3, Token=00000564, length=15:
+//     04 03 06 44 5E CC CD 49 89 C2 9E 49 32 49 0D
 }
 
 // loop() - nothing done here today!
