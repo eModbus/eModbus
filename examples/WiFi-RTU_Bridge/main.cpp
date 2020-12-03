@@ -36,11 +36,9 @@ void setup() {
 // Connect to WiFi
   WiFi.begin(ssid, pass);
   delay(200);
-  int status = WiFi.status();
-  while (status != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED) {
     Serial.print('.');
     delay(1000);
-    status = WiFi.status();
   }
   IPAddress wIP = WiFi.localIP();
   Serial.printf("IP address: %u.%u.%u.%u\n", wIP[0], wIP[1], wIP[2], wIP[3]);
@@ -51,12 +49,12 @@ void setup() {
   MB.begin();
 
 // Define and start WiFi bridge
-// ServerID 4: TCP-Server with remote serverID 1, accessed through RTU client MB
+// ServerID 4: Server with remote serverID 1, accessed through RTU client MB
 //             All FCs accepted, with the exception of FC 06
   MBbridge.attachServer(4, 1, ANY_FUNCTION_CODE, &MB);
   MBbridge.denyFunctionCode(4, WRITE_HOLD_REGISTER);
 
-// ServerID 5: TCP-Server with remote serverID 4, accessed through RTU client MB
+// ServerID 5: Server with remote serverID 4, accessed through RTU client MB
 //             Only FCs 03 and 04 accepted
   MBbridge.attachServer(5, 4, READ_HOLD_REGISTER, &MB);
   MBbridge.addFunctionCode(5, READ_INPUT_REGISTER);
@@ -66,6 +64,15 @@ void setup() {
 
 // Start the bridge. Port 502, 4 simultaneous clients allowed, 600ms inactivity to disconnect client
   MBbridge.start(port, 4, 600);
+
+  Serial.printf("Use the shown IP and port %d to send requests!\n", port);
+
+// Your output on the Serial monitor should start with:
+//      __ OK __
+//      .IP address: 192.168.178.74
+//      [N] 1324| ModbusServer.cpp     [ 127] listServer: Server   4:  00 06
+//      [N] 1324| ModbusServer.cpp     [ 127] listServer: Server   5:  03 04
+//      Use the shown IP and port 502 to send requests!
 }
 
 // loop() - nothing done here today!
