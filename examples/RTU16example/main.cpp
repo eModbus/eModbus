@@ -19,13 +19,11 @@ ModbusClientRTU MB(Serial2);
 // Define an onData handler function to receive the regular responses
 // Arguments are Modbus server ID, the function code requested, the message data and length of it, 
 // plus a user-supplied token to identify the causing request
-void handleData(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token) 
+void handleData(ModbusMessage response, uint32_t token) 
 {
-  Serial.printf("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", (unsigned int)serverAddress, (unsigned int)fc, token, length);
-  const uint8_t *cp = data;
-  uint16_t      i = length;
-  while (i--) {
-    Serial.printf("%02X ", *cp++);
+  Serial.printf("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+  for (auto& byte : response) {
+    Serial.printf("%02X ", byte);
   }
   Serial.println("");
 }
@@ -74,7 +72,7 @@ void setup() {
 // and the request will not be issued
   uint32_t Token = 1111;
 
-  Error err = MB.addRequest(1, READ_HOLD_REGISTER, 33, 6, Token++);
+  Error err = MB.addRequest(Token++, 1, READ_HOLD_REGISTER, 33, 6);
   if (err!=SUCCESS) {
     ModbusError e(err);
     Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
@@ -91,7 +89,7 @@ void setup() {
 //
   uint16_t wData[] = { 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666 };
 
-  err = MB.addRequest(1, WRITE_MULT_REGISTERS, 33, 6, 12, wData, Token++);
+  err = MB.addRequest(Token++, 1, WRITE_MULT_REGISTERS, 33, 6, 12, wData);
   if (err!=SUCCESS) {
     ModbusError e(err);
     Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
@@ -105,19 +103,20 @@ void setup() {
 // - data words to read = 6
 // - token to match the response with the request.
 //
-  err = MB.addRequest(1, READ_HOLD_REGISTER, 33, 6, Token++);
+  err = MB.addRequest(Token++, 1, READ_HOLD_REGISTER, 33, 6);
   if (err!=SUCCESS) {
     ModbusError e(err);
     Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
   }
 
 // The output on the Serial Monitor will be (depending on your Modbus the data will be different):
-//     Response: serverID=1, FC=3, Token=00000458, length=15:
-//     01 03 0C 60 61 62 63 64 65 66 67 68 69 6A 6B
-//     Response: serverID=1, FC=16, Token=00000459, length=19:
-//     01 10 00 21 00 06 0C 11 11 22 22 33 33 44 44 55 55 66 66
-//     Response: serverID=1, FC=3, Token=0000045A, length=15:
-//     01 03 0C 11 11 22 22 33 33 44 44 55 55 66 66
+//      __ OK __
+//      Response: serverID=1, FC=3, Token=00000457, length=15:
+//      01 03 0C 60 61 62 63 64 65 66 67 68 69 6A 6B
+//      Response: serverID=1, FC=16, Token=00000458, length=19:
+//      01 10 00 21 00 06 0C 11 11 22 22 33 33 44 44 55 55 66 66
+//      Response: serverID=1, FC=3, Token=00000459, length=15:
+//      01 03 0C 11 11 22 22 33 33 44 44 55 55 66 66
 }
 
 // loop() - nothing done here today!
