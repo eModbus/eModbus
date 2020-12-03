@@ -5,6 +5,7 @@
 #ifndef _MODBUS_BRIDGE_ETHERNET_H
 #define _MODBUS_BRIDGE_ETHERNET_H
 #include <Ethernet.h>
+#include <SPI.h>
 #include "ModbusServerTCPtemp.h"
 #include "ModbusBridgeTemp.h"
 
