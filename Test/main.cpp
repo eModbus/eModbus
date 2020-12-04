@@ -7,8 +7,6 @@
 #include "ModbusClientRTU.h"
 #include "ModbusClientTCP.h"
 #include "ModbusServerWiFi.h"
-#include <vector>
-using std::vector;
 
 #include "TCPstub.h"
 
@@ -33,20 +31,23 @@ TokenMap testCasesByToken;
 
 uint16_t memo[32];                     // Test server memory: 32 words
 
+ModbusMessage empty;                   // Empty message for initializers
+
 // Worker function for function code 0x03
-ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+ModbusMessage FC03(ModbusMessage request) {
   uint16_t addr = 0;        // Start address to read
   uint16_t wrds = 0;        // Number of words to read
+  ModbusMessage response;
 
-  // Get addr and words from data array. Values are MSB-first, getValue() will convert to binary
-  // Returned: number of bytes eaten up 
-  uint16_t offs = getValue(data, dataLen, addr);
-  offs += getValue(data + offs, dataLen - offs, wrds);
+  // Get addr and words from data array. Values are MSB-first, get() will convert to binary
+  request.get(2, addr);
+  request.get(4, wrds);
 
   // address valid?
   if (!addr || addr > 32) {
     // No. Return error response
-    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
+    response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+    return response;
   }
 
   // Modbus address is 1..n, memory address 0..n-1
@@ -55,41 +56,38 @@ ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   // Number of words valid?
   if (!wrds || (addr + wrds) > 32) {
     // No. Return error response
-    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
+    response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+    return response;
   }
 
-  // Data buffer for returned values. +1 for the leading length byte!
-  uint8_t rdata[wrds * 2 + 1];
-
-  // Set length byte
-  rdata[0] = wrds * 2;
-  offs = 1;
+  response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(wrds * 2));
 
   // Loop over all words to be sent
   for (uint16_t i = 0; i < wrds; i++) {
     // Add word MSB-first to response buffer
     // serverID 1 gets the real values, all others the inverted values
-    offs += addValue(rdata + offs, wrds * 2 - offs + 1, (uint16_t)((serverID == 1) ? memo[addr + i] : ~memo[addr + i]));
+    response.add((uint16_t)((request.getServerID() == 1) ? memo[addr + i] : ~memo[addr + i]));
   }
 
   // Return the data response
-  return ModbusServer::DataResponse(wrds * 2 + 1, rdata);
+  return response;
 }
 
 // Worker function function code 0x06
-ResponseType FC06(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+ModbusMessage FC06(ModbusMessage request) {
   uint16_t addr = 0;        // Start address to read
   uint16_t value = 0;       // New value for register
+  ModbusMessage response;
 
   // Get addr and value from data array. Values are MSB-first, getValue() will convert to binary
-  // Returned: number of bytes eaten up 
-  uint16_t offs = getValue(data, dataLen, addr);
-  offs += getValue(data + offs, dataLen - offs, value);
+  request.get(2, addr);
+  request.get(4, value);
 
   // address valid?
   if (!addr || addr > 32) {
     // No. Return error response
-    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
+    response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+    return response;
   }
 
   // Modbus address is 1..n, memory address 0..n-1
@@ -98,7 +96,8 @@ ResponseType FC06(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
   // Fake data error - 0x0000 or 0xFFFF will not be accepted
   if (!value || value == 0xFFFF) {
     // No. Return error response
-    return ModbusServer::ErrorResponse(ILLEGAL_DATA_VALUE);
+    response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
+    return response;
   }
 
   // Fill in new value.
@@ -109,22 +108,26 @@ ResponseType FC06(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint
 }
 
 // Worker function function code 0x41 (user defined)
-ResponseType FC41(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+ModbusMessage FC41(ModbusMessage request) {
   // return nothing to test timeout
   return NIL_RESPONSE;
 }
 
 // Worker function for any function code
-ResponseType FCany(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
-  // return nothing to test timeout
+ModbusMessage FCany(ModbusMessage request) {
+  // return recognizable text
+  ModbusMessage response;
   uint8_t resp[] = "ANY FC";
-  return ModbusServer::DataResponse(6, resp);
+
+  response.add(request.getServerID(), request.getFunctionCode());
+  response.add(resp, 6);
+  return response;
 }
 
 // testOutput:  takes the test function name called, the test case name and expected and recieved messages,
 // compares both and prints out the result.
 // If the test passed, true is returned - else false.
-bool testOutput(const char *testname, const char *name, vector<uint8_t> expected, vector<uint8_t> received) {
+bool testOutput(const char *testname, const char *name, ModbusMessage expected, ModbusMessage received) {
   testsExecuted++;
 
   if (expected == received) {
@@ -157,8 +160,8 @@ bool testOutput(const char *testname, const char *name, vector<uint8_t> expected
 }
 
 // Helper function to convert hexadecimal ([0-9A-F]) digits in a char array into a vector of bytes
-vector<uint8_t> makeVector(const char *text) {
-  vector<uint8_t> rv;            // The vector to be returned
+ModbusMessage makeVector(const char *text) {
+  ModbusMessage rv;            // The vector to be returned
   uint8_t byte = 0;
   uint8_t nibble = 0;
   bool tick = false;             // Counting nibbles
@@ -203,188 +206,161 @@ vector<uint8_t> makeVector(const char *text) {
   return rv;
 }
 
-// The test functions are named as follows: "RTU" or "TCP" and a 2-digit number denoting the 
-// underlying generateRequest() function. The "XXX08()" functions will call generateErrorResponse() instead
+// The test functions are named as follows: "MSG" and a 2-digit number denoting the 
+// underlying setMessage() function. The "MSG08()" functions will call setError() instead
 //
-// The last three calling arguments always are:
-// interface: a reference to the used ModbusClientTCP or ModbusClientRTU instance
+// The last two calling arguments always are:
 // name: pointer to a char array holding the test case description
-// expected: the byte sequence, that normally should result from the call. There are two variants for each
-//           of the test functions, one accepting the sequence as a vector<uint8_t>, the other will expect a char array
+// expected: the ModbusMessage, that normally should result from the call. There are two variants for each
+//           of the test functions, one accepting the ModbusMessage, the other will expect a char array
 //           with hexadecimal digits like ("12 34 56 78 9A BC DE F0"). All characters except [0-9A-F] are ignored!
 //
-// The leading [n] calling arguments are the same that will be used for the respective generateRequest() calls.
-bool RTU01(uint8_t serverID, uint8_t functionCode, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode);
+// The leading [n] calling arguments are the same that will be used for the respective setMessage() calls.
+bool MSG01(uint8_t serverID, uint8_t functionCode, const char *name, ModbusMessage expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU01(uint8_t serverID, uint8_t functionCode, ModbusClientRTU& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode);
+bool MSG01(uint8_t serverID, uint8_t functionCode, const char *name, const char *expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU02(uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1);
+bool MSG02(uint8_t serverID, uint8_t functionCode, uint16_t p1, const char *name, ModbusMessage expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU02(uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusClientRTU& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1);
+bool MSG02(uint8_t serverID, uint8_t functionCode, uint16_t p1, const char *name, const char *expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2);
+bool MSG03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, const char *name, ModbusMessage expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1, p2);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusClientRTU& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2);
+bool MSG03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, const char *name, const char *expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1, p2);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, p3);
+bool MSG04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, const char *name, ModbusMessage expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1, p2, p3);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusClientRTU& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, p3);
+bool MSG04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, const char *name, const char *expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1, p2, p3);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, count, arrayOfWords);
+bool MSG05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, const char *name, ModbusMessage expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1, p2, count, arrayOfWords);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusClientRTU& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, count, arrayOfWords);
+bool MSG05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, const char *name, const char *expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1, p2, count, arrayOfWords);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, count, arrayOfBytes);
+bool MSG06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, const char *name, ModbusMessage expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1, p2, count, arrayOfBytes);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusClientRTU& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, p1, p2, count, arrayOfBytes);
+bool MSG06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, const char *name, const char *expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, p1, p2, count, arrayOfBytes);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, count, arrayOfBytes);
+bool MSG07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, const char *name, ModbusMessage expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, count, arrayOfBytes);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusClientRTU& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(serverID, functionCode, count, arrayOfBytes);
+bool MSG07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, const char *name, const char *expected) {
+  ModbusMessage msg;
+  Error e = msg.setMessage(serverID, functionCode, count, arrayOfBytes);
+  if (e != SUCCESS) {
+    msg.setError(serverID, functionCode, e);
+  }
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool RTU08(uint8_t serverID, uint8_t functionCode, Error error, ModbusClientRTU& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateErrorResponse(serverID, functionCode, error);
+bool MSG08(uint8_t serverID, uint8_t functionCode, Error error, const char *name, ModbusMessage expected) {
+  ModbusMessage msg;
+  msg.setError(serverID, functionCode, error);
   return testOutput(__func__, name, expected, msg);
 }
 
-bool RTU08(uint8_t serverID, uint8_t functionCode, Error error, ModbusClientRTU& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateErrorResponse(serverID, functionCode, error);
+bool MSG08(uint8_t serverID, uint8_t functionCode, Error error, const char *name, const char *expected) {
+  ModbusMessage msg;
+  msg.setError(serverID, functionCode, error);
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool TCP01(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode);
-  return testOutput(__func__, name, expected, msg);
-}
-
-bool TCP01(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, ModbusClientTCP& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode);
-  return testOutput(__func__, name, makeVector(expected), msg);
-}
-
-bool TCP02(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1);
-  return testOutput(__func__, name, expected, msg);
-}
-
-bool TCP02(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, ModbusClientTCP& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1);
-  return testOutput(__func__, name, makeVector(expected), msg);
-}
-
-bool TCP03(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2);
-  return testOutput(__func__, name, expected, msg);
-}
-
-bool TCP03(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, ModbusClientTCP& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2);
-  return testOutput(__func__, name, makeVector(expected), msg);
-}
-
-bool TCP04(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, p3);
-  return testOutput(__func__, name, expected, msg);
-}
-
-bool TCP04(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, ModbusClientTCP& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, p3);
-  return testOutput(__func__, name, makeVector(expected), msg);
-}
-
-bool TCP05(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfWords);
-  return testOutput(__func__, name, expected, msg);
-}
-
-bool TCP05(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, ModbusClientTCP& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfWords);
-  return testOutput(__func__, name, makeVector(expected), msg);
-}
-
-bool TCP06(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfBytes);
-  return testOutput(__func__, name, expected, msg);
-}
-
-bool TCP06(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, ModbusClientTCP& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfBytes);
-  return testOutput(__func__, name, makeVector(expected), msg);
-}
-
-bool TCP07(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, count, arrayOfBytes);
-  return testOutput(__func__, name, expected, msg);
-}
-
-bool TCP07(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, ModbusClientTCP& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateRequest(transactionID, serverID, functionCode, count, arrayOfBytes);
-  return testOutput(__func__, name, makeVector(expected), msg);
-}
-
-bool TCP08(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error error, ModbusClientTCP& interface, const char *name, vector<uint8_t> expected) {
-  vector<uint8_t> msg = interface.generateErrorResponse(transactionID, serverID, functionCode, error);
-  return testOutput(__func__, name, expected, msg);
-}
-
-bool TCP08(uint16_t transactionID, uint8_t serverID, uint8_t functionCode, Error error, ModbusClientTCP& interface, const char *name, const char *expected) {
-  vector<uint8_t> msg = interface.generateErrorResponse(transactionID, serverID, functionCode, error);
-  return testOutput(__func__, name, makeVector(expected), msg);
-}
-
-void handleData(uint8_t serverID, uint8_t FC, const uint8_t *data, uint16_t len, uint32_t token) 
+void handleData(ModbusMessage response, uint32_t token) 
 {
   // Look for the token in the TestCase map
   auto tc = testCasesByToken.find(token);
   if (tc != testCasesByToken.end()) {
     // Get a handier pointer for the TestCase found
     TestCase *myTest(tc->second);
-    vector<uint8_t> response;
-    response.reserve(len);
-    response.resize(len);
-    memcpy(response.data(), data, len);
     testOutput(myTest->testname, myTest->name, myTest->expected, response);
   } else {
     Serial.printf("Could not find test case for token %08X\n", token);
@@ -398,7 +374,9 @@ void handleError(Error err, uint32_t token)
   if (tc != testCasesByToken.end()) {
     // Get a handier pointer for the TestCase found
     TestCase *myTest(tc->second);
-    testOutput(myTest->testname, myTest->name, myTest->expected, { err });
+    ModbusMessage response;
+    response.add(err);
+    testOutput(myTest->testname, myTest->name, myTest->expected, response);
   } else {
     Serial.printf("Could not find test case for token %08X\n", token);
   }
@@ -416,7 +394,12 @@ void setup()
   // Init WiFi with fake ssid/pass (we will use loopback only)
   WiFi.begin("foo", "bar");
 
+  // Wait 10s for output monitor to initialize
+  delay(10000);
+
   Serial.println("-----> Some timeout tests may take a while. Wait patiently for 'All finished.'");
+
+  // MBUlogLvl = LOG_LEVEL_VERBOSE;
 
   // ******************************************************************************
   // Write test cases below this line!
@@ -428,208 +411,107 @@ void setup()
 
   printPassed = false;          // Omit passed tests in output
 
-  // TCP test prerequisites
-  uint16_t transactionID = 0x4711;
+  // #### MSG, setMessage(serverID, functionCode) #01
+  MSG01(0, 0x07, LNO(__LINE__) "invalid server id",    "00 87 E1");
+  MSG01(1, 0x01, LNO(__LINE__) "invalid FC for MSG01", "01 81 E6");
+  MSG01(1, 0xA2, LNO(__LINE__) "invalid FC>127",       "01 A2 01");
 
-  // #### TCP, generateRequest(transactionID, serverID, functionCode) #01
-  TCP01(transactionID, 0, 0x07, TestTCP, LNO(__LINE__) "invalid server id", "E1");
-  TCP01(transactionID, 1, 0x01, TestTCP, LNO(__LINE__) "invalid FC for TCP01", "E6");
-  TCP01(transactionID, 1, 0xA2, TestTCP, LNO(__LINE__) "invalid FC>127",       "01");
+  MSG01(1, 0x07, LNO(__LINE__) "correct call 0x07",    "01 07");
+  MSG01(1, 0x0B, LNO(__LINE__) "correct call 0x0B",    "01 0B");
+  MSG01(1, 0x0C, LNO(__LINE__) "correct call 0x0C",    "01 0C");
+  MSG01(1, 0x11, LNO(__LINE__) "correct call 0x11",    "01 11");
 
-  TCP01(transactionID, 1, 0x07, TestTCP, LNO(__LINE__) "correct call 0x07",    "47 11 00 00 00 02 01 07");
-  TCP01(transactionID, 1, 0x0B, TestTCP, LNO(__LINE__) "correct call 0x0B",    "47 11 00 00 00 02 01 0B");
-  TCP01(transactionID, 1, 0x0C, TestTCP, LNO(__LINE__) "correct call 0x0C",    "47 11 00 00 00 02 01 0C");
-  TCP01(transactionID, 1, 0x11, TestTCP, LNO(__LINE__) "correct call 0x11",    "47 11 00 00 00 02 01 11");
+  // #### MSG, setMessage(serverID, functionCode, p1) #02
+  MSG02(0, 0x18, 0x1122, LNO(__LINE__) "invalid server id",    "00 98 E1");
+  MSG02(1, 0x01, 0x1122, LNO(__LINE__) "invalid FC for MSG02", "01 81 E6");
+  MSG02(1, 0xA2, 0x1122, LNO(__LINE__) "invalid FC>127",       "01 A2 01");
 
-  // #### TCP, generateRequest(transactionID, serverID, functionCode, p1) #02
-  TCP02(transactionID, 0, 0x18, 0x1122, TestTCP, LNO(__LINE__) "invalid server id",    "E1");
-  TCP02(transactionID, 1, 0x01, 0x1122, TestTCP, LNO(__LINE__) "invalid FC for TCP02", "E6");
-  TCP02(transactionID, 1, 0xA2, 0x1122, TestTCP, LNO(__LINE__) "invalid FC>127",       "01");
+  MSG02(1, 0x18, 0x9A20, LNO(__LINE__) "correct call",         "01 18 9A 20");
 
-  TCP02(transactionID, 1, 0x18, 0x9A20, TestTCP, LNO(__LINE__) "correct call",         "47 11 00 00 00 04 01 18 9A 20");
+  // #### MSG, setMessage(serverID, functionCode, p1, p2) #03
+  MSG03(0, 0x01, 0x1122, 0x0002, LNO(__LINE__) "invalid server id",        "00 81 E1");
+  MSG03(1, 0x07, 0x1122, 0x0002, LNO(__LINE__) "invalid FC for MSG03",     "01 87 E6");
+  MSG03(1, 0xA2, 0x1122, 0x0002, LNO(__LINE__) "invalid FC>127",           "01 A2 01");
 
-  // #### TCP, generateRequest(transactionID, serverID, functionCode, p1, p2) #03
-  TCP03(transactionID, 0, 0x01, 0x1122, 0x0002, TestTCP, LNO(__LINE__) "invalid server id",        "E1");
-  TCP03(transactionID, 1, 0x07, 0x1122, 0x0002, TestTCP, LNO(__LINE__) "invalid FC for TCP03",     "E6");
-  TCP03(transactionID, 1, 0xA2, 0x1122, 0x0002, TestTCP, LNO(__LINE__) "invalid FC>127",           "01");
+  MSG03(1, 0x01, 0x1020, 2000,   LNO(__LINE__) "correct call 0x01 (2000)", "01 01 10 20 07 D0");
+  MSG03(1, 0x01, 0x0300, 2001,   LNO(__LINE__) "illegal # coils 0x01",     "01 81 E7");
+  MSG03(1, 0x01, 0x0300, 0x0000, LNO(__LINE__) "illegal coils=0 0x01",     "01 81 E7");
+  MSG03(1, 0x01, 0x1020, 1,      LNO(__LINE__) "correct call 0x01 (1)",    "01 01 10 20 00 01");
 
-  TCP03(transactionID, 1, 0x01, 0x1020, 2000,   TestTCP, LNO(__LINE__) "correct call 0x01 (2000)", "47 11 00 00 00 06 01 01 10 20 07 D0");
-  TCP03(transactionID, 1, 0x01, 0x0300, 2001,   TestTCP, LNO(__LINE__) "illegal # coils 0x01",     "E7");
-  TCP03(transactionID, 1, 0x01, 0x0300, 0x0000, TestTCP, LNO(__LINE__) "illegal coils=0 0x01",     "E7");
-  TCP03(transactionID, 1, 0x01, 0x1020, 1,      TestTCP, LNO(__LINE__) "correct call 0x01 (1)",    "47 11 00 00 00 06 01 01 10 20 00 01");
+  MSG03(1, 0x02, 0x1020, 2000,   LNO(__LINE__) "correct call 0x02 (2000)", "01 02 10 20 07 D0");
+  MSG03(1, 0x02, 0x0300, 2001,   LNO(__LINE__) "illegal # inputs 0x02",    "01 82 E7");
+  MSG03(1, 0x02, 0x0300, 0x0000, LNO(__LINE__) "illegal inputs=0 0x02",    "01 82 E7");
+  MSG03(1, 0x02, 0x1020, 1,      LNO(__LINE__) "correct call 0x02 (1)",    "01 02 10 20 00 01");
 
-  TCP03(transactionID, 1, 0x02, 0x1020, 2000,   TestTCP, LNO(__LINE__) "correct call 0x02 (2000)", "47 11 00 00 00 06 01 02 10 20 07 D0");
-  TCP03(transactionID, 1, 0x02, 0x0300, 2001,   TestTCP, LNO(__LINE__) "illegal # inputs 0x02",    "E7");
-  TCP03(transactionID, 1, 0x02, 0x0300, 0x0000, TestTCP, LNO(__LINE__) "illegal inputs=0 0x02",    "E7");
-  TCP03(transactionID, 1, 0x02, 0x1020, 1,      TestTCP, LNO(__LINE__) "correct call 0x02 (1)",    "47 11 00 00 00 06 01 02 10 20 00 01");
+  MSG03(1, 0x03, 0x1020, 125,    LNO(__LINE__) "correct call 0x03 (125)",  "01 03 10 20 00 7D");
+  MSG03(1, 0x03, 0x0300, 126,    LNO(__LINE__) "illegal # registers 0x03", "01 83 E7");
+  MSG03(1, 0x03, 0x0300, 0x0000, LNO(__LINE__) "illegal registers=0 0x03", "01 83 E7");
+  MSG03(1, 0x03, 0x1020, 1,      LNO(__LINE__) "correct call 0x03 (1)",    "01 03 10 20 00 01");
 
-  TCP03(transactionID, 1, 0x03, 0x1020, 125,    TestTCP, LNO(__LINE__) "correct call 0x03 (125)",  "47 11 00 00 00 06 01 03 10 20 00 7D");
-  TCP03(transactionID, 1, 0x03, 0x0300, 126,    TestTCP, LNO(__LINE__) "illegal # registers 0x03", "E7");
-  TCP03(transactionID, 1, 0x03, 0x0300, 0x0000, TestTCP, LNO(__LINE__) "illegal registers=0 0x03", "E7");
-  TCP03(transactionID, 1, 0x03, 0x1020, 1,      TestTCP, LNO(__LINE__) "correct call 0x03 (1)",    "47 11 00 00 00 06 01 03 10 20 00 01");
+  MSG03(1, 0x04, 0x1020, 125,    LNO(__LINE__) "correct call 0x04 (125)",  "01 04 10 20 00 7D");
+  MSG03(1, 0x04, 0x0300, 126,    LNO(__LINE__) "illegal # registers 0x04", "01 84 E7");
+  MSG03(1, 0x04, 0x0300, 0x0000, LNO(__LINE__) "illegal registers=0 0x04", "01 84 E7");
+  MSG03(1, 0x04, 0x1020, 1,      LNO(__LINE__) "correct call 0x04 (1)",    "01 04 10 20 00 01");
 
-  TCP03(transactionID, 1, 0x04, 0x1020, 125,    TestTCP, LNO(__LINE__) "correct call 0x04 (125)",  "47 11 00 00 00 06 01 04 10 20 00 7D");
-  TCP03(transactionID, 1, 0x04, 0x0300, 126,    TestTCP, LNO(__LINE__) "illegal # registers 0x04", "E7");
-  TCP03(transactionID, 1, 0x04, 0x0300, 0x0000, TestTCP, LNO(__LINE__) "illegal registers=0 0x04", "E7");
-  TCP03(transactionID, 1, 0x04, 0x1020, 1,      TestTCP, LNO(__LINE__) "correct call 0x04 (1)",    "47 11 00 00 00 06 01 04 10 20 00 01");
+  MSG03(1, 0x05, 0x1020, 0x0000, LNO(__LINE__) "correct call 0x05 (0)",    "01 05 10 20 00 00");
+  MSG03(1, 0x05, 0x0300, 0x00FF, LNO(__LINE__) "illegal coil value 0x05",  "01 85 E7");
+  MSG03(1, 0x05, 0x0300, 0x0FF0, LNO(__LINE__) "illegal coil value 0x05",  "01 85 E7");
+  MSG03(1, 0x05, 0x1020, 0xFF00, LNO(__LINE__) "correct call 0x05 (0xFF00)", "01 05 10 20 FF 00");
 
-  TCP03(transactionID, 1, 0x05, 0x1020, 0x0000, TestTCP, LNO(__LINE__) "correct call 0x05 (0)",    "47 11 00 00 00 06 01 05 10 20 00 00");
-  TCP03(transactionID, 1, 0x05, 0x0300, 0x00FF, TestTCP, LNO(__LINE__) "illegal coil value 0x05",  "E7");
-  TCP03(transactionID, 1, 0x05, 0x0300, 0x0FF0, TestTCP, LNO(__LINE__) "illegal coil value 0x05",  "E7");
-  TCP03(transactionID, 1, 0x05, 0x1020, 0xFF00, TestTCP, LNO(__LINE__) "correct call 0x05 (0xFF00)", "47 11 00 00 00 06 01 05 10 20 FF 00");
+  MSG03(1, 0x06, 0x0000, 0xFFFF, LNO(__LINE__) "correct call 0x06 (0xFFFF)", "01 06 00 00 FF FF");
 
-  TCP03(transactionID, 1, 0x06, 0x0000, 0xFFFF, TestTCP, LNO(__LINE__) "correct call 0x06 (0xFFFF)", "47 11 00 00 00 06 01 06 00 00 FF FF");
+  // #### MSG, setMessage(serverID, functionCode, p1, p2, p3) #04
+  MSG04(0, 0x01, 0x1122, 0x0002, 0xBEAD, LNO(__LINE__) "invalid server id",        "00 81 E1");
+  MSG04(1, 0x07, 0x1122, 0x0002, 0xBEAD, LNO(__LINE__) "invalid FC for MSG04",     "01 87 E6");
+  MSG04(1, 0xA2, 0x1122, 0x0002, 0xBEAD, LNO(__LINE__) "invalid FC>127",           "01 A2 01");
 
-  // #### TCP, generateRequest(transactionID, serverID, functionCode, p1, p2, p3) #04
-  TCP04(transactionID, 0, 0x01, 0x1122, 0x0002, 0xBEAD, TestTCP, LNO(__LINE__) "invalid server id",        "E1");
-  TCP04(transactionID, 1, 0x07, 0x1122, 0x0002, 0xBEAD, TestTCP, LNO(__LINE__) "invalid FC for TCP04",     "E6");
-  TCP04(transactionID, 1, 0xA2, 0x1122, 0x0002, 0xBEAD, TestTCP, LNO(__LINE__) "invalid FC>127",           "01");
+  MSG04(1, 0x16, 0x0000, 0xFAFF, 0xDEEB, LNO(__LINE__) "correct call 0x16", "01 16 00 00 FA FF DE EB");
 
-  TCP04(transactionID, 1, 0x16, 0x0000, 0xFAFF, 0xDEEB, TestTCP, LNO(__LINE__) "correct call 0x16", "47 11 00 00 00 08 01 16 00 00 FA FF DE EB");
-
-  // Prepare arrays for generate() #05, #06 and #07
+  // Prepare arrays for setMessage() #05, #06 and #07
   uint16_t words[] = { 0x0000, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666, 0x7777, 0x8888, 0x9999, 0xAAAA, 0xBBBB, 0xCCCC, 0xDDDD, 0xEEEE, 0xFFFF };
   uint8_t bytes[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF };
 
-  // #### TCP, generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfWords) #05
-  TCP05(transactionID, 0, 0x01, 0x1122, 0x0002,  4, words, TestTCP, LNO(__LINE__) "invalid server id",        "E1");
-  TCP05(transactionID, 1, 0x07, 0x1122, 0x0002,  4, words, TestTCP, LNO(__LINE__) "invalid FC for TCP05",     "E6");
-  TCP05(transactionID, 1, 0xA2, 0x1122, 0x0002,  4, words, TestTCP, LNO(__LINE__) "invalid FC>127",           "01");
+  // #### MSG, setMessage(serverID, functionCode, p1, p2, count, arrayOfWords) #05
+  MSG05(0, 0x01, 0x1122, 0x0002,  4, words, LNO(__LINE__) "invalid server id",        "00 81 E1");
+  MSG05(1, 0x07, 0x1122, 0x0002,  4, words, LNO(__LINE__) "invalid FC for MSG05",     "01 87 E6");
+  MSG05(1, 0xA2, 0x1122, 0x0002,  4, words, LNO(__LINE__) "invalid FC>127",           "01 A2 01");
 
-  TCP05(transactionID, 1, 0x10, 0x1020, 6, 12, words, TestTCP, LNO(__LINE__) "correct call 0x10", 
-        "47 11 00 00 00 13 01 10 10 20 00 06 0C 00 00 11 11 22 22 33 33 44 44 55 55");
-  TCP05(transactionID, 1, 0x10, 0x1020, 5, 12, words, TestTCP, LNO(__LINE__) "wrong word count 0x10", "03");
-  TCP05(transactionID, 1, 0x10, 0x1020, 0, 12, words, TestTCP, LNO(__LINE__) "illegal word count(0) 0x10", "E7");
-  TCP05(transactionID, 1, 0x10, 0x1020, 124, 12, words, TestTCP, LNO(__LINE__) "illegal word count(124) 0x10", "E7");
-  TCP05(transactionID, 1, 0x10, 0x1020, 1, 2, words, TestTCP, LNO(__LINE__) "correct call 0x10", 
-        "47 11 00 00 00 09 01 10 10 20 00 01 02 00 00");
+  MSG05(1, 0x10, 0x1020, 6, 12, words, LNO(__LINE__) "correct call 0x10", 
+        "01 10 10 20 00 06 0C 00 00 11 11 22 22 33 33 44 44 55 55");
+  MSG05(1, 0x10, 0x1020, 5, 12, words, LNO(__LINE__) "wrong word count 0x10", "01 90 03");
+  MSG05(1, 0x10, 0x1020, 0, 12, words, LNO(__LINE__) "illegal word count(0) 0x10", "01 90 E7");
+  MSG05(1, 0x10, 0x1020, 124, 12, words, LNO(__LINE__) "illegal word count(124) 0x10", "01 90 E7");
+  MSG05(1, 0x10, 0x1020, 1, 2, words, LNO(__LINE__) "correct call 0x10", 
+        "01 10 10 20 00 01 02 00 00");
 
-  // #### TCP, generateRequest(transactionID, serverID, functionCode, p1, p2, count, arrayOfBytes) #06
-  TCP06(transactionID, 0, 0x01, 0x1122, 0x0002,  1, bytes, TestTCP, LNO(__LINE__) "invalid server id",        "E1");
-  TCP06(transactionID, 1, 0x07, 0x1122, 0x0002,  1, bytes, TestTCP, LNO(__LINE__) "invalid FC for TCP06",     "E6");
-  TCP06(transactionID, 1, 0xA2, 0x1122, 0x0002,  1, bytes, TestTCP, LNO(__LINE__) "invalid FC>127",           "01");
+  // #### MSG, setMessage(serverID, functionCode, p1, p2, count, arrayOfBytes) #06
+  MSG06(0, 0x01, 0x1122, 0x0002,  1, bytes, LNO(__LINE__) "invalid server id",        "00 81 E1");
+  MSG06(1, 0x07, 0x1122, 0x0002,  1, bytes, LNO(__LINE__) "invalid FC for MSG06",     "01 87 E6");
+  MSG06(1, 0xA2, 0x1122, 0x0002,  1, bytes, LNO(__LINE__) "invalid FC>127",           "01 A2 01");
 
-  TCP06(transactionID, 1, 0x0F, 0x1020, 31, 4, bytes, TestTCP, LNO(__LINE__) "correct call 0x0F", 
-        "47 11 00 00 00 0B 01 0F 10 20 00 1F 04 00 11 22 33");
-  TCP06(transactionID, 1, 0x0F, 0x1020, 5, 12, bytes, TestTCP, LNO(__LINE__) "wrong word count 0x0F", "03");
-  TCP06(transactionID, 1, 0x0F, 0x1020, 0, 1, bytes, TestTCP, LNO(__LINE__) "illegal word count(0) 0x0F", "E7");
-  TCP06(transactionID, 1, 0x0F, 0x1020, 2001, 251, bytes, TestTCP, LNO(__LINE__) "illegal word count(2001) 0x0F", "E7");
-  TCP06(transactionID, 1, 0x0F, 0x1020, 1, 1, bytes, TestTCP, LNO(__LINE__) "correct call 0x10", 
-        "47 11 00 00 00 08 01 0F 10 20 00 01 01 00");
+  MSG06(1, 0x0F, 0x1020, 31, 4, bytes, LNO(__LINE__) "correct call 0x0F", 
+        "01 0F 10 20 00 1F 04 00 11 22 33");
+  MSG06(1, 0x0F, 0x1020, 5, 12, bytes, LNO(__LINE__) "wrong word count 0x0F", "01 8F 03");
+  MSG06(1, 0x0F, 0x1020, 0, 1, bytes, LNO(__LINE__) "illegal word count(0) 0x0F", "01 8F E7");
+  MSG06(1, 0x0F, 0x1020, 2001, 251, bytes, LNO(__LINE__) "illegal word count(2001) 0x0F", "01 8F E7");
+  MSG06(1, 0x0F, 0x1020, 1, 1, bytes, LNO(__LINE__) "correct call 0x10", 
+        "01 0F 10 20 00 01 01 00");
 
-  // #### TCP, generateRequest(transactionID, serverID, functionCode, count, arrayOfBytes) #07
-  TCP07(transactionID, 0, 0x20, 0x0002, bytes, TestTCP, LNO(__LINE__) "invalid server id",        "E1");
-  TCP07(transactionID, 1, 0xA2, 0x0002, bytes, TestTCP, LNO(__LINE__) "invalid FC>127",           "01");
+  // #### MSG, setMessage(serverID, functionCode, count, arrayOfBytes) #07
+  MSG07(0, 0x20, 0x0002, bytes, LNO(__LINE__) "invalid server id",        "00 A0 E1");
+  MSG07(1, 0xA2, 0x0002, bytes, LNO(__LINE__) "invalid FC>127",           "01 A2 01");
 
-  TCP07(transactionID, 1, 0x42, 0x0007, bytes, TestTCP, LNO(__LINE__) "correct call",
-       "47 11 00 00 00 09 01 42 00 11 22 33 44 55 66");
-  TCP07(transactionID, 1, 0x42, 0x0000, bytes, TestTCP, LNO(__LINE__) "correct call 0 bytes", "47 11 00 00 00 02 01 42");
+  MSG07(1, 0x42, 0x0007, bytes, LNO(__LINE__) "correct call",
+       "01 42 00 11 22 33 44 55 66");
+  MSG07(1, 0x42, 0x0000, bytes, LNO(__LINE__) "correct call 0 bytes", "01 42");
 
-  // #### TCP, generateErrorResponse(transactionID, serverID, functionCode, errorCode) #08
-  TCP08(transactionID, 0, 0x03, (Error)0x02, TestTCP, LNO(__LINE__) "invalid server id",      "E1");
-  TCP08(transactionID, 1, 0x9F, (Error)0x02, TestTCP, LNO(__LINE__) "invalid FC>127",         "01");
+  // #### TCP, setMessage(serverID, functionCode, errorCode) #08
+  // These will have serverID and function code unchecked, as theose may be the error!
+  MSG08(0, 0x03, (Error)0x02, LNO(__LINE__) "invalid server id",      "00 83 02");
+  MSG08(1, 0x9F, (Error)0x02, LNO(__LINE__) "invalid FC>127",         "01 9F 02");
 
-  TCP08(transactionID, 1, 0x05, (Error)0xE1, TestTCP, LNO(__LINE__) "correct call", "47 11 00 00 00 03 01 85 E1");
-  TCP08(transactionID, 1, 0x05, (Error)0x73, TestTCP, LNO(__LINE__) "correct call (unk.err)", "47 11 00 00 00 03 01 85 73");
-
-  // RTU tests starting here
-
-  // #### RTU, generateRequest(serverID, functionCode) #01
-  RTU01(0, 0x07, RTUclient, LNO(__LINE__) "invalid server id", "E1");
-  RTU01(1, 0x01, RTUclient, LNO(__LINE__) "invalid FC for RTU01", "E6");
-  RTU01(1, 0xA2, RTUclient, LNO(__LINE__) "invalid FC>127",       "01");
-
-  RTU01(1, 0x07, RTUclient, LNO(__LINE__) "correct call 0x07",    "01 07 41 E2");
-  RTU01(1, 0x0B, RTUclient, LNO(__LINE__) "correct call 0x0B",    "01 0B 41 E7");
-  RTU01(1, 0x0C, RTUclient, LNO(__LINE__) "correct call 0x0C",    "01 0C 00 25");
-  RTU01(1, 0x11, RTUclient, LNO(__LINE__) "correct call 0x11",    "01 11 C0 2C");
-
-  // #### RTU, generateRequest(serverID, functionCode, p1) #02
-  RTU02(0, 0x18, 0x1122, RTUclient, LNO(__LINE__) "invalid server id",    "E1");
-  RTU02(1, 0x01, 0x1122, RTUclient, LNO(__LINE__) "invalid FC for RTU02", "E6");
-  RTU02(1, 0xA2, 0x1122, RTUclient, LNO(__LINE__) "invalid FC>127",       "01");
-
-  RTU02(1, 0x18, 0x9A20, RTUclient, LNO(__LINE__) "correct call",         "01 18 9A 20 EA A7");
-
-  // #### RTU, generateRequest(serverID, functionCode, p1, p2) #03
-  RTU03(0, 0x01, 0x1122, 0x0002, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
-  RTU03(1, 0x07, 0x1122, 0x0002, RTUclient, LNO(__LINE__) "invalid FC for RTU03",     "E6");
-  RTU03(1, 0xA2, 0x1122, 0x0002, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
-
-  RTU03(1, 0x01, 0x1020, 2000,   RTUclient, LNO(__LINE__) "correct call 0x01 (2000)", "01 01 10 20 07 D0 3A AC");
-  RTU03(1, 0x01, 0x0300, 2001,   RTUclient, LNO(__LINE__) "illegal # coils 0x01",     "E7");
-  RTU03(1, 0x01, 0x0300, 0x0000, RTUclient, LNO(__LINE__) "illegal coils=0 0x01",     "E7");
-  RTU03(1, 0x01, 0x1020, 1,      RTUclient, LNO(__LINE__) "correct call 0x01 (1)",    "01 01 10 20 00 01 F8 C0");
-
-  RTU03(1, 0x02, 0x1020, 2000,   RTUclient, LNO(__LINE__) "correct call 0x02 (2000)", "01 02 10 20 07 D0 7E AC");
-  RTU03(1, 0x02, 0x0300, 2001,   RTUclient, LNO(__LINE__) "illegal # inputs 0x02",    "E7");
-  RTU03(1, 0x02, 0x0300, 0x0000, RTUclient, LNO(__LINE__) "illegal inputs=0 0x02",    "E7");
-  RTU03(1, 0x02, 0x1020, 1,      RTUclient, LNO(__LINE__) "correct call 0x02 (1)",    "01 02 10 20 00 01 BC C0");
-
-  RTU03(1, 0x03, 0x1020, 125,    RTUclient, LNO(__LINE__) "correct call 0x03 (125)",  "01 03 10 20 00 7D 80 E1");
-  RTU03(1, 0x03, 0x0300, 126,    RTUclient, LNO(__LINE__) "illegal # registers 0x03", "E7");
-  RTU03(1, 0x03, 0x0300, 0x0000, RTUclient, LNO(__LINE__) "illegal registers=0 0x03", "E7");
-  RTU03(1, 0x03, 0x1020, 1,      RTUclient, LNO(__LINE__) "correct call 0x03 (1)",    "01 03 10 20 00 01 81 00");
-
-  RTU03(1, 0x04, 0x1020, 125,    RTUclient, LNO(__LINE__) "correct call 0x04 (125)",  "01 04 10 20 00 7D 35 21");
-  RTU03(1, 0x04, 0x0300, 126,    RTUclient, LNO(__LINE__) "illegal # registers 0x04", "E7");
-  RTU03(1, 0x04, 0x0300, 0x0000, RTUclient, LNO(__LINE__) "illegal registers=0 0x04", "E7");
-  RTU03(1, 0x04, 0x1020, 1,      RTUclient, LNO(__LINE__) "correct call 0x04 (1)",    "01 04 10 20 00 01 34 C0");
-
-  RTU03(1, 0x05, 0x1020, 0x0000, RTUclient, LNO(__LINE__) "correct call 0x05 (0)",    "01 05 10 20 00 00 C8 C0");
-  RTU03(1, 0x05, 0x0300, 0x00FF, RTUclient, LNO(__LINE__) "illegal coil value 0x05",  "E7");
-  RTU03(1, 0x05, 0x0300, 0x0FF0, RTUclient, LNO(__LINE__) "illegal coil value 0x05",  "E7");
-  RTU03(1, 0x05, 0x1020, 0xFF00, RTUclient, LNO(__LINE__) "correct call 0x05 (0xFF00)", "01 05 10 20 FF 00 89 30");
-
-  RTU03(1, 0x06, 0x0000, 0xFFFF, RTUclient, LNO(__LINE__) "correct call 0x06 (0xFFFF)", "01 06 00 00 FF FF 88 7A");
-
-  // #### RTU, generateRequest(serverID, functionCode, p1, p2, p3) #04
-  RTU04(0, 0x01, 0x1122, 0x0002, 0xBEAD, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
-  RTU04(1, 0x07, 0x1122, 0x0002, 0xBEAD, RTUclient, LNO(__LINE__) "invalid FC for RTU04",     "E6");
-  RTU04(1, 0xA2, 0x1122, 0x0002, 0xBEAD, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
-
-  RTU04(1, 0x16, 0x0000, 0xFAFF, 0xDEEB, RTUclient, LNO(__LINE__) "correct call 0x16", "01 16 00 00 FA FF DE EB EF 01");
-
-  // #### RTU, generateRequest(serverID, functionCode, p1, p2, count, arrayOfWords) #05
-  RTU05(0, 0x01, 0x1122, 0x0002,  4, words, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
-  RTU05(1, 0x07, 0x1122, 0x0002,  4, words, RTUclient, LNO(__LINE__) "invalid FC for RTU05",     "E6");
-  RTU05(1, 0xA2, 0x1122, 0x0002,  4, words, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
-
-  RTU05(1, 0x10, 0x1020, 6, 12, words, RTUclient, LNO(__LINE__) "correct call 0x10", 
-        "01 10 10 20 00 06 0C 00 00 11 11 22 22 33 33 44 44 55 55 A5 44");
-  RTU05(1, 0x10, 0x1020, 5, 12, words, RTUclient, LNO(__LINE__) "wrong word count 0x10", "03");
-  RTU05(1, 0x10, 0x1020, 0, 12, words, RTUclient, LNO(__LINE__) "illegal word count(0) 0x10", "E7");
-  RTU05(1, 0x10, 0x1020, 124, 12, words, RTUclient, LNO(__LINE__) "illegal word count(124) 0x10", "E7");
-  RTU05(1, 0x10, 0x1020, 1, 2, words, RTUclient, LNO(__LINE__) "correct call 0x10", 
-        "01 10 10 20 00 01 02 00 00 B0 F1");
-
-  // #### RTU, generateRequest(serverID, functionCode, p1, p2, count, arrayOfBytes) #06
-  RTU06(0, 0x01, 0x1122, 0x0002,  1, bytes, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
-  RTU06(1, 0x07, 0x1122, 0x0002,  1, bytes, RTUclient, LNO(__LINE__) "invalid FC for RTU06",     "E6");
-  RTU06(1, 0xA2, 0x1122, 0x0002,  1, bytes, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
-
-  RTU06(1, 0x0F, 0x1020, 31, 4, bytes, RTUclient, LNO(__LINE__) "correct call 0x0F", 
-        "01 0F 10 20 00 1F 04 00 11 22 33 06 EF");
-  RTU06(1, 0x0F, 0x1020, 5, 12, bytes, RTUclient, LNO(__LINE__) "wrong word count 0x0F", "03");
-  RTU06(1, 0x0F, 0x1020, 0, 1, bytes, RTUclient, LNO(__LINE__) "illegal word count(0) 0x0F", "E7");
-  RTU06(1, 0x0F, 0x1020, 2001, 251, bytes, RTUclient, LNO(__LINE__) "illegal word count(2001) 0x0F", "E7");
-  RTU06(1, 0x0F, 0x1020, 1, 1, bytes, RTUclient, LNO(__LINE__) "correct call 0x10", 
-        "01 0F 10 20 00 01 01 00 AD C0");
-
-  // #### RTU, generateRequest(serverID, functionCode, count, arrayOfBytes) #07
-  RTU07(0, 0x20, 0x0002, bytes, RTUclient, LNO(__LINE__) "invalid server id",        "E1");
-  RTU07(1, 0xA2, 0x0002, bytes, RTUclient, LNO(__LINE__) "invalid FC>127",           "01");
-
-  RTU07(1, 0x42, 0x0007, bytes, RTUclient, LNO(__LINE__) "correct call",
-       "01 42 00 11 22 33 44 55 66 89 E4");
-  RTU07(1, 0x42, 0x0000, bytes, RTUclient, LNO(__LINE__) "correct call 0 bytes", "01 42 80 11");
-
-  // #### RTU, generateErrorResponse(serverID, functionCode, errorCode) #08
-  RTU08(0, 0x03, (Error)0x02, RTUclient, LNO(__LINE__) "invalid server id",      "E1");
-  RTU08(1, 0x9F, (Error)0x02, RTUclient, LNO(__LINE__) "invalid FC>127",         "01");
-
-  RTU08(1, 0x05, (Error)0xE1, RTUclient, LNO(__LINE__) "correct call", "01 85 E1 82 D8");
-  RTU08(1, 0x05, (Error)0x73, RTUclient, LNO(__LINE__) "correct call (unk.err)", "01 85 73 03 75");
+  MSG08(1, 0x05, (Error)0xE1, LNO(__LINE__) "correct call", "01 85 E1");
+  MSG08(1, 0x05, (Error)0x73, LNO(__LINE__) "correct call (unk.err)", "01 85 73");
 
   // ******************************************************************************
   // Write test cases above this line!
@@ -714,11 +596,13 @@ void setup()
   testCasesByToken[tc->token] = tc;
 
   // Finally execute the test call
-  Error e = TestTCP.addRequest(1, 0x03, 1, 4, tc->token);
+  Error e = TestTCP.addRequest(tc->token, 1, 0x03, 1, 4);
   // Did the call immediately return an error?
   if (e != SUCCESS) {
     // Yes, give it to the test result examiner
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   // Delay a bit to get the request queue accepting again (see ATTENTION! above)
   delay(1000);
@@ -741,9 +625,11 @@ void setup()
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
   //          vvvvvvv EDIT THIS! vvvvvvvvvvvvvvvvv
-  e = TestTCP.addRequest(1, 0x03, 1, 4, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x03, 1, 4);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
     ------------------------------------------------------------------------------- */
@@ -768,9 +654,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   // Wait for secure timeout end
   delay(10000);
@@ -789,9 +677,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -809,9 +699,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x03, 1, 3, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x03, 1, 3);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -829,9 +721,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x03, 1, 3, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x03, 1, 3);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -841,7 +735,7 @@ void setup()
     .testname = "No answer from server",
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = { },
+    .response = empty,
     .expected = makeVector("E0"),
     .delayTime = 0,
     .stopAfterResponding = false,
@@ -849,9 +743,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x03, 1, 3, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x03, 1, 3);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   // Wait for secure timeout end
   delay(4000);
@@ -871,9 +767,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // Second call immediately following
@@ -890,9 +788,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // Third and final. This should catch the error
@@ -909,9 +809,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -930,9 +832,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -951,9 +855,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -975,9 +881,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -994,9 +902,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -1015,9 +925,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -1036,9 +948,11 @@ void setup()
   };
   testCasesByTID[tc->transactionID] = tc;
   testCasesByToken[tc->token] = tc;
-  e = TestTCP.addRequest(1, 0x07, tc->token);
+  e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(1000);
 
@@ -1139,16 +1053,18 @@ void setup()
       .testname = "Read one word of data",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("01 03 02 1E 1F"),
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(1, 0x03, 16, 1, tc->token);
+    e = RTUclient.addRequest(tc->token, 1, 0x03, 16, 1);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
 
     // #2: write a word of data
@@ -1157,16 +1073,18 @@ void setup()
       .testname = "Write one word of data",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("01 06 00 10 BE EF"),
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(1, 0x06, 16, 0xBEEF, tc->token);
+    e = RTUclient.addRequest(tc->token, 1, 0x06, 16, 0xBEEF);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
 
     // #3: read several words
@@ -1175,16 +1093,18 @@ void setup()
       .testname = "Read back 4 words of data",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("01 03 08 1A 1B 1C 1D BE EF 20 21"),
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(1, 0x03, 14, 4, tc->token);
+    e = RTUclient.addRequest(tc->token, 1, 0x03, 14, 4);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
 
     // #4: use explicit worker
@@ -1193,16 +1113,18 @@ void setup()
       .testname = "Explicit worker FC03",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("02 03 08 C9 C8 C7 C6 C5 C4 C3 C2"),
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(2, READ_HOLD_REGISTER, 28, 4, tc->token);
+    e = RTUclient.addRequest(tc->token, 2, READ_HOLD_REGISTER, 28, 4);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
 
     // #5: use default worker
@@ -1211,16 +1133,18 @@ void setup()
       .testname = "Default worker FC07",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("02 07 41 4E 59 20 46 43"),  // "ANY FC"
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(2, 0x07, tc->token);
+    e = RTUclient.addRequest(tc->token, 2, 0x07);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
 
     // #6: invalid FC
@@ -1229,16 +1153,18 @@ void setup()
       .testname = "Invalid function code",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("01"), 
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(1, 0x07, tc->token);
+    e = RTUclient.addRequest(tc->token, 1, 0x07);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
 
     // #7: invalid server id
@@ -1247,16 +1173,18 @@ void setup()
       .testname = "Invalid server ID",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("E0"), 
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(3, 0x07, tc->token);
+    e = RTUclient.addRequest(tc->token, 3, 0x07);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
     delay(2000);   // #7 results in timeout, so wat a bit.
 
@@ -1266,16 +1194,18 @@ void setup()
       .testname = "NIL_RESPONSE",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("E0"), 
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(2, USER_DEFINED_41, tc->token);
+    e = RTUclient.addRequest(tc->token, 2, USER_DEFINED_41);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
     delay(2000);   // #8 results in timeout, so wat a bit.
 
@@ -1285,16 +1215,18 @@ void setup()
       .testname = "Error response",
       .transactionID = 0,
       .token = Token++,
-      .response = {},
+      .response = empty,
       .expected = makeVector("02"),
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
-    e = RTUclient.addRequest(1, 0x03, 45, 1, tc->token);
+    e = RTUclient.addRequest(tc->token, 1, 0x03, 45, 1);
     if (e != SUCCESS) {
-      testOutput(tc->testname, tc->name, tc->expected, { e });
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
     }
 
     // ******************************************************************************
@@ -1350,16 +1282,18 @@ void setup()
     .testname = "Read one word of data",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("01 03 02 1E 1F"),
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(1, 0x03, 16, 1, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 1, 0x03, 16, 1);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // #2: write a word of data
@@ -1368,16 +1302,18 @@ void setup()
     .testname = "Write one word of data",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("01 06 00 10 BE EF"),
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(1, 0x06, 16, 0xBEEF, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 1, 0x06, 16, 0xBEEF);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // #3: read several words
@@ -1386,16 +1322,18 @@ void setup()
     .testname = "Read back 4 words of data",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("01 03 08 1A 1B 1C 1D BE EF 20 21"),
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(1, 0x03, 14, 4, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 1, 0x03, 14, 4);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // #4: use explicit worker
@@ -1404,16 +1342,18 @@ void setup()
     .testname = "Explicit worker FC03",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("02 03 08 C9 C8 C7 C6 C5 C4 C3 C2"),
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(2, READ_HOLD_REGISTER, 28, 4, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 2, READ_HOLD_REGISTER, 28, 4);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // #5: use default worker
@@ -1422,16 +1362,18 @@ void setup()
     .testname = "Default worker FC07",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("02 07 41 4E 59 20 46 43"),  // "ANY FC"
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(2, 0x07, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 2, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // #6: invalid FC
@@ -1440,16 +1382,18 @@ void setup()
     .testname = "Invalid function code",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("01"), 
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(1, 0x07, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // #7: invalid server id
@@ -1458,16 +1402,18 @@ void setup()
     .testname = "Invalid server ID",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("E1"), 
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(3, 0x07, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 3, 0x07);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // #8: NIL_RESPONSE (aka timeout)
@@ -1476,16 +1422,18 @@ void setup()
     .testname = "NIL_RESPONSE",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("E0"), 
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(2, USER_DEFINED_41, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 2, USER_DEFINED_41);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
   delay(2000);   // #8 results in timeout, so wat a bit.
 
@@ -1495,16 +1443,18 @@ void setup()
     .testname = "Error response",
     .transactionID = static_cast<uint16_t>(TestClientWiFi.getMessageCount() & 0xFFFF),
     .token = Token++,
-    .response = {},
+    .response = empty,
     .expected = makeVector("02"),
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
   };
   testCasesByToken[tc->token] = tc;
-  e = TestClientWiFi.addRequest(1, 0x03, 45, 1, tc->token);
+  e = TestClientWiFi.addRequest(tc->token, 1, 0x03, 45, 1);
   if (e != SUCCESS) {
-    testOutput(tc->testname, tc->name, tc->expected, { e });
+    ModbusMessage r;
+    r.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
   // ******************************************************************************

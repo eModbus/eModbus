@@ -6,13 +6,12 @@
 #define _TCPSTUB_H
 #include <Client.h>
 #include <map>
-#include <vector>
 #include <queue>
 #include <mutex>      // NOLINT
+#include "ModbusMessage.h"
 
 using std::mutex;
 using std::lock_guard;
-using std::vector;
 using std::queue;
 
 #define QUEUELIMIT 500
@@ -29,8 +28,8 @@ struct TestCase {
   const char *testname;          // Name of the test case
   uint16_t transactionID;        // For easy reference, again the transactionID
   uint32_t token;                // For reference as well
-  vector<uint8_t> response;      // byte sequence of the response
-  vector<uint8_t> expected;      // byte sequence to be expected in onError/onData handlers
+  ModbusMessage response;      // byte sequence of the response
+  ModbusMessage expected;      // byte sequence to be expected in onError/onData handlers
   uint32_t delayTime;            // A time in ms to wait before the response is sent
   bool stopAfterResponding;      // if true, worker will kill itself after answering (simulate server disconnect)
   bool fakeTransactionID;        // if true, stub will use a wrong TID in response
