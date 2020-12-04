@@ -3,8 +3,8 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusClientTCP.h"
-// #undef LOCAL_LOG_LEVEL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
+#undef LOCAL_LOG_LEVEL
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 // Constructor takes reference to Client (EthernetClient or WiFiClient)
@@ -94,8 +94,9 @@ Error ModbusClientTCP::addRequest(ModbusMessage msg, uint32_t token) {
 bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHost target) {
   bool rc = false;
   // Did we get one?
+  LOG_D("Queue size: %d\n", requests.size());
+  HEXDUMP_V("Enqueue", request.data(), request.size());
   if (request) {
-    HEXDUMP_V("Enqueue", request.data(), request.size());
     if (requests.size()<MT_qLimit) {
       RequestEntry *re = new RequestEntry(token, request, target);
       // inject proper transactionID

@@ -52,6 +52,9 @@ public:
   // Default empty message Constructor - optionally takes expected size of MM_data
   explicit ModbusMessage(uint16_t dataLen = 0);
 
+  // Special message Constructor - takes a std::vector<uint8_t>
+  explicit ModbusMessage(std::vector<uint8_t> s);
+
   // Message constructors - internally setMessage() is called
   // WARNING: if parameters are invalid, message will _NOT_ be set up!
   template <typename... Args>

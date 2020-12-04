@@ -13,6 +13,10 @@ ModbusMessage::ModbusMessage(uint16_t dataLen) {
   if (dataLen) MM_data.reserve(dataLen);
 }
 
+// Special message Constructor - takes a std::vector<uint8_t>
+ModbusMessage::ModbusMessage(std::vector<uint8_t> s) :
+MM_data(s) { }
+
 // Destructor
 ModbusMessage::~ModbusMessage() { 
   // If paranoid, one can use the below :D
@@ -56,7 +60,7 @@ bool ModbusMessage::operator!=(const ModbusMessage& m) {
 
 // Conversion to bool
 ModbusMessage::operator bool() {
-  if (MM_data.size() > 2) return true;
+  if (MM_data.size() >= 2) return true;
   return false;
 }
 
@@ -92,7 +96,7 @@ void ModbusMessage::append(std::vector<uint8_t>& m) {
 
 uint8_t ModbusMessage::getServerID() {
   // Only if we have data and it is at least as long to fit serverID and function code, return serverID
-  if (MM_data.size() > 2) { return MM_data[0]; }
+  if (MM_data.size() >= 2) { return MM_data[0]; }
   // Else return 0 - normally the Broadcast serverID, but we will not support that. Full stop. :-D
   return 0;
 }
@@ -100,7 +104,7 @@ uint8_t ModbusMessage::getServerID() {
 // Get MM_data[0] (server ID) and MM_data[1] (function code)
 uint8_t ModbusMessage::getFunctionCode() {
   // Only if we have data and it is at least as long to fit serverID and function code, return FC
-  if (MM_data.size() > 2) { return MM_data[1]; }
+  if (MM_data.size() >= 2) { return MM_data[1]; }
   // Else return 0 - which is no valid Modbus FC.
   return 0;
 }
@@ -495,7 +499,7 @@ Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t
     MM_data.clear();
     add(serverID, functionCode, p1, p2);
     add(count);
-    for (uint8_t i = 0; i < (count >> 1); ++i) {
+    for (uint8_t i = 0; i < count; ++i) {
       add(arrayOfBytes[i]);
     }
   }
@@ -514,7 +518,7 @@ Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t
     MM_data.shrink_to_fit();
     MM_data.clear();
     add(serverID, functionCode);
-    for (uint8_t i = 0; i < (count >> 1); ++i) {
+    for (uint8_t i = 0; i < count; ++i) {
       add(arrayOfBytes[i]);
     }
   }
@@ -523,17 +527,12 @@ Error ModbusMessage::setMessage(uint8_t serverID, uint8_t functionCode, uint16_t
 
 // 8. Error response generator
 Error ModbusMessage::setError(uint8_t serverID, uint8_t functionCode, Error errorCode) {
-  // Check parameter for validity
-  Error returnCode = checkServerFC(serverID, functionCode);
-  // No error? 
-  if (returnCode == SUCCESS) {
-    // Yes, all fine. Create new ModbusMessage
-    MM_data.reserve(3);
-    MM_data.shrink_to_fit();
-    MM_data.clear();
-    add(serverID, static_cast<uint8_t>((functionCode | 0x80) & 0xFF), static_cast<uint8_t>(errorCode));
-  }
-  return returnCode;
+  // No error checking for server ID or function code here, as both may be the cause for the message!? 
+  MM_data.reserve(3);
+  MM_data.shrink_to_fit();
+  MM_data.clear();
+  add(serverID, static_cast<uint8_t>((functionCode | 0x80) & 0xFF), static_cast<uint8_t>(errorCode));
+  return SUCCESS;
 }
 
 // Error output in case a message constructor will fail

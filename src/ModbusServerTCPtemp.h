@@ -9,7 +9,7 @@
 #include <mutex>  // NOLINT
 #include "ModbusServer.h"
 #undef LOCAL_LOG_LEVEL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 extern "C" {
