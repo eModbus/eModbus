@@ -25,6 +25,8 @@ Have fun!
 - [ModbusMessage](#modbusmessage)
   - [Constructor calls](#constructor-calls)
   - [Filling a message](#filling-a-message)
+  - [Reading data from a message](#reading-data-from-a-message)
+  - [Miscellaneous functions](#miscellaneous-functions)
 - [ModbusClient](#modbusclient)
   - [Basic use](#basic-use)
   - [API description](#api-description)
