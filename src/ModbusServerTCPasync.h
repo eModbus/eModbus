@@ -17,7 +17,6 @@
 #include "ModbusServer.h"
 
 using std::lock_guard;
-using TCPMessage = std::vector<uint8_t>;
 
 class ModbusServerTCPasync : public ModbusServer {
 
@@ -33,24 +32,15 @@ class ModbusServerTCPasync : public ModbusServer {
     void onData(uint8_t* data, size_t len);
     void onPoll();
     void onDisconnect();
-    void generateResponse(Modbus::Error e, ResponseType* data);  // only to be called if request is complete
-    void addResponseToOutbox();
+    void addResponseToOutbox(ModbusMessage* response);
     void handleOutbox();
     ModbusServerTCPasync* server;
     AsyncClient* client;
     uint32_t lastActiveTime;
-    TCPMessage currentRequest;
-    size_t requestLength;
-    ResponseType* currentResponse;
+    ModbusMessage* message;
     Modbus::Error error;
-    std::queue<ResponseType*> outbox;
+    std::queue<ModbusMessage*> outbox;
     std::mutex m;
-    enum {
-      RCV1,
-      VAL1,
-      RCV2,
-      VAL2
-    } state;
   };
 
 
