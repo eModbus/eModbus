@@ -583,13 +583,6 @@ A newer request will only time out if a previous has been processed (answer is r
 For example: 3 requests are made at the same time. 
 The first times out after 2000msec, the second after 2500msec and the last at 3000msec.
 
-##### _**AsyncTCP only**_ ``void setIdleTimeout(uint32_t timeout)``
-Sets the time after which the client closes the TCP connection to the server.
-The async version tries to keep the connection to the server open. Upon the first request, a connection is made to the server and is kept open. 
-If no data has been received from the server after the idle timeout, the client will close the connection.
-
-Mind that the client will only reset the idle timeout timer upon data reception.
-
 ##### ``bool setTarget(IPAddress host, uint16_t port [, uint32_t timeout [, uint32_t interval]]``
 _**This method is not available in the async client.**_
 
@@ -598,6 +591,24 @@ This function is necessary at least once to set the target host IP address and p
 **Note**: without a ``setTarget()`` or using a client constructor with a target host no ``addRequest()`` will make any sense for TCP!
 
 The optional ``timeout`` and ``interval`` parameters will let you override the standards set with the ``setTimeout()`` method **for just those requests sent from now on to the targeted host/port**. The next ``setTarget()`` will return to the standard values, if not specified differently again.
+
+##### _**AsyncTCP only**_ ``void connect()`` and ``void disconnect()``
+The library connects automatically upon making the first request. However, you can also connect manually.
+When making requests, the requests are put in a queue and the queue is processed once connected. There is however a delay of 500msec between the moment the connection is established and the first request is sent to the server. All the following requests are send immediately.
+
+You can avoid the 500msec delay by connecting manually.
+
+Disconnecting is also automatic (see ``void setIdleTimeout(uint32_t timeout)``). Likewise, you can disconnect manually.
+
+##### _**AsyncTCP only**_ ``void setIdleTimeout(uint32_t timeout)``
+Sets the time after which the client closes the TCP connection to the server.
+The async version tries to keep the connection to the server open. Upon the first request, a connection is made to the server and is kept open. 
+If no data has been received from the server after the idle timeout, the client will close the connection.
+
+Mind that the client will only reset the idle timeout timer upon data reception and not when sending.
+
+##### _**AsyncTCP only**_ ``void setMaxInflightRequests(uint32_t maxInflightRequests)``
+Sets the maximum number of messages that are sent to the server at once. The async modbus client sends all the requests to the server without waiting for an earlier request to receive a response. This can result in message loss because the server could has a limited queue. Setting this number to 1 mimics a sync client.
 
 [Return to top](#modbusunified)
 
