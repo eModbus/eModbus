@@ -1,4 +1,4 @@
-# keywords for syntax highlighting of ModbusClient library
+# keywords for syntax highlighting of eModbus library
 
 # KEYWORD1: data types
 ModbusMessage	KEYWORD1
