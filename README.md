@@ -1,6 +1,6 @@
 # eModbus
 
-![ModbusUnified](https://github.com/ESP32ModbusUnified/ModbusUnified/workflows/Building/badge.svg)
+![eModbus](https://github.com/ESP32ModbusUnified/eModbus/workflows/Building/badge.svg)
 
 This is a library to provide Modbus client (formerly known as master), server (formerly slave) and bridge/gateway functionalities for both Modbus RTU and TCP protocols.
 
