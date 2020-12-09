@@ -1,4 +1,4 @@
-# ModbusUnified
+# eModbus
 
 ![ModbusUnified](https://github.com/ESP32ModbusUnified/ModbusUnified/workflows/Building/badge.svg)
 
