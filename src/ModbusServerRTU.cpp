@@ -5,7 +5,7 @@
 #include "ModbusServerRTU.h"
 
 #undef LOG_LEVEL_LOCAL
-// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
+#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 // Init number of created ModbusServerRTU objects
@@ -42,19 +42,24 @@ bool ModbusServerRTU::start(int coreID) {
     LOG_D("Server task was running - stopped.\n");
   }
 
-  // silent interval is at least 3.5x character time
-  // Has to be precise for a server:
-  MSRinterval = 35000000UL / MSRserial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
+  // start only if serial interface is initialized!
+  if (MSRserial.baudRate()) {
+    // silent interval is at least 3.5x character time
+    // Has to be precise for a server:
+    MSRinterval = 35000000UL / MSRserial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
 
-  // Create unique task name
-  char taskName[12];
-  snprintf(taskName, 12, "MBsrv%02XRTU", instanceCounter);
+    // Create unique task name
+    char taskName[12];
+    snprintf(taskName, 12, "MBsrv%02XRTU", instanceCounter);
 
-  // Start task to handle the client
-  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
+    // Start task to handle the client
+    xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
 
-  LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
-  // Serial.printf("Created server task %d\n", (uint32_t)serverTask);
+    LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
+  } else {
+    LOG_E("Server task could not be started. HardwareSerial not initialized?\n");
+    return false;
+  }
 
   return true;
 }
@@ -71,9 +76,9 @@ bool ModbusServerRTU::stop() {
 
 // serve: loop until killed and receive messages from the RTU interface
 void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
-  RTUMessage request;                  // received request message
-  ResponseType m;                      // Application's response data
-  ResponseType response;               // Response proper to be sent
+  ModbusMessage request;                // received request message
+  ModbusMessage m;                      // Application's response data
+  ModbusMessage response;               // Response proper to be sent
 
   // init microseconds timer
   myServer->MSRlastMicros = micros();
@@ -104,35 +109,21 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
             myServer->messageCount++;
           }
           // Get the user's response
-          // Length is 4 bytes less than received, to omit serverID, FC and CRC bytes
-          // Offset is 2 to skip the serverID and FC
-          m = callBack(request[0], request[1], request.size() - 4, request.data() + 2);
+          // Cut the CRC bytes
+          request.resize(request.size() - 2);
+          m = callBack(request);
           LOG_D("Callback called.\n");
           HEXDUMP_V("Callback response", m.data(), m.size());
 
           // Process Response. Is it one of the predefined types?
-          if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1 || m[1] == 0xF2 || m[1] == 0xF3)) {
+          if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
             // Yes. Check it
             switch (m[1]) {
             case 0xF0: // NIL
               response.clear();
               break;
             case 0xF1: // ECHO
-              for (auto it = request.begin(); it < request.end() - 2; ++it) {
-                response.push_back(*it);
-              }
-              break;
-            case 0xF2: // ERROR
-              response.push_back(request[0]);
-              response.push_back(request[1] | 0x80);
-              response.push_back(m[2]);
-              break;
-            case 0xF3: // DATA
-              response.push_back(request[0]);
-              response.push_back(request[1]);
-              for (auto byte = m.begin() + 2; byte < m.end(); ++byte) {
-                response.push_back(*byte);
-              }
+              response = request;
               break;
             default:   // Will not get here, but lint likes it!
               break;
@@ -143,17 +134,13 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           }
         } else {
           // No, CRC is wrong. Send error response
-          response.push_back(request[0]);
-          response.push_back(request[1] | 0x80);
-          response.push_back(CRC_ERROR);
+          response.setError(request.getServerID(), request.getFunctionCode(), CRC_ERROR);
         }
       } else {
         // No callback. Is at least the serverID valid?
         if (myServer->isServerFor(request[0])) {
           // Yes. Send back a ILLEGAL_FUNCTION error
-          response.push_back(request[0]);
-          response.push_back(request[1] | 0x80);
-          response.push_back(ILLEGAL_FUNCTION);
+          response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
         }
         // Else we will ignore the request, as it is not meant for us!
       }

@@ -212,7 +212,7 @@ void TCPstub::workerTask(TCPstub *instance) {
           }
         }
         // Do we have to send a response?
-        if (!myTest->response.empty()) {
+        if (myTest->response.size() > 0) {
           // Yes, we do. Lock the outQueue, since we ar egoing to write to it
           lock_guard<mutex> lockOut(instance->outLock);
 
@@ -233,7 +233,7 @@ void TCPstub::workerTask(TCPstub *instance) {
           }
 
           // Now write the response
-          uint8_t *cp = myTest->response.data();
+          const uint8_t *cp = myTest->response.data();
           size_t cnt = myTest->response.size();
           while (cnt--) {
             instance->outQueue.push(*cp);

@@ -1,14 +1,12 @@
 # keywords for syntax highlighting of ModbusClient library
 
 # KEYWORD1: data types
-RTUMessage	KEYWORD1
-TCPMessage	KEYWORD1
+ModbusMessage	KEYWORD1
 ModbusError	KEYWORD1
 MBOnData	KEYWORD1
 MBOnError	KEYWORD1
 Error	KEYWORD1
 FunctionCode	KEYWORD1
-ResponseType	KEYWORD1
 
 # KEYWORD2: functions
 # Logging.h
@@ -46,8 +44,6 @@ getMessageCount	KEYWORD2
 addRequest	KEYWORD2
 begin	KEYWORD2
 setTimeout	KEYWORD2
-generateRequest	KEYWORD2
-generateErrorResponse	KEYWORD2
 setTarget	KEYWORD2
 
 # ModbusClientTCPasync
@@ -59,12 +55,23 @@ setMaxInflightRequests	KEYWORD2
 # ModbusMessage
 addValue	KEYWORD2
 getValue	KEYWORD2
+add	KEYWORD2
+get	KEYWORD2
+append	KEYWORD2
+setMessage	KEYWORD2
+setError	KEYWORD2
+getServerID	KEYWORD2
+getFunctionCode	KEYWORD2
+getError	KEYWORD2
+setServerID	KEYWORD2
+setFunctionCode	KEYWORD2
+push_back	KEYWORD2
+clear	KEYWORD2
+size	KEYWORD2
+resize	KEYWORD2
+data	KEYWORD2
 
 # ModbusServer
-NIL_RESPONSE	KEYWORD2
-ECHO_RESPONSE	KEYWORD2
-ErrorResponse	KEYWORD2
-DataResponse	KEYWORD2
 registerWorker	KEYWORD2
 getWorker	KEYWORD2
 isServerFor	KEYWORD2
@@ -109,6 +116,10 @@ LL_BLUE	LITERAL1
 LL_MAGENTA	LITERAL1
 LL_CYAN	LITERAL1
 LL_NORM	LITERAL1
+
+# ModbusServer
+NIL_RESPONSE	LITERAL1
+ECHO_RESPONSE	LITERAL1
 
 DEFAULTTIMEOUT	LITERAL1
 TARGETHOSTINTERVAL	LITERAL1

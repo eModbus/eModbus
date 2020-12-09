@@ -41,7 +41,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
     }
   }
   // Unfinished line?
-  if (step != 15) {
+  if (length && step != 15) {
     for (uint8_t i = step; i < 15; ++i) {
       output.print("   ");
     }

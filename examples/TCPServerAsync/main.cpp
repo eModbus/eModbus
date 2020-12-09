@@ -17,47 +17,37 @@ ModbusServerTCPasync MBserver;
 
 uint16_t memo[32];                     // Test server memory: 32 words
 
-// Worker function for function code 0x03
-ResponseType FC03(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
-  uint16_t addr = 0;        // Start address to read
-  uint16_t wrds = 0;        // Number of words to read
+// Server function to handle FC 0x03 and 0x04
+ModbusMessage FC03(ModbusMessage request) {
+  ModbusMessage response;      // The Modbus message we are going to give back
+  uint16_t addr = 0;           // Start address
+  uint16_t words = 0;          // # of words requested
+  request.get(2, addr);        // read address from request
+  request.get(4, words);       // read # of words from request
 
-  // Get addr and words from data array. Values are MSB-first, getValue() will convert to binary
-  // Returned: number of bytes eaten up 
-  uint16_t offs = getValue(data, dataLen, addr);
-  offs += getValue(data + offs, dataLen - offs, wrds);
-
-  // address valid?
-  if (!addr || addr > 32) {
-    // No. Return error response
-    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
+  // Address overflow?
+  if ((addr + words) > 20) {
+    // Yes - send respective error response
+    response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
   }
-
-  // Modbus address is 1..n, memory address 0..n-1
-  addr--;
-
-  // Number of words valid?
-  if (!wrds || (addr + wrds) > 32) {
-    // No. Return error response
-    return ModbusServer::ErrorResponse(ILLEGAL_DATA_ADDRESS);
+  // Set up response
+  response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
+  // Request for FC 0x03?
+  if (request.getFunctionCode() == READ_HOLD_REGISTER) {
+    // Yes. Complete response
+    for (uint8_t i = 0; i < words; ++i) {
+      // send increasing data values
+      response.add((uint16_t)(addr + i));
+    }
+  } else {
+    // No, this is for FC 0x04. Response is random
+    for (uint8_t i = 0; i < words; ++i) {
+      // send increasing data values
+      response.add((uint16_t)random(1, 65535));
+    }
   }
-
-  // Data buffer for returned values. +1 for the leading length byte!
-  uint8_t rdata[wrds * 2 + 1];
-
-  // Set length byte
-  rdata[0] = wrds * 2;
-  offs = 1;
-
-  // Loop over all words to be sent
-  for (uint16_t i = 0; i < wrds; i++) {
-    // Add word MSB-first to response buffer
-    // serverID 1 gets the real values, all others the inverted values
-    offs += addValue(rdata + offs, wrds * 2 - offs + 1, (uint16_t)((serverID == 1) ? memo[addr + i] : ~memo[addr + i]));
-  }
-
-  // Return the data response
-  return ModbusServer::DataResponse(wrds * 2 + 1, rdata);
+  // Send response back
+  return response;
 }
 
 // Setup() - initialization happens here

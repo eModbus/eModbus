@@ -11,13 +11,11 @@
 #include "ModbusClientTCP.h"  // Needed for client.setTarget()
 
 #undef LOCAL_LOG_LEVEL
+#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 using std::bind;
 using std::placeholders::_1;
-using std::placeholders::_2;
-using std::placeholders::_3;
-using std::placeholders::_4;
 
 // Known server types: TCP (client, host/port) and RTU (client)
 enum ServerType : uint8_t { TCP_SERVER, RTU_SERVER };
@@ -72,7 +70,7 @@ protected:
 
   // Struct ResponseBuf for transport of response data from bridgeDataHandler and bridgeErrorHandler to bridgeWorker
   struct ResponseBuf {
-    ResponseType data;       // The response proper
+    ModbusMessage data;       // The response proper
     bool ready;              // set by the handlers to signal response is ready
     bool isDone;             // set by worker if data is not needed any more and struct can be deleted by the handlers
 
@@ -81,12 +79,12 @@ protected:
   };
 
   // Data and Error response handlers
-  static void bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token);
+  static void bridgeDataHandler(ModbusMessage msg, uint32_t token);
   static void bridgeErrorHandler(Error error, uint32_t token);
 
   // Default worker functions
-  ResponseType bridgeWorker(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
-  ResponseType bridgeDenyWorker(uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
+  ModbusMessage bridgeWorker(ModbusMessage msg);
+  ModbusMessage bridgeDenyWorker(ModbusMessage msg);
 
   // Map of servers attached
   std::map<uint8_t, ServerData *> servers;
@@ -172,7 +170,7 @@ bool ModbusBridge<SERVERCLASS>::addFunctionCode(uint8_t aliasID, uint8_t functio
   // Is there already an entry for the aliasID?
   if (servers.find(aliasID) != servers.end()) {
     // Yes. Link server to own worker function
-    this->registerWorker(aliasID, functionCode, std::bind(&ModbusBridge<SERVERCLASS>::bridgeWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+    this->registerWorker(aliasID, functionCode, std::bind(&ModbusBridge<SERVERCLASS>::bridgeWorker, this, std::placeholders::_1));
     LOG_D("FC %02X added for server %02X\n", functionCode, aliasID);
   } else {
     LOG_E("Server %d not attached to bridge!\n", aliasID);
@@ -186,7 +184,7 @@ bool ModbusBridge<SERVERCLASS>::denyFunctionCode(uint8_t aliasID, uint8_t functi
   // Is there already an entry for the aliasID?
   if (servers.find(aliasID) != servers.end()) {
     // Yes. Link server to own worker function
-    this->registerWorker(aliasID, functionCode, std::bind(&ModbusBridge<SERVERCLASS>::bridgeDenyWorker, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+    this->registerWorker(aliasID, functionCode, std::bind(&ModbusBridge<SERVERCLASS>::bridgeDenyWorker, this, std::placeholders::_1));
     LOG_D("FC %02X blocked for server %02X\n", functionCode, aliasID);
   } else {
     LOG_E("Server %d not attached to bridge!\n", aliasID);
@@ -197,9 +195,11 @@ bool ModbusBridge<SERVERCLASS>::denyFunctionCode(uint8_t aliasID, uint8_t functi
 
 // bridgeWorker: default worker function to process bridge requests
 template<typename SERVERCLASS>
-ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
+ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
   uint32_t startRequest = millis();
-  ResponseType response;
+  uint8_t aliasID = msg.getServerID();
+  uint8_t functionCode = msg.getFunctionCode();
+  ModbusMessage response;
 
   // Find the (alias) serverID
   if (servers.find(aliasID) != servers.end()) {
@@ -212,12 +212,13 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
     }
 
     // Schedule request
-    Error e = servers[aliasID]->client->addRequest(servers[aliasID]->serverID, functionCode, data, dataLen, (uint32_t)responseBuffer);
+    // Set real target server ID
+    msg.setServerID(servers[aliasID]->serverID);
+    Error e = servers[aliasID]->client->addRequest(msg, (uint32_t)responseBuffer);
     LOG_D("Request (%02X/%02X) sent\n", servers[aliasID]->serverID, functionCode);
     // If request is formally wrong, return error code
     if (e != SUCCESS) {
-      delete responseBuffer;
-      return ModbusServer::ErrorResponse(e);
+      response.setError(aliasID, functionCode, e);
     } else {
       // Loop until the response has arrived or timeout has struck
       while (!responseBuffer->ready && ((millis() - startRequest) < requestTimeout)) {
@@ -228,36 +229,40 @@ ResponseType ModbusBridge<SERVERCLASS>::bridgeWorker(uint8_t aliasID, uint8_t fu
         // Yes. return it to the requester
         // Size>1?
         if (responseBuffer->data.size() > 1) {
-          // Yes, we got a data buffer. Return it without the serverID/FC in front
-          response = ModbusServer::DataResponse(responseBuffer->data.size() - 2, responseBuffer->data.data() + 2);
+          // Yes, we got a data buffer.
+          response = responseBuffer->data;
         } else {
           // No, size==1 - error code
-          response = ModbusServer::ErrorResponse(static_cast<Error>(responseBuffer->data[0]));
+          response.setError(aliasID, functionCode, static_cast<Error>(responseBuffer->data[0]));
         }
-        delete responseBuffer;
-        return response;
       } else {
         // No response received - timeout
         // Signal to the handlers that the response can be discarded
         responseBuffer->isDone = true;
         LOG_D("Timeout!\n");
-        return ModbusServer::ErrorResponse(TIMEOUT);
+        response.setError(aliasID, functionCode, TIMEOUT);
       }
     }
+    // Clean up allocated memory
+    delete responseBuffer;
+  } else {
+    // If we get here, something has gone wrong internally. We send back an error response anyway.
+    response.setError(aliasID, functionCode, INVALID_SERVER);
   }
-  // If we get here, something has gone wrong internally. We send back an error response anyway.
-  return ModbusServer::ErrorResponse(INVALID_SERVER);
+  return response;
 }
 
 // bridgeDenyWorker: worker function to block function codes
 template<typename SERVERCLASS>
-ResponseType ModbusBridge<SERVERCLASS>::bridgeDenyWorker(uint8_t aliasID, uint8_t functionCode, uint16_t dataLen, uint8_t *data) {
-  return ModbusServer::ErrorResponse(ILLEGAL_FUNCTION);
+ModbusMessage ModbusBridge<SERVERCLASS>::bridgeDenyWorker(ModbusMessage msg) {
+  ModbusMessage response;
+  response.setError(msg.getServerID(), msg.getFunctionCode(), ILLEGAL_FUNCTION);
+  return response;
 }
 
 // bridgeDataHandler: default onData handler for all responses
 template<typename SERVERCLASS>
-void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t fc, const uint8_t* data, uint16_t length, uint32_t token) {
+void ModbusBridge<SERVERCLASS>::bridgeDataHandler(ModbusMessage msg, uint32_t token) {
 
   // Get the response buffer's address
   ResponseBuf *responseBuffer = (ResponseBuf *)token;
@@ -270,10 +275,8 @@ void ModbusBridge<SERVERCLASS>::bridgeDataHandler(uint8_t serverAddress, uint8_t
   } else {
     // No, we need it - copy it into the response buffer
     LOG_D("Server responded.\n");
-    HEXDUMP_V("Server response", data, length);
-    for (uint16_t i = 0; i < length; ++i) {
-      responseBuffer->data.push_back(data[i]);
-    }
+    HEXDUMP_V("Server response", msg.data(), msg.size());
+    responseBuffer->data = msg;
     responseBuffer->ready = true;
   }
 }
@@ -292,7 +295,7 @@ void ModbusBridge<SERVERCLASS>::bridgeErrorHandler(Error error, uint32_t token) 
     delete responseBuffer;
   } else {
     // No, we need it - copy it into the response buffer
-    LOG_D("%d - %s\n", error, (const char *)ModbusError(error));
+    LOG_D("%02X - %s\n", error, (const char *)ModbusError(error));
     responseBuffer->data.push_back(error);
     responseBuffer->ready = true;
   }

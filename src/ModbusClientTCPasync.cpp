@@ -18,7 +18,8 @@ ModbusClientTCPasync::ModbusClientTCPasync(IPAddress address, uint16_t port, uin
   MTA_maxInflightRequests(queueLimit),
   MTA_lastActivity(0),
   MTA_state(DISCONNECTED),
-  MTA_target()
+  MTA_host(address),
+  MTA_port(port)
     {
       // attach all handlers on async tcp events
       MTA_client.onConnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onConnected(); }, this);
@@ -31,10 +32,6 @@ ModbusClientTCPasync::ModbusClientTCPasync(IPAddress address, uint16_t port, uin
 
       // disable nagle algorithm ref Modbus spec
       MTA_client.setNoDelay(true);
-
-      // fill target
-      MTA_target.host = address;
-      MTA_target.port = port;
     }
 
 // Destructor: clean up queue, task etc.
@@ -65,7 +62,7 @@ void ModbusClientTCPasync::connect() {
   // only connect if disconnected
   if (MTA_state == DISCONNECTED) {
     MTA_state = CONNECTING;
-    MTA_client.connect(MTA_target.host, MTA_target.port);
+    MTA_client.connect(MTA_host, MTA_port);
   }
 }
 
@@ -89,41 +86,42 @@ void ModbusClientTCPasync::setMaxInflightRequests(uint32_t maxInflightRequests) 
   MTA_maxInflightRequests = maxInflightRequests;
 }
 
-Error ModbusClientTCPasync::addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token) {
-    Error rc = SUCCESS;        // Return value
+// Base addRequest for preformatted ModbusMessage and last set target
+Error ModbusClientTCPasync::addRequest(ModbusMessage msg, uint32_t token) {
+  Error rc = SUCCESS;        // Return value
 
-    // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, MTA_target, serverID, functionCode, dataLen, data, token);
-
-    // Add it to the queue, if valid
-    if (r) {
-      // Queue add successful?
-      if (!addToQueue(r)) {
-        // No. Return error after deleting the allocated request.
-        rc = REQUEST_QUEUE_FULL;
-        delete r;
-      }
+  // Add it to the queue, if valid
+  if (msg) {
+    // Queue add successful?
+    if (!addToQueue(token, msg)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
     }
-
-    return rc;
   }
 
+  LOG_D("Add TCP request result: %02X\n", rc);
+  return rc;
+}
+
 // addToQueue: send freshly created request to queue
-bool ModbusClientTCPasync::addToQueue(TCPRequest *request) {
+bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request) {
   // Did we get one?
   if (request) {
-    //Serial.print("request added to queue\n");
     lock_guard<mutex> lockGuard(qLock);
     if (txQueue.size() + rxQueue.size() < MTA_qLimit) {
-      request->tcpHead.transactionID = messageCount++;
-      // add sending time to request for timeout purposes
-      request->target.timeout = millis();
+      HEXDUMP_V("Enqueue", request.data(), request.size());
+      RequestEntry *re = new RequestEntry(token, request);
+      re->head.transactionID = messageCount++;
+      if (!re) return false;  //TODO: proper error returning in case allocation fails
+      // inject proper transactionID
+      re->head.transactionID = messageCount++;
+      re->head.len = request.size();
       // if we're already connected, try to send and push to rxQueue
-      // or push to txQueue and (re)connect
-      if (MTA_state == CONNECTED && send(request)) {
-        rxQueue[request->tcpHead.transactionID] = request;
+      // or else push to txQueue and (re)connect
+      if (MTA_state == CONNECTED && send(re)) {
+        rxQueue[re->head.transactionID] = re;
       } else {
-        txQueue.push_back(request);
+        txQueue.push_back(re);
         if (MTA_state == DISCONNECTED) {
           connect();
         }
@@ -151,17 +149,17 @@ void ModbusClientTCPasync::onDisconnected() {
   // empty queue on disconnect, calling errorcode on every waiting request
   lock_guard<mutex> qlockGuard(qLock);
   while (!txQueue.empty()) {
-    TCPRequest* r = txQueue.front();
+    RequestEntry* r = txQueue.front();
     if (onError) {
-      onError(IP_CONNECTION_FAILED, r->getToken());
+      onError(IP_CONNECTION_FAILED, r->token);
     }
     delete r;
     txQueue.pop_front();
   }
   while (!rxQueue.empty()) {
-    TCPRequest *r = rxQueue.begin()->second;
+    RequestEntry *r = rxQueue.begin()->second;
     if (onError) {
-      onError(IP_CONNECTION_FAILED, r->getToken());
+      onError(IP_CONNECTION_FAILED, r->token);
     }
     delete r;
     rxQueue.erase(rxQueue.begin());
@@ -191,8 +189,8 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   while (length > 0) {
     LOG_D("parsing (len:%d)", length + 1);
 
-    TCPRequest* request = nullptr;
-    TCPResponse* response = nullptr;
+    RequestEntry* request = nullptr;
+    ModbusMessage* response = nullptr;
     uint16_t transactionID = 0;
     uint16_t messageLength = 0;
 
@@ -208,7 +206,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
         data[5] < 254) {
       transactionID = data[0] << 8 | data[1];
       messageLength = data[4] << 8 | data[5];
-      response = new TCPResponse(messageLength);
+      response = new ModbusMessage(messageLength);
       response->add(&data[6], messageLength);
       LOG_D("packet validated (len:%d)", messageLength);
 
@@ -248,20 +246,20 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
     if (request) {
       // compare request with response
       Error error = SUCCESS;
-      if (request->getFunctionCode() != response->getFunctionCode()) {
+      if (request->msg.getFunctionCode() != response->getFunctionCode()) {
         error = FC_MISMATCH;
-      } else if (request->getServerID() != response->getServerID()) {
+      } else if (request->msg.getServerID() != response->getServerID()) {
         error = SERVER_ID_MISMATCH;
       } else {
         error = response->getError();
       }
       if (error == SUCCESS) {
         if (onData) {
-          onData(response->getServerID(), response->getFunctionCode(), response->data(), response->len(), request->getToken());
+          onData(*response, request->token);
         }
       } else {
         if (onError) {
-          onError(response->getError(), request->getToken());
+          onError(response->getError(), request->token);
         }
       }
       delete request;
@@ -286,13 +284,13 @@ void ModbusClientTCPasync::onPoll() {
 
   // next check if timeout has struck for oldest request
   if (!rxQueue.empty()) {
-    TCPRequest* request = rxQueue.begin()->second;
-    if (millis() - request->target.timeout > MTA_timeout) {
+    RequestEntry* request = rxQueue.begin()->second;
+    if (millis() - request->timeout > MTA_timeout) {
       LOG_D("request timeouts");
       // oldest element timeouts, call onError and clean up
       if (onError) {
         // Handle timeout error
-        onError(TIMEOUT, request->getToken());
+        onError(TIMEOUT, request->token);
       }
       delete request;
       rxQueue.erase(rxQueue.begin());
@@ -313,14 +311,14 @@ void ModbusClientTCPasync::handleSendingQueue() {
   // by mutex.
 
   // try to send everything we have waiting
-  std::list<TCPRequest*>::iterator i = txQueue.begin();
+  std::list<RequestEntry*>::iterator i = txQueue.begin();
   while (i != txQueue.end()) {
     // get the actual element
-    TCPRequest* r = *i;
+    RequestEntry* r = *i;
     if (send(r)) {
       // after sending, update timeout value, add to other queue and remove from this queue
-      r->target.timeout = millis();
-      rxQueue[r->tcpHead.transactionID] = r;      // push request to other queue
+      r->timeout = millis();
+      rxQueue[r->head.transactionID] = r;      // push request to other queue
       i = txQueue.erase(i);  // remove from toSend queue and point i to next request
     } else {
       // sending didn't succeed, try next request
@@ -329,7 +327,7 @@ void ModbusClientTCPasync::handleSendingQueue() {
   }
 }
 
-bool ModbusClientTCPasync::send(TCPRequest* request) {
+bool ModbusClientTCPasync::send(RequestEntry* re) {
   // ATTENTION: This method does not have a lock guard.
   // Calling sites must assure shared resources are protected
   // by mutex.
@@ -338,28 +336,16 @@ bool ModbusClientTCPasync::send(TCPRequest* request) {
     return false;
 
   // check if TCP client is able to send
-  if (MTA_client.space() > request->len() + 6) {
+  if (MTA_client.space() > re->msg.size() + 6) {
     // Write TCP header first
-    MTA_client.add(reinterpret_cast<const char *>((const uint8_t *)(request->tcpHead)), 6);
+    MTA_client.add(reinterpret_cast<const char *>((const uint8_t *)(re->head)), 6);
     // Request comes next
-    MTA_client.add(reinterpret_cast<const char*>(request->data()), request->len());
+    MTA_client.add(reinterpret_cast<const char*>(re->msg.data()), re->msg.size());
     // done
     MTA_client.send();
     // reset idle timeout
-    LOG_D("request sent (msgid:%d)", request->tcpHead.transactionID);
+    LOG_D("request sent (msgid:%d)", re->head.transactionID);
     return true;
   }
   return false;
-}
-
-TCPResponse* ModbusClientTCPasync::errorResponse(Error e, TCPRequest *request) {
-  TCPResponse *errResponse = new TCPResponse(3);
-  
-  errResponse->add(request->getServerID());
-  errResponse->add(static_cast<uint8_t>(request->getFunctionCode() | 0x80));
-  errResponse->add(static_cast<uint8_t>(e));
-  errResponse->tcpHead = request->tcpHead;
-  errResponse->tcpHead.len = 3;
-
-  return errResponse;
 }

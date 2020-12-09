@@ -2,8 +2,10 @@
 // ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
+#include "ModbusMessage.h"
 #include "RTUutils.h"
-#undef LOCAL_LOG_LEVEL
+// #undef LOCAL_LOG_LEVEL
+#define LOCAL_LOG_LEVEL LOG_LEVEL_WARNING
 #include "Logging.h"
 
 // calcCRC: calculate Modbus CRC16 on a given array of bytes
@@ -63,20 +65,36 @@ uint16_t RTUutils::calcCRC(const uint8_t *data, uint16_t len) {
   return (crcHi << 8 | crcLo);
 }
 
-// validCRC #1: check the given CRC in a message for correctness
+// calcCRC: calculate Modbus CRC16 on a given message
+uint16_t RTUutils::calcCRC(ModbusMessage msg) {
+  return calcCRC(msg.data(), msg.size());
+}
+
+
+// validCRC #1: check the given CRC in a block of data for correctness
 bool RTUutils::validCRC(const uint8_t *data, uint16_t len) {
   return validCRC(data, len - 2, data[len - 2] | (data[len - 1] << 8));
 }
 
-// validCRC #2: check the CRC of a message against a given one for equality
+// validCRC #2: check the CRC of a block of data against a given one for equality
 bool RTUutils::validCRC(const uint8_t *data, uint16_t len, uint16_t CRC) {
   uint16_t crc16 = calcCRC(data, len);
   if (CRC == crc16) return true;
   return false;
 }
 
+// validCRC #3: check the given CRC in a message for correctness
+bool RTUutils::validCRC(ModbusMessage msg) {
+  return validCRC(msg.data(), msg.size() - 2, msg[msg.size() - 2] | (msg[msg.size() - 1] << 8));
+}
+
+// validCRC #4: check the CRC of a message against a given one for equality
+bool RTUutils::validCRC(ModbusMessage msg, uint16_t CRC) {
+  return validCRC(msg.data(), msg.size(), CRC);
+}
+
 // addCRC: calculate the CRC for a given RTUMessage and add it to the end
-void RTUutils::addCRC(RTUMessage& raw) {
+void RTUutils::addCRC(ModbusMessage& raw) {
   uint16_t crc16 = calcCRC(raw.data(), raw.size());
   raw.push_back(crc16 & 0xff);
   raw.push_back((crc16 >> 8) & 0xFF);
@@ -104,17 +122,17 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, RTUMessage raw) {
+void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, ModbusMessage raw) {
   send(serial, lastMicros, interval, rtsPin, raw.data(), raw.size());
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval
-RTUMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval) {
+ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(128);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
   uint8_t bufferBlocks = 1;
-  RTUMessage rv;
+  ModbusMessage rv;
 
   // Index into buffer
   register uint16_t bufferPtr = 0;

@@ -6,7 +6,7 @@
 #define _MODBUS_CLIENT_TCP_ASYNC_H
 #include <Arduino.h>
 #include <AsyncTCP.h>
-#include "ModbusMessageTCP.h"
+#include "ModbusMessage.h"
 #include "ModbusClient.h"
 #include <list>
 #include <map>
@@ -16,8 +16,6 @@
 using std::mutex;
 using std::lock_guard;
 using std::vector;
-
-using TCPMessage = std::vector<uint8_t>;
 
 #define DEFAULTTIMEOUT 10000
 #define DEFAULTIDLETIME 60000
@@ -46,77 +44,86 @@ public:
   void setMaxInflightRequests(uint32_t maxInflightRequests);
 
   // Base addRequest must be present
-  Error addRequest(uint8_t serverID, uint8_t functionCode, uint8_t *data, uint16_t dataLen, uint32_t token);
+  Error addRequest(ModbusMessage msg, uint32_t token);
 
+  // Template variant for last set target host
   template <typename... Args>
-  Error addRequest(Args&&... args) {
+  Error addRequest(uint32_t token, Args&&... args) {
     Error rc = SUCCESS;        // Return value
 
     // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, this->MTA_target, std::forward<Args>(args) ...);
+    ModbusMessage m;
+    rc = m.setMessage(std::forward<Args>(args) ...);
 
     // Add it to the queue, if valid
-    if (r) {
+    if (rc == SUCCESS) {
       // Queue add successful?
-      if (!addToQueue(r)) {
+      if (!addToQueue(token, m)) {
         // No. Return error after deleting the allocated request.
         rc = REQUEST_QUEUE_FULL;
-        delete r;
       }
     }
-
     return rc;
   }
 
-  template <typename... Args>
-  TCPMessage generateRequest(uint16_t transactionID, Args&&... args) {
-    Error rc = SUCCESS;       // Return code from generating the request
-    TCPMessage rv;       // Returned std::vector with the message or error code
-    TargetHost dummyHost = { IPAddress(1, 1, 1, 1), 99, 0, 0 };
-
-    // Create request, if valid
-    TCPRequest *r = TCPRequest::createTCPRequest(rc, dummyHost, std::forward<Args>(args) ..., 0xDEADDEAD);
-
-    // Was the message generated?
-    if (rc != SUCCESS) {
-      // No. Return the Error code only - vector size is 1
-      rv.reserve(1);
-      rv.push_back(rc);
-    // If it was successful - did we get a message?
-    } else if (r) {
-      // Yes, obviously. 
-      // Resize the vector to take tcpHead (6 bytes) + message proper
-      rv.reserve(r->len() + 6);
-      rv.resize(r->len() + 6);
-      r->tcpHead.transactionID = transactionID;
-
-      // Do a fast (non-C++-...) copy
-      uint8_t *cp = rv.data();
-      // Copy in TCP header
-      memcpy(cp, (const uint8_t *)r->tcpHead, 6);
-      // Copy in message contents
-      memcpy(cp + 6, r->data(), r->len());
-    }
-    
-    // Delete request again, if one was created
-    if (r) delete r;
-
-    // Move back vector contents
-    return rv;
-  }
-
 protected:
+
+  // class describing the TCP header of Modbus packets
+  class ModbusTCPhead {
+  public:
+    ModbusTCPhead() :
+    transactionID(0),
+    protocolID(0),
+    len(0) {}
+
+    ModbusTCPhead(uint16_t tid, uint16_t pid, uint16_t _len) :
+    transactionID(tid),
+    protocolID(pid),
+    len(_len) {}
+
+    uint16_t transactionID;     // Caller-defined identification
+    uint16_t protocolID;        // const 0x0000
+    uint16_t len;               // Length of remainder of TCP packet
+
+    inline explicit operator const uint8_t *() {
+      addValue(headRoom, 6, transactionID);
+      addValue(headRoom + 2, 4, protocolID);
+      addValue(headRoom + 4, 2, len);
+      return headRoom;
+    }
+
+    inline ModbusTCPhead& operator= (ModbusTCPhead& t) {
+      transactionID = t.transactionID;
+      protocolID    = t.protocolID;
+      len           = t.len;
+      return *this;
+    }
+
+  protected:
+    uint8_t headRoom[6];        // Buffer to hold MSB-first TCP header
+  };
+
+  struct RequestEntry {
+    uint32_t token;
+    ModbusMessage msg;
+    ModbusTCPhead head;
+    uint32_t timeout;
+    RequestEntry(uint32_t t, ModbusMessage m) :
+      token(t),
+      msg(m),
+      head(ModbusTCPhead()),
+      timeout(0) {}
+  };
+
+
   // addToQueue: send freshly created request to queue
-  bool addToQueue(TCPRequest *request);
+  bool addToQueue(int32_t token, ModbusMessage request);
 
   // send: send request via Client connection
-  bool send(TCPRequest *request);
+  bool send(RequestEntry *request);
 
   // receive: get response via Client connection
   // TCPResponse* receive(uint8_t* data, size_t length);
-
-  // Create standard error response 
-  TCPResponse* errorResponse(Error e, TCPRequest *request);
 
   void isInstance() { return; }     // make class instantiable
 
@@ -130,8 +137,8 @@ protected:
   void onPoll();
   void handleSendingQueue();
 
-  std::list<TCPRequest*> txQueue;           // Queue to hold requests to be sent
-  std::map<uint16_t, TCPRequest*> rxQueue;  // Queue to hold requests to be processed
+  std::list<RequestEntry*> txQueue;           // Queue to hold requests to be sent
+  std::map<uint16_t, RequestEntry*> rxQueue;  // Queue to hold requests to be processed
   mutex sLock;                         // Mutex to protect state
   mutex qLock;                         // Mutex to protect queues
 
@@ -146,7 +153,8 @@ protected:
     CONNECTING,
     CONNECTED
   } MTA_state;                      // TCP connection state
-  TargetHost MTA_target;            // dummy target
+  IPAddress MTA_host;
+  uint16_t MTA_port;
 };
 
 #endif

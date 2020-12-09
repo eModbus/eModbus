@@ -12,18 +12,13 @@ ModbusServerTCPasync::mb_client::mb_client(ModbusServerTCPasync* s, AsyncClient*
   server(s),
   client(c),
   lastActiveTime(millis()),
-  currentRequest(),
-  requestLength(0),
-  currentResponse(nullptr),
+  message(nullptr),
   error(SUCCESS),
-  outbox(),
-  state(RCV1) {
+  outbox() {
     client->onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<mb_client*>(i))->onData(static_cast<uint8_t*>(data), len); }, this);
     client->onPoll([](void* i, AsyncClient* c) { (static_cast<mb_client*>(i))->onPoll(); }, this);
     client->onDisconnect([](void* i, AsyncClient* c) { (static_cast<mb_client*>(i))->onDisconnect(); }, this);
     client->setNoDelay(true);
-    // request.reserve(256 + 6);  // reserve maximum size to avoid resizing on-the-fly
-    // response.reserve(256 + 6);  // reserve maximum size to avoid resizing on-the-fly
 }
 
 ModbusServerTCPasync::mb_client::~mb_client() {
@@ -34,107 +29,102 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
   lastActiveTime = millis();
   LOG_D("data len %d", len);
 
+  Error error = SUCCESS;
   size_t i = 0;
   while (i < len) {
-    switch (state) {
-    //  1. get minimal 8 bytes to move on
-    case RCV1:
-      currentRequest.push_back(data[i++]);
-      if (currentRequest.size() == 8) state = VAL1;
-      break;
-    // 2. preliminary validation: protocol bytes and message length
-    case VAL1:
-      LOG_D("validation stage 1");
+    // 0. start
+    if (!message) {
+      message = new ModbusMessage(8);
       error = SUCCESS;
-      state = RCV2;
-      currentResponse = new ResponseType();
-      requestLength = ((data[4] << 8) | data[5]) + 6;
-      LOG_D("expected length: %d", requestLength);
-      // check modbus protocol
-      if (currentRequest[2] != 0 || currentRequest[3] != 0) {
+    }
+
+    //  1. get minimal 8 bytes to move on
+    if (message->size() < 8) {
+      message->push_back(data[i++]);
+      continue;
+    }
+    
+    // 2. preliminary validation: protocol bytes and message length
+    if ((*message)[2] != 0 || (*message)[3] != 0) {
         error = TCP_HEAD_MISMATCH;
         LOG_D("invalid protocol");
-      }
-      // check max request size
-      if (requestLength > 264) {  // 256 + ID(1) + FC(1) + MBAP(6) = 264
-        error = PACKET_LENGTH_ERROR;
-        LOG_D("max length error");
-      }
-      if (error != SUCCESS) {
-        generateResponse(error, nullptr);
-        addResponseToOutbox();
-        state = RCV1;
-        i = len;  // break out of while loop to discard data
-      }
-      break;
-    // get data untill request is complete
-    case RCV2:
-      while (currentRequest.size() < requestLength) {
-        currentRequest.push_back(data[i++]);
-      }
-      if (currentRequest.size() == requestLength) {
-        LOG_D("request complete (len:%d)", currentRequest.size());
-        state = VAL2;
-      } 
-      break;
-    // request is complete, final validation
-    case VAL2:
-      LOG_D("validation stage 2");
-      MBSworker callback = server->getWorker(currentRequest[6], currentRequest[7]);
-      // check server id
-      if (!server->isServerFor(currentRequest[6])) {
-        LOG_D("invalid server id");
-        generateResponse(INVALID_SERVER, nullptr);
-      } else if (!callback) {  // check function code
-        LOG_D("invalid fc");
-        generateResponse(ILLEGAL_FUNCTION, nullptr);
-      } else if (callback) {
-        LOG_D("passing request to user API");
-        // all is well
-        ResponseType r = callback(currentRequest[6], currentRequest[7], currentRequest.size() - 8, currentRequest.data() + 8);
+    }
+    size_t messageLength = (((*message)[4] << 8) | (*message)[5]) + 6;
+    if (messageLength > 264) {  // 256 + ID(1) + FC(1) + MBAP(6) = 264
+      error = PACKET_LENGTH_ERROR;
+      LOG_D("max length error");
+    }
+    if (error != SUCCESS) {
+      ModbusMessage* response = new ModbusMessage(
+        message->getServerID(),
+        message->getFunctionCode()
+      );
+      addResponseToOutbox(response);  // outbox has pointer ownership now
+      // reset to starting values and process remaining data
+      delete message;
+      message = nullptr;
+      continue;
+    }
+
+    // 3. receive untill request is complete
+    while (message->size() < messageLength && i < len) {
+      message->push_back(data[i++]);
+    }
+    if (message->size() == messageLength) {
+      LOG_D("request complete (len:%d)", message->size());
+    } else {
+      LOG_D("request incomplete (len:%d), waiting for next TCP packet", message->size());
+      continue;
+    }
+
+    // 4. request complete, process
+    ModbusMessage request(messageLength - 6);  // create request without MBAP, with server ID
+    request.add(message->data() + 6, message->size() - 6);
+    ModbusMessage userData;
+    if (server->isServerFor(request.getServerID())) {
+      MBSworker callback = server->getWorker(request.getServerID(), request.getFunctionCode());
+      if (callback) {
+        // request is well formed and is being served by user API
+        userData = callback(request);
         // Process Response
         // One of the predefined types?
-        if (r[0] == 0xFF && (r[1] == 0xF0 || r[1] == 0xF1 || r[1] == 0xF2 || r[1] == 0xF3)) {
+        if (userData[0] == 0xFF && (userData[1] == 0xF0 || userData[1] == 0xF1)) {
           // Yes. Check it
-          switch (r[1]) {
-            case 0xF0: // NIL
-              LOG_D("user response NIL");
-              currentResponse->clear();
-              break;
-            case 0xF1: // ECHO
-              LOG_D("user response ECHO");
-              (*currentResponse) = currentRequest;
-              break;
-            case 0xF2: // ERROR
-              LOG_D("user response ERROR");
-              generateResponse(static_cast<Modbus::Error>(r[2]), nullptr);
-              break;
-            case 0xF3: // DATA
-              LOG_D("user response DATA");
-              generateResponse(SUCCESS, &r);
-              break;
-            default:   // Will not get here!
-              break;
+          switch (userData[1]) {
+          case 0xF0: // NIL
+            userData.clear();
+            LOG_D("NIL response\n");
+            break;
+          case 0xF1: // ECHO
+            userData = request;
+            LOG_D("ECHO response\n");
+            break;
+          default:   // Will not get here!
+            break;
           }
         } else {
-          // No. User provided data in free format
-          LOG_D("user response [free form]");
-          currentResponse->at(4) = (r.size() >> 8) & 0xFF;
-          currentResponse->at(5) = r.size() & 0xFF;
-          for (auto& byte : r) {
-            currentResponse->push_back(byte);
-          }
+          // No. User provided data response
+          LOG_D("Data response\n");
         }
-      } else {
-        LOG_E("VAL2 error");
+        error = SUCCESS;
+      } else {  // no worker found
+        error = ILLEGAL_FUNCTION;
       }
-      addResponseToOutbox();
-      state = RCV1;
-    }  // end data parsing FSM
-  }  // end while (len > 0)
-
-  // try to send the response
-  handleOutbox();
+    } else {  // mismatch server ID
+      error = INVALID_SERVER;
+    }
+    if (error == SUCCESS) {
+      message->resize(4);
+      message->add(static_cast<uint16_t>(userData.size()));
+      message->append(userData);
+    } else {
+      userData.setError(request.getServerID(), request.getFunctionCode(), error);
+    }
+    if (message->size() > 3) {
+      addResponseToOutbox(message);
+      message = nullptr;
+    }
+  }  // end while loop iterating incoming data
 }
 
 void ModbusServerTCPasync::mb_client::onPoll() {
@@ -151,47 +141,22 @@ void ModbusServerTCPasync::mb_client::onDisconnect() {
   server->onClientDisconnect(this);
 }
 
-void ModbusServerTCPasync::mb_client::generateResponse(Modbus::Error e,  ResponseType* data) {
-  LOG_D("generating response");
-  currentResponse->push_back(currentRequest[0]);  // transaction id
-  currentResponse->push_back(currentRequest[1]);  // transaction id
-  currentResponse->push_back(0);                  // protocol byte
-  currentResponse->push_back(0);                  // protocol byte
-  if (e != SUCCESS) {
-    currentResponse->push_back(0);                  // remaining length
-    currentResponse->push_back(3);                  // remaining length
-    currentResponse->push_back(currentRequest[6]);         // device id
-    currentResponse->push_back(currentRequest[7] | 0x80);  // FC with high bit set to 1
-    currentResponse->push_back(e);                  // errorcode
-  } else {
-    currentResponse->push_back((data->size() >> 8) & 0xFF);
-    currentResponse->push_back(data->size() & 0xFF);
-    currentResponse->push_back(currentRequest[6]);
-    currentResponse->push_back(currentRequest[7]);
-    for (auto byte = data->begin() + 2; byte < data->end(); ++byte) {
-      currentResponse->push_back(*byte);
-    }
-  }
-}
-
-void ModbusServerTCPasync::mb_client::addResponseToOutbox() {
-  if (currentResponse->size() > 0) { 
+void ModbusServerTCPasync::mb_client::addResponseToOutbox(ModbusMessage* response) {
+  if (response->size() > 0) { 
     std::lock_guard<std::mutex> lock(m);
-    outbox.push(currentResponse);  // outbox owns the pointer now
-    currentResponse = nullptr;
-    currentRequest.clear();
+    outbox.push(response);
   }
 }
 
 void ModbusServerTCPasync::mb_client::handleOutbox() {
   std::lock_guard<std::mutex> lock(m);
   while (!outbox.empty()) {
-    ResponseType* r = outbox.front();
-    if (r->size() <= client->space()) {
-      LOG_D("sending (%d)", r->size());
-      client->add(reinterpret_cast<const char*>(r->data()), r->size());
+    ModbusMessage* m = outbox.front();
+    if (m->size() <= client->space()) {
+      LOG_D("sending (%d)", m->size());
+      client->add(reinterpret_cast<const char*>(m->data()), m->size());
       client->send();
-      delete r;
+      delete m;
       outbox.pop();
     } else {
       return;

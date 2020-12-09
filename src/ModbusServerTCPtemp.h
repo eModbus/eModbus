@@ -9,6 +9,7 @@
 #include <mutex>  // NOLINT
 #include "ModbusServer.h"
 #undef LOCAL_LOG_LEVEL
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 extern "C" {
@@ -17,7 +18,6 @@ extern "C" {
 }
 
 using std::vector;
-using TCPMessage = std::vector<uint8_t>;
 using std::mutex;
 using std::lock_guard;
 
@@ -70,7 +70,7 @@ protected:
   static void worker(ClientData *myData);
 
   // receive: read data from TCP
-  TCPMessage receive(CT& client, uint32_t timeWait);
+  ModbusMessage receive(CT& client, uint32_t timeWait);
 
   // accept: start a task to receive requests and respond to a given client
   bool accept(CT& client, uint32_t timeout, int coreID = -1);
@@ -114,6 +114,7 @@ uint16_t ModbusServerTCP<ST, CT>::activeClients() {
         // Yes. Delete entry and init client pointer
         lock_guard<mutex> cL(clientLock);
         delete clients[i];
+        LOG_V("Delete client %d\n", i);
         clients[i] = nullptr;
       }
     }
@@ -236,14 +237,16 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   // TaskHandle_t myTask = myData->task;
   ModbusServerTCP<ST, CT> *myParent = myData->parent;
   uint32_t myLastMessage = millis();
-  ResponseType response;               // Data buffer to hold prepared response
+
+  LOG_D("Worker started, timeout=%d\n", myTimeOut);
 
   // loop forever, if timeout is 0, or until timeout was hit
   while (myClient.connected() && (!myTimeOut || (millis() - myLastMessage < myTimeOut))) {
+    ModbusMessage response;               // Data buffer to hold prepared response
     // Get a request
     if (myClient.available()) {
       response.clear();
-      TCPMessage m = myParent->receive(myClient, 100);
+      ModbusMessage m = myParent->receive(myClient, 100);
 
       // has it the minimal length (6 bytes TCP header plus serverID plus FC)?
       if (m.size() >= 8) {
@@ -251,92 +254,66 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
           lock_guard<mutex> cntLock(myParent->m);
           myParent->messageCount++;
         }
-        // Yes. Take over TCP header for later response
-        for (uint8_t i = 0; i < 6; ++i) {
-          response.push_back(m[i]);
-        }
+        // Extract request data
+        ModbusMessage request;
+        request.add(m.data() + 6, m.size() - 6);
 
         // Protocol ID shall be 0x0000 - is it?
         if (m[2] == 0 && m[3] == 0) {
           // ServerID shall be at [6], FC at [7]. Check both
-          if (myParent->isServerFor(m[6])) {
+          if (myParent->isServerFor(request.getServerID())) {
             // Server is correct - in principle. Do we serve the FC?
-            MBSworker callBack = myParent->getWorker(m[6], m[7]);
+            MBSworker callBack = myParent->getWorker(request.getServerID(), request.getFunctionCode());
             if (callBack) {
-              // Yes, we do. Invoke the worker method to get a response
-              ResponseType data = callBack(m[6], m[7], m.size() - 8, m.data() + 8);
+              // Yes, we do.
+              // Invoke the worker method to get a response
+              ModbusMessage data = callBack(request);
               // Process Response
               // One of the predefined types?
-              if (data[0] == 0xFF && (data[1] == 0xF0 || data[1] == 0xF1 || data[1] == 0xF2 || data[1] == 0xF3)) {
+              if (data[0] == 0xFF && (data[1] == 0xF0 || data[1] == 0xF1)) {
                 // Yes. Check it
                 switch (data[1]) {
                 case 0xF0: // NIL
                   response.clear();
+                  LOG_D("NIL response\n");
                   break;
                 case 0xF1: // ECHO
-                  response = m;
-                  break;
-                case 0xF2: // ERROR
-                  response[4] = 0;
-                  response[5] = 3;
-                  response.push_back(m[6]);
-                  response.push_back(m[7] | 0x80);
-                  response.push_back(data[2]);
-                  break;
-                case 0xF3: // DATA
-                  response[4] = (data.size() >> 8) & 0xFF;
-                  response[5] = data.size() & 0xFF;
-                  response.push_back(m[6]);
-                  response.push_back(m[7]);
-                  for (auto byte = data.begin() + 2; byte < data.end(); ++byte) {
-                    response.push_back(*byte);
-                  }
-                  LOG_D("Response generated\n");
+                  response = request;
+                  LOG_D("ECHO response\n");
                   break;
                 default:   // Will not get here!
                   break;
                 }
               } else {
-                // No. User provided data in free format
-                response[4] = (data.size() >> 8) & 0xFF;
-                response[5] = data.size() & 0xFF;
-                for (auto& byte : data) {
-                  response.push_back(byte);
-                }
-                LOG_D("Free-form user response\n");
+                // No. User provided data response
+                response = data;
+                LOG_D("Data response\n");
               }
             } else {
               // No, function code is not served here
-              response[4] = 0;
-              response[5] = 3;
-              response.push_back(m[6]);
-              response.push_back(m[7] | 0x80);
-              response.push_back(ILLEGAL_FUNCTION);
+              response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
             }
           } else {
             // No, serverID is not served here
-            response[4] = 0;
-            response[5] = 3;
-            response.push_back(m[6]);
-            response.push_back(m[7] | 0x80);
-            response.push_back(INVALID_SERVER);
+            response.setError(request.getServerID(), request.getFunctionCode(), INVALID_SERVER);
           }
         } else {
           // No, protocol ID was something weird
-          response[4] = 0;
-          response[5] = 3;
-          response.push_back(m[6]);
-          response.push_back(m[7] | 0x80);
-          response.push_back(TCP_HEAD_MISMATCH);
+          response.setError(request.getServerID(), request.getFunctionCode(), TCP_HEAD_MISMATCH);
         }
       }
       delay(1);
       // Do we have a response to send?
-      if (response.size() >= 8) {
+      if (response.size() >= 3) {
         // Yes. Do it now.
-        myClient.write(response.data(), response.size());
+        // Cut off length and request data, then update TCP header
+        m.resize(4);
+        m.add(static_cast<uint16_t>(response.size()));
+        // Append response
+        m.append(response);
+        myClient.write(m.data(), m.size());
         myClient.flush();
-        HEXDUMP_V("Response", response.data(), response.size());
+        HEXDUMP_V("Response", m.data(), m.size());
       }
       // We did something communicationally - rewind timeout timer
       myLastMessage = millis();
@@ -344,15 +321,18 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
     delay(1);
   }
 
-  // Timeout!
-  LOG_D("Worker stopping due to timeout.\n");
+  if (millis() - myLastMessage >= myTimeOut) {
+    // Timeout!
+    LOG_D("Worker stopping due to timeout.\n");
+  } else {
+    // Disconnected!
+    LOG_D("Worker stopping due to client disconnect.\n");
+  }
+
   // Read away all that may still hang in the buffer
   while (myClient.available()) { myClient.read(); }
   // Now stop the client
   myClient.stop();
-
-  // Hack to remove the response vector from memory
-  vector<uint8_t>().swap(response);
 
   {
     lock_guard<mutex> cL(myParent->clientLock);
@@ -365,21 +345,24 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
 
 // receive: get request via Client connection
 template <typename ST, typename CT>
-TCPMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
+ModbusMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
   uint32_t lastMillis = millis();     // Timer to check for timeout
-  TCPMessage m;                       // vector to take read data
+  ModbusMessage m;                    // to take read data
   register uint16_t lengthVal = 0;
   register uint16_t cnt = 0;
-  uint8_t buffer[300];
+  const uint16_t BUFFERSIZE(300);
+  uint8_t buffer[BUFFERSIZE];
 
   // wait for packet data or timeout
   while (millis() - lastMillis < timeWait) {
     // Is there data waiting?
     if (client.available()) {
       // Yes. catch as much as is there and fits into buffer
-      while (client.available() && ((cnt < 6) || (cnt < lengthVal))) {
+      while (client.available() && ((cnt < 6) || (cnt < lengthVal)) && (cnt < BUFFERSIZE)) {
         buffer[cnt] = client.read();
+        // Are we at the TCP header length field byte #1?
         if (cnt == 4) lengthVal = buffer[cnt] << 8;
+        // Are we at the TCP header length field byte #2?
         if (cnt == 5) {
           lengthVal |= buffer[cnt];
           lengthVal += 6;
@@ -392,11 +375,18 @@ TCPMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
     }
     delay(1); // Give scheduler room to breathe
   }
+  // Did we receive some data?
   if (cnt) {
-    uint16_t i = 0;
-    while (cnt--) {
-      m.push_back(buffer[i++]);
+    // Yes. Is it too much?
+    if (cnt >= BUFFERSIZE) {
+      // Yes, likely a buffer overflow of some sort
+      // Adjust message size in TCP header
+      buffer[4] = (cnt >> 8) & 0xFF;
+      buffer[5] = cnt & 0xFF;
+      LOG_E("Potential buffer overrun (>%d)!\n", cnt);
     }
+    // Get as much buffer as was read
+    m.add(buffer, cnt);
   }
   return m;
 }
