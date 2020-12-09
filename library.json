@@ -1,9 +1,9 @@
 {
-  "name": "ModbusUnified",
+  "name": "eModbus",
   "version": "0.0.1",
   "keywords": "Arduino, ESP32, Modbus, RTU, ModbusRTU, ModbusTCP",
   "description": "ModbusRTU and ModbusTCP functions for ESP32",
-  "homepage": "https://github.com/ESP32ModbusUnified/ModbusUnified",
+  "homepage": "https://github.com/ESP32ModbusUnified/eModbus",
   "license": "MIT",
   "authors": [
     {
@@ -20,7 +20,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ESP32ModbusUnified/ModbusUnified",
+    "url": "https://github.com/ESP32ModbusUnified/eModbus",
     "branch": "master"
   },
   "dependencies": [
