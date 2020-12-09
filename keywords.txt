@@ -88,9 +88,11 @@ addCRC	KEYWORD2
 
 # KEYWORD3: Classes
 ModbusClientTCP	KEYWORD3
+ModbusClientTCPasync	KEYWORD3
 ModbusClientRTU	KEYWORD3
 ModbusServerEthernet	KEYWORD3
 ModbusServerWiFi	KEYWORD3
+ModbusServerTCPasync	KEYWORD3
 ModbusServerRTU	KEYWORD3
 ModbusBridgeEthernet	KEYWORD3
 ModbusBridgeWiFi	KEYWORD3
