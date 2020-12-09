@@ -3,7 +3,7 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 
-// Example code to show the usage of the ModbusClient library. 
+// Example code to show the usage of the eModbus library. 
 // Please refer to root/Readme.md for a full description.
 
 // Includes: <Arduino.h> for Serial etc.
