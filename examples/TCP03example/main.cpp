@@ -1,9 +1,9 @@
 // =================================================================================================
-// ModbusClient: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
+// eModbus: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to ModbusClient
 //               MIT license - see license.md for details
 // =================================================================================================
 
-// Example code to show the usage of the ModbusClient library. 
+// Example code to show the usage of the eModbus library. 
 // Please refer to root/Readme.md for a full description.
 
 // Includes: <Arduino.h> for Serial etc., WiFi.h for WiFi support
