@@ -1,6 +1,6 @@
 # eModbus
 
-![eModbus](https://github.com/ESP32ModbusUnified/eModbus/workflows/Building/badge.svg)
+![eModbus](https://github.com/eModbus/eModbus/workflows/Building/badge.svg)
 
 This is a library to provide Modbus client (formerly known as master), server (formerly slave) and bridge/gateway functionalities for both Modbus RTU and TCP protocols.
 
@@ -80,14 +80,14 @@ We recommend to use the [PlatformIO IDE](https://platformio.org/). There, in you
 # some settings
 
 lib_deps = 
-  ModbusClient=https://github.com/ESP32ModbusUnified/ModbusUnified.git
+  ModbusClient=https://github.com/eModbus/eModbus.git
 ```
 
 If you are using the Arduino IDE, you will want to copy the library folder into your library directory. In Windows this will be  ``C:\Users\<user_name>\Documents\Arduino\libraries`` normally. For Arduino IDE, you'll have to install the dependencies manually. These are:
 - AsyncTCP (https://github.com/me-no-dev/AsyncTCP)
 - Ethernet-compatible library (example: https://github.com/maxgerhardt/Ethernet)
 
-[Return to top](#modbusunified)
+[Return to top](#eModbus)
 
 ## ModbusMessage
 Basically all data going back and forth inside the library has the form of a ``ModbusMessage`` object.
@@ -362,7 +362,7 @@ As a ``ModbusMessage`` also implements the ``std::move`` pattern, a returned ``M
 ``ModbusMessage``s may be compared for equality (``==``) and inequality (``!=``).
 If used in a ``bool`` context, a ``ModbusMessage`` will be evaluated to ``true``, if it has 2 or more bytes as content.
 
-[Return to top](#modbusunified)
+[Return to top](#eModbus)
 
 ## ModbusClient
 
@@ -610,7 +610,7 @@ Mind that the client will only reset the idle timeout timer upon data reception 
 ##### _**AsyncTCP only**_ ``void setMaxInflightRequests(uint32_t maxInflightRequests)``
 Sets the maximum number of messages that are sent to the server at once. The async modbus client sends all the requests to the server without waiting for an earlier request to receive a response. This can result in message loss because the server could has a limited queue. Setting this number to 1 mimics a sync client.
 
-[Return to top](#modbusunified)
+[Return to top](#eModbus)
 
 ## ModbusServer
 ModbusServer (aka slave) allows you to concentrate on the server functionality - data provision, manipulation etc. -, while the library will take care of the communication part.
@@ -868,7 +868,7 @@ The optional parameter ``coreID`` may be used to have that background task run o
 The server background process can be stopped and the task be deleted with the ``stop()`` call. You may start it again with another ``start()`` afterwards.
 In fact a ``start()`` to an already running server will stop and then restart it.
 
-[Return to top](#modbusunified)
+[Return to top](#eModbus)
 
 ## ModbusBridge
 A Modbus "bridge" (or gateway) is basically a Modbus server forwarding requests to other servers, that are in a different Modbus. 
@@ -999,7 +999,7 @@ So besides plain filtering you may modify parts or all of the responses the exte
 
 **Warning**: registering local worker functions for the serverID of a remote server may completely block the external server! There is no way to go back once you did that!
 
-[Return to top](#modbusunified)
+[Return to top](#eModbus)
 
 ## Logging
 The library brings its own logging and tracing mechanism, encoded in the ``Logging.h`` header file.
@@ -1075,4 +1075,4 @@ If you are using a terminal to view the logging output that knows about ANSI com
 
 Please make sure that you have put in a ``LL_NORM`` code after the colored section is to end to switch back to the regular output colors.
 
-[Return to top](#modbusunified)
+[Return to top](#eModbus)

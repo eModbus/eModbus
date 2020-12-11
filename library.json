@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "keywords": "Arduino, ESP32, Modbus, RTU, ModbusRTU, ModbusTCP",
   "description": "ModbusRTU and ModbusTCP functions for ESP32",
-  "homepage": "https://github.com/ESP32ModbusUnified/eModbus",
+  "homepage": "https://github.com/eModbus/eModbus",
   "license": "MIT",
   "authors": [
     {
@@ -20,7 +20,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ESP32ModbusUnified/eModbus",
+    "url": "https://github.com/eModbus/eModbus",
     "branch": "master"
   },
   "dependencies": [
