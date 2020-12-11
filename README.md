@@ -788,6 +788,8 @@ Both are sharing the majority of methods etc., but need to be included with diff
 
 All relevant calls after initialization of the respective ModbusServer object are identical.
 
+##### ModbusServerEthernet
+The Ethernet variety requires the inclusion of the matching header file:
 ```
 #include "ModbusServerEthernet.h"
 ...
