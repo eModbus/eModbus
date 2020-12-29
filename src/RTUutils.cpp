@@ -111,7 +111,7 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
   // Write CRC in LSB order
   serial.write(crc16 & 0xff);
   serial.write((crc16 >> 8) & 0xFF);
-  // serial.flush();
+  serial.flush();
   // Toggle rtsPin, if necessary
   if (rtsPin >= 0) digitalWrite(rtsPin, LOW);
 
