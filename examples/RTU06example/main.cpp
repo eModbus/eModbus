@@ -12,6 +12,9 @@
 // Include the header for the ModbusClient RTU style
 #include "ModbusClientRTU.h"
 
+// For demonstration, use the LOG statements for output
+#include "Logging.h"
+
 // Create a ModbusRTU client instance
 // In my case the RS485 module had auto halfduplex, so no second parameter with the DE/RE pin is required!
 ModbusClientRTU MB(Serial2, GPIO_NUM_25);
@@ -21,11 +24,8 @@ ModbusClientRTU MB(Serial2, GPIO_NUM_25);
 // plus a user-supplied token to identify the causing request
 void handleData(ModbusMessage response, uint32_t token) 
 {
-  Serial.printf("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
-  for (auto& byte : response) {
-    Serial.printf("%02X ", byte);
-  }
-  Serial.println("");
+  LOG_N("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+  HEXDUMP_N("Data", response.data(), response.size());
 }
 
 // Define an onError handler function to receive error responses
@@ -34,7 +34,7 @@ void handleError(Error error, uint32_t token)
 {
   // ModbusError wraps the error code and provides a readable error message for it
   ModbusError me(error);
-  Serial.printf("Error response: %02X - %s\n", (int)me, (const char *)me);
+  LOG_E("Error response: %02X - %s\n", (int)me, (const char *)me);
 }
 
 // Setup() - initialization happens here
@@ -67,7 +67,7 @@ void setup() {
   Error err = MB.addRequest(Token++, 1, WRITE_HOLD_REGISTER, 10, 0x1234);
   if (err!=SUCCESS) {
     ModbusError e(err);
-    Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
+    LOG_E("Error creating request: %02X - %s\n", (int)e, (const char *)e);
   }
 
 // Create request by
@@ -85,33 +85,45 @@ void setup() {
   err = MB.addRequest(Token++, 1, READ_HOLD_REGISTER, 10, 1);
   if (err!=SUCCESS) {
     ModbusError e(err);
-    Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
+    LOG_E("Error creating request: %02X - %s\n", (int)e, (const char *)e);
   }
 
 // Now write 0xBEEF to it
   err = MB.addRequest(Token++, 1, WRITE_HOLD_REGISTER, 10, 0xBEEF);
   if (err!=SUCCESS) {
     ModbusError e(err);
-    Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
+    LOG_E("Error creating request: %02X - %s\n", (int)e, (const char *)e);
   }
 
 // Read it again to verify
   err = MB.addRequest(Token++, 1, READ_HOLD_REGISTER, 10, 1);
   if (err!=SUCCESS) {
     ModbusError e(err);
-    Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
+    LOG_E("Error creating request: %02X - %s\n", (int)e, (const char *)e);
+  }
+
+// Provoke an error just to show it
+  err = MB.addRequest(Token++, 1, USER_DEFINED_44, 10, 1);
+  if (err!=SUCCESS) {
+    ModbusError e(err);
+    LOG_E("Error creating request: %02X - %s\n", (int)e, (const char *)e);
   }
 
 // The output on the Serial Monitor will be (depending on your Modbus the data will be different):
 //      __ OK __
-//      Response: serverID=1, FC=6, Token=00000457, length=6:
-//      01 06 00 0A 12 34
-//      Response: serverID=1, FC=3, Token=00000458, length=5:
-//      01 03 02 12 34
-//      Response: serverID=1, FC=6, Token=00000459, length=6:
-//      01 06 00 0A BE EF
-//      Response: serverID=1, FC=3, Token=0000045A, length=5:
-//      01 03 02 BE EF
+//      [N] 156| main.cpp             [  27] handleData: Response: serverID=1, FC=6, Token=00000457, length=6:
+//      [N] Data: @3FFB9878/6:
+//        | 0000: 01 06 00 0A 12 34                                 |.....4          |
+//      [N] 181| main.cpp             [  27] handleData: Response: serverID=1, FC=3, Token=00000458, length=5:
+//      [N] Data: @3FFB9800/5:
+//        | 0000: 01 03 02 12 34                                    |....4           |
+//      [N] 205| main.cpp             [  27] handleData: Response: serverID=1, FC=6, Token=00000459, length=6:
+//      [N] Data: @3FFB9800/6:
+//        | 0000: 01 06 00 0A BE EF                                 |......          |
+//      [N] 231| main.cpp             [  27] handleData: Response: serverID=1, FC=3, Token=0000045A, length=5:
+//      [N] Data: @3FFB9800/5:
+//        | 0000: 01 03 02 BE EF                                    |.....           |
+//      [E] 255| main.cpp             [  37] handleError: Error response: 01 - Illegal function code
 }
 
 // loop() - nothing done here today!
