@@ -5,6 +5,7 @@
 #include "Logging.h"
 
 int MBUlogLvl = LOG_LEVEL;
+Print *LOGDEVICE = &Serial;
 
 void logHexDump(Print& output, const char *letter, const char *label, const uint8_t *data, const size_t length) {
   size_t cnt = 0;
