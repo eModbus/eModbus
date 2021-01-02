@@ -33,6 +33,19 @@ ModbusMessage& ModbusMessage::operator=(const ModbusMessage& m) {
   return *this;
 }
 
+#ifndef NO_MOVE
+  // Move constructor
+ModbusMessage::ModbusMessage(ModbusMessage&& m) {
+  MM_data = std::move(m.MM_data);
+}
+  
+	// Move assignment
+ModbusMessage& ModbusMessage::operator=(ModbusMessage&& m) {
+  MM_data = std::move(m.MM_data);
+  return *this;
+}
+#endif
+
 // Copy constructor
 ModbusMessage::ModbusMessage(const ModbusMessage& m) :
   MM_data(m.MM_data) { }
@@ -147,6 +160,160 @@ uint16_t ModbusMessage::add(const uint8_t *arrayOfBytes, uint16_t count) {
   return MM_data.size();
 }
 
+// determineFloatOrder: calculate the sequence of bytes in a float value
+uint8_t ModbusMessage::determineFloatOrder() {
+  constexpr uint8_t floatSize = sizeof(float);
+  // Only do it if not done yet
+  if (floatOrder[0] == 0xFF) {
+    // We need to calculate it.
+    // This will only work for 32bit floats, so check that
+    if (floatSize != 4) {
+      // OOPS! we cannot proceed.
+      LOG_E("Oops. float seems to be %d bytes wide instead of 4.\n", floatSize);
+      return 0;
+    }
+
+    uint32_t i = 77230;                             // int value to go into a float without rounding error
+    float f = i;                                    // assign it
+    uint8_t *b = (uint8_t *)&f;                     // Pointer to bytes of f
+    uint8_t expect[floatSize] = { 0x47, 0x96, 0xd7, 0x00 }; // IEEE754 representation 
+    uint8_t matches = 0;                            // number of bytes successfully matched
+     
+    // Loop over the bytes of the expected sequence
+    for (uint8_t inx = 0; inx < floatSize; ++inx) {
+      // Loop over the real bytes of f
+      for (uint8_t trg = 0; trg < floatSize; ++trg) {
+        if (expect[inx] == b[trg]) {
+          floatOrder[inx] = trg;
+          matches++;
+          break;
+        }
+      }
+    }
+
+    // All bytes found?
+    if (matches != floatSize) {
+      // No! There is something fishy...
+      LOG_E("Unable to determine float byte order (matched=%d of %d)\n", matches, floatSize);
+      return 0;
+    } else {
+      HEXDUMP_V("floatOrder", floatOrder, floatSize);
+    }
+  }
+  return floatSize;
+}
+
+// determineDoubleOrder: calculate the sequence of bytes in a double value
+uint8_t ModbusMessage::determineDoubleOrder() {
+  constexpr uint8_t doubleSize = sizeof(double);
+  // Only do it if not done yet
+  if (doubleOrder[0] == 0xFF) {
+    // We need to calculate it.
+    // This will only work for 64bit doubles, so check that
+    if (doubleSize != 8) {
+      // OOPS! we cannot proceed.
+      LOG_E("Oops. double seems to be %d bytes wide instead of 8.\n", doubleSize);
+      return 0;
+    }
+
+    uint64_t i = 5791007487489389;                  // int64 value to go into a double without rounding error
+    double f = i;                                   // assign it
+    uint8_t *b = (uint8_t *)&f;                     // Pointer to bytes of f
+    uint8_t expect[doubleSize] = { 0x43, 0x34, 0x92, 0xE4, 0x00, 0x2E, 0xF5, 0x6D }; // IEEE754 representation 
+    uint8_t matches = 0;                            // number of bytes successfully matched
+     
+    // Loop over the bytes of the expected sequence
+    for (uint8_t inx = 0; inx < doubleSize; ++inx) {
+      // Loop over the real bytes of f
+      for (uint8_t trg = 0; trg < doubleSize; ++trg) {
+        if (expect[inx] == b[trg]) {
+          doubleOrder[inx] = trg;
+          matches++;
+          break;
+        }
+      }
+    }
+
+    // All bytes found?
+    if (matches != doubleSize) {
+      // No! There is something fishy...
+      LOG_E("Unable to determine double byte order (matched=%d of %d)\n", matches, doubleSize);
+      return 0;
+    } else {
+      HEXDUMP_V("doubleOrder", doubleOrder, doubleSize);
+    }
+  }
+  return doubleSize;
+}
+
+// add() variants for float and double values
+// values will be added in IEEE754 byte sequence (MSB first)
+uint16_t ModbusMessage::add(float v) {
+  // First check if we need to determine byte order
+  if (determineFloatOrder()) {
+    // If we get here, the floatOrder is known
+    uint8_t *bytes = (uint8_t *)&v;
+    // Put out the bytes of v in floatOrder sequence
+    for (uint8_t i = 0; i < 4; ++i) {
+      MM_data.push_back(bytes[floatOrder[i]]);
+    }
+  }
+
+  return MM_data.size();
+}
+
+uint16_t ModbusMessage::add(double v) {
+  // First check if we need to determine byte order
+  if (determineDoubleOrder()) {
+    // If we get here, the doubleOrder is known
+    uint8_t *bytes = (uint8_t *)&v;
+    // Put out the bytes of v in doubleOrder sequence
+    for (uint8_t i = 0; i < 8; ++i) {
+      MM_data.push_back(bytes[doubleOrder[i]]);
+    }
+  }
+
+  return MM_data.size();
+}
+
+// get() variants for float and double values
+// values will be read in IEEE754 byte sequence (MSB first)
+uint16_t ModbusMessage::get(uint16_t index, float& v) {
+  // First check if we need to determine byte order
+  if (determineFloatOrder()) {
+    // If we get here, the floatOrder is known
+    // Will it fit?
+    if (index <= MM_data.size() - sizeof(float)) {
+      // Yes. Put out the bytes of v in floatOrder sequence
+      uint8_t *bytes = (uint8_t *)&v;
+      for (uint8_t i = 0; i < sizeof(float); ++i) {
+        bytes[i] = MM_data[index + floatOrder[i]];
+      }
+      index += sizeof(float);
+    }
+  }
+
+  return index;
+}
+
+uint16_t ModbusMessage::get(uint16_t index, double& v) {
+  // First check if we need to determine byte order
+  if (determineDoubleOrder()) {
+    // If we get here, the doubleOrder is known
+    // Will it fit?
+    if (index <= MM_data.size() - sizeof(double)) {
+      // Yes. Put out the bytes of v in doubleOrder sequence
+      uint8_t *bytes = (uint8_t *)&v;
+      for (uint8_t i = 0; i < sizeof(double); ++i) {
+        bytes[i] = MM_data[index + doubleOrder[i]];
+      }
+      index += sizeof(double);
+    }
+  }
+
+  return index;
+}
+
 // Data validation methods for the different factory calls
 // 0. serverID and function code - used by all of the below
 Error ModbusMessage::checkServerFC(uint8_t serverID, uint8_t functionCode) {
@@ -170,24 +337,24 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode) {
   if (returnCode == SUCCESS)
   {
     switch (functionCode) {
-    [[fallthrough]] case 0x01:
-    [[fallthrough]] case 0x02:
-    [[fallthrough]] case 0x03:
-    [[fallthrough]] case 0x04:
-    [[fallthrough]] case 0x05:
-    [[fallthrough]] case 0x06:
-    // [[fallthrough]] case 0x07:
-    [[fallthrough]] case 0x08:
-    // [[fallthrough]] case 0x0b:
-    // [[fallthrough]] case 0x0c:
-    [[fallthrough]] case 0x0f:
-    [[fallthrough]] case 0x10:
-    // [[fallthrough]] case 0x11:
-    [[fallthrough]] case 0x14:
-    [[fallthrough]] case 0x15:
-    [[fallthrough]] case 0x16:
-    [[fallthrough]] case 0x17:
-    [[fallthrough]] case 0x18:
+    case 0x01:
+    case 0x02:
+    case 0x03:
+    case 0x04:
+    case 0x05:
+    case 0x06:
+    // case 0x07:
+    case 0x08:
+    // case 0x0b:
+    // case 0x0c:
+    case 0x0f:
+    case 0x10:
+    // case 0x11:
+    case 0x14:
+    case 0x15:
+    case 0x16:
+    case 0x17:
+    case 0x18:
     case 0x2b:
       returnCode = PARAMETER_COUNT_ERROR;
       break;
@@ -206,24 +373,24 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     switch (functionCode) {
-    [[fallthrough]] case 0x01:
-    [[fallthrough]] case 0x02:
-    [[fallthrough]] case 0x03:
-    [[fallthrough]] case 0x04:
-    [[fallthrough]] case 0x05:
-    [[fallthrough]] case 0x06:
-    [[fallthrough]] case 0x07:
-    [[fallthrough]] case 0x08:
-    [[fallthrough]] case 0x0b:
-    [[fallthrough]] case 0x0c:
-    [[fallthrough]] case 0x0f:
-    [[fallthrough]] case 0x10:
-    [[fallthrough]] case 0x11:
-    [[fallthrough]] case 0x14:
-    [[fallthrough]] case 0x15:
-    [[fallthrough]] case 0x16:
-    [[fallthrough]] case 0x17:
-    // [[fallthrough]] case 0x18:
+    case 0x01:
+    case 0x02:
+    case 0x03:
+    case 0x04:
+    case 0x05:
+    case 0x06:
+    case 0x07:
+    case 0x08:
+    case 0x0b:
+    case 0x0c:
+    case 0x0f:
+    case 0x10:
+    case 0x11:
+    case 0x14:
+    case 0x15:
+    case 0x16:
+    case 0x17:
+    // case 0x18:
     case 0x2b:
       returnCode = PARAMETER_COUNT_ERROR;
       break;
@@ -243,11 +410,11 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     switch (functionCode) {
-    [[fallthrough]] case 0x01:
+    case 0x01:
     case 0x02:
       if ((p2 > 0x7d0) || (p2 == 0)) returnCode = PARAMETER_LIMIT_ERROR;
       break;
-    [[fallthrough]] case 0x03:
+    case 0x03:
     case 0x04:
       if ((p2 > 0x7d) || (p2 == 0)) returnCode = PARAMETER_LIMIT_ERROR;
       break;
@@ -255,18 +422,18 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
       if ((p2 != 0) && (p2 != 0xff00)) returnCode = PARAMETER_LIMIT_ERROR;
       break;
     // case 0x06: all values are acceptable for p1 and p2
-    [[fallthrough]] case 0x07:
-    [[fallthrough]] case 0x08:
-    [[fallthrough]] case 0x0b:
-    [[fallthrough]] case 0x0c:
-    [[fallthrough]] case 0x0f:
-    [[fallthrough]] case 0x10:
-    [[fallthrough]] case 0x11:
-    [[fallthrough]] case 0x14:
-    [[fallthrough]] case 0x15:
-    [[fallthrough]] case 0x16:
-    [[fallthrough]] case 0x17:
-    [[fallthrough]] case 0x18:
+    case 0x07:
+    case 0x08:
+    case 0x0b:
+    case 0x0c:
+    case 0x0f:
+    case 0x10:
+    case 0x11:
+    case 0x14:
+    case 0x15:
+    case 0x16:
+    case 0x17:
+    case 0x18:
     case 0x2b:
       returnCode = PARAMETER_COUNT_ERROR;
       break;
@@ -285,24 +452,24 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     switch (functionCode) {
-    [[fallthrough]] case 0x01:
-    [[fallthrough]] case 0x02:
-    [[fallthrough]] case 0x03:
-    [[fallthrough]] case 0x04:
-    [[fallthrough]] case 0x05:
-    [[fallthrough]] case 0x06:
-    [[fallthrough]] case 0x07:
-    [[fallthrough]] case 0x08:
-    [[fallthrough]] case 0x0b:
-    [[fallthrough]] case 0x0c:
-    [[fallthrough]] case 0x0f:
-    [[fallthrough]] case 0x10:
-    [[fallthrough]] case 0x11:
-    [[fallthrough]] case 0x14:
-    [[fallthrough]] case 0x15:
-    // [[fallthrough]] case 0x16:
-    [[fallthrough]] case 0x17:
-    [[fallthrough]] case 0x18:
+    case 0x01:
+    case 0x02:
+    case 0x03:
+    case 0x04:
+    case 0x05:
+    case 0x06:
+    case 0x07:
+    case 0x08:
+    case 0x0b:
+    case 0x0c:
+    case 0x0f:
+    case 0x10:
+    case 0x11:
+    case 0x14:
+    case 0x15:
+    // case 0x16:
+    case 0x17:
+    case 0x18:
     case 0x2b:
       returnCode = PARAMETER_COUNT_ERROR;
       break;
@@ -322,24 +489,24 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     switch (functionCode) {
-    [[fallthrough]] case 0x01:
-    [[fallthrough]] case 0x02:
-    [[fallthrough]] case 0x03:
-    [[fallthrough]] case 0x04:
-    [[fallthrough]] case 0x05:
-    [[fallthrough]] case 0x06:
-    [[fallthrough]] case 0x07:
-    [[fallthrough]] case 0x08:
-    [[fallthrough]] case 0x0b:
-    [[fallthrough]] case 0x0c:
-    [[fallthrough]] case 0x0f:
-    // [[fallthrough]] case 0x10:
-    [[fallthrough]] case 0x11:
-    [[fallthrough]] case 0x14:
-    [[fallthrough]] case 0x15:
-    [[fallthrough]] case 0x16:
-    [[fallthrough]] case 0x17:
-    [[fallthrough]] case 0x18:
+    case 0x01:
+    case 0x02:
+    case 0x03:
+    case 0x04:
+    case 0x05:
+    case 0x06:
+    case 0x07:
+    case 0x08:
+    case 0x0b:
+    case 0x0c:
+    case 0x0f:
+    // case 0x10:
+    case 0x11:
+    case 0x14:
+    case 0x15:
+    case 0x16:
+    case 0x17:
+    case 0x18:
     case 0x2b:
       returnCode = PARAMETER_COUNT_ERROR;
       break;
@@ -362,24 +529,24 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     switch (functionCode) {
-    [[fallthrough]] case 0x01:
-    [[fallthrough]] case 0x02:
-    [[fallthrough]] case 0x03:
-    [[fallthrough]] case 0x04:
-    [[fallthrough]] case 0x05:
-    [[fallthrough]] case 0x06:
-    [[fallthrough]] case 0x07:
-    [[fallthrough]] case 0x08:
-    [[fallthrough]] case 0x0b:
-    [[fallthrough]] case 0x0c:
-    // [[fallthrough]] case 0x0f:
-    [[fallthrough]] case 0x10:
-    [[fallthrough]] case 0x11:
-    [[fallthrough]] case 0x14:
-    [[fallthrough]] case 0x15:
-    [[fallthrough]] case 0x16:
-    [[fallthrough]] case 0x17:
-    [[fallthrough]] case 0x18:
+    case 0x01:
+    case 0x02:
+    case 0x03:
+    case 0x04:
+    case 0x05:
+    case 0x06:
+    case 0x07:
+    case 0x08:
+    case 0x0b:
+    case 0x0c:
+    // case 0x0f:
+    case 0x10:
+    case 0x11:
+    case 0x14:
+    case 0x15:
+    case 0x16:
+    case 0x17:
+    case 0x18:
     case 0x2b:
       returnCode = PARAMETER_COUNT_ERROR;
       break;
@@ -540,3 +707,5 @@ void ModbusMessage::printError(const char *file, int lineNo, Error e) {
   LOG_E("(%s, line %d) Error in constructor: %02X - %s\n", file_name(file), lineNo, e, (const char *)(ModbusError(e)));
 }
 
+uint8_t ModbusMessage::floatOrder[] = { 0xFF };
+uint8_t ModbusMessage::doubleOrder[] = { 0xFF };

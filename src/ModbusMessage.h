@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <vector>
 
+#undef NO_MOVE
+
 using Modbus::Error;
 using std::vector;
 
@@ -74,11 +76,13 @@ public:
   // Copy constructor
   ModbusMessage(const ModbusMessage& m);
 
+#ifndef NO_MOVE
   // Move constructor
-	ModbusMessage(ModbusMessage&& m) noexcept = default;
+	ModbusMessage(ModbusMessage&& m);
   
 	// Move assignment
-	ModbusMessage& operator=(ModbusMessage&& m) noexcept = default;
+	ModbusMessage& operator=(ModbusMessage&& m);
+#endif
 
   // Comparison operators
   bool operator==(const ModbusMessage& m);
@@ -153,6 +157,14 @@ template <typename T> uint16_t get(uint16_t index, T& retval) {
   return index;
 }
 
+// add() variants for float and double values
+uint16_t add(float v);
+uint16_t add(double v);
+
+// get() variants for float and double values
+uint16_t get(uint16_t index, float& v);
+uint16_t get(uint16_t index, double& v);
+
   // Message generation methods
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
   Error setMessage(uint8_t serverID, uint8_t functionCode);
@@ -208,6 +220,12 @@ protected:
   static void printError(const char *file, int lineNo, Error e);
 
   std::vector<uint8_t> MM_data;  // Message data buffer
+
+  static uint8_t floatOrder[sizeof(float)]; // order of bytes in a float variable
+  static uint8_t doubleOrder[sizeof(double)]; // order of bytes in a double variable
+
+  static uint8_t determineFloatOrder();
+  static uint8_t determineDoubleOrder();
 };
 
 #endif

@@ -64,25 +64,44 @@ void setup() {
   ModbusMessage msg3(1, WRITE_MULT_REGISTERS, 16, 8, 16, data);
   printMsg(msg3);
 
+// Message including float and double values
+  ModbusMessage msg4(4, USER_DEFINED_42);
+  float tv1 = 5.987654321;
+  double tv2 = 256.3367;
+  msg4.add(tv1);
+  msg4.add(tv2);
+  printMsg(msg4);
+
+  float rv1 = 0.0;
+  double rv2 = 0.0;
+  msg4.get(2, rv1);
+  msg4.get(6, rv2);
+  Serial.printf("rv1=%.12f, rv2=%.12g\n", rv1, rv2);
+
 // Your output should like the following
-//      __ OK __
-//      Message size: 6
-//      01 03 00 16 00 07
-//      
-//      Message size: 3
-//      01 85 01 Is an error message: 01 - Illegal function code
-//      
-//      
-//      Message size: 6
-//      13 04 00 10 00 09
-//      
-//      Message size: 6
-//      03 46 BE EF 01 01 
-//      
-//      0101 BEEF
-// 
-//      Message size: 23
-//      01 10 00 10 00 08 10 00 0B 00 16 00 21 00 2C 00 37 00 42 00 4D 00 58 
+//  __ OK __
+//  Message size: 6
+//  01 03 00 16 00 07
+//  
+//  Message size: 3
+//  01 85 01 Is an error message: 01 - Illegal function code
+//  
+//  
+//  Message size: 6
+//  13 04 00 10 00 09
+//  
+//  Message size: 6
+//  03 46 BE EF 01 01
+//  
+//  0101 BEEF
+//  
+//  Message size: 23
+//  01 10 00 10 00 08 10 00 0B 00 16 00 21 00 2C 00 37 00 42 00 4D 00 58
+//  
+//  Message size: 14
+//  04 42 40 BF 9A DD 03 09 8A 1F 63 05 70 40
+//  
+//  rv1=5.987654209137, rv2=256.3367
 }
 
 // loop() - nothing done here today!
