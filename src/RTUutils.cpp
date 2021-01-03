@@ -196,7 +196,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       // the core FIFO handling takes much longer than that.
       //
       // Workaround: uncomment the following line to wait for 16ms(!) for the handling to finish:
-      // if (micros() - MR_lastMicros >= 16000) {
+      // if (micros() - lastMicros >= 16000) {
       //
       // Alternate solution: is to modify the uartEnableInterrupt() function in
       // the core implementation file 'esp32-hal-uart.c', to have the line
