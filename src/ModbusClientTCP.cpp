@@ -3,6 +3,9 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusClientTCP.h"
+
+#if HAS_FREERTOS
+
 #undef LOCAL_LOG_LEVEL
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
@@ -34,7 +37,9 @@ ModbusClientTCP::~ModbusClientTCP() {
   // Clean up queue
   {
     // Safely lock access
+    #if USE_MUTEX
     lock_guard<mutex> lockGuard(qLock);
+    #endif
     // Get all queue entries one by one
     while (!requests.empty()) {
       requests.pop();
@@ -104,7 +109,9 @@ bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHo
       re->head.len = request.size();
       // Safely lock queue and push request to queue
       rc = true;
+      #if USE_MUTEX
       lock_guard<mutex> lockGuard(qLock);
+      #endif
       requests.push(re);
     }
   }
@@ -213,7 +220,9 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
       if (!doNotPop)
       {
         // Safely lock the queue
+        #if USE_MUTEX
         lock_guard<mutex> lockGuard(instance->qLock);
+        #endif
         // Remove the front queue entry
         instance->requests.pop();
         retryCounter = RETRIES;
@@ -294,3 +303,5 @@ ModbusMessage ModbusClientTCP::receive(RequestEntry *request) {
   }
   return response;
 }
+
+#endif

@@ -4,16 +4,23 @@
 // =================================================================================================
 #ifndef _MODBUS_SERVER_H
 #define _MODBUS_SERVER_H
+
+#include "options.h"
+
 #include <map>
 #include <vector>
 #include <functional>
+#if USE_MUTEX
 #include <mutex>      // NOLINT
+#endif
 #include "ModbusTypeDefs.h"
 #include "ModbusError.h"
 #include "ModbusMessage.h"
 
+#if USE_MUTEX
 using std::mutex;
 using std::lock_guard;
+#endif
 
 // Standard response variants for "no response" and "echo the request"
 const ModbusMessage NIL_RESPONSE (std::vector<uint8_t>{0xFF, 0xF0});
@@ -56,7 +63,9 @@ protected:
 
   std::map<uint8_t, std::map<uint8_t, MBSworker>> workerMap;      // map on serverID->functionCode->worker function
   uint32_t messageCount;         // Number of Requests processed
+  #if USE_MUTEX
   mutex m;                       // mutex to cover changes to messageCount
+  #endif
 };
 
 

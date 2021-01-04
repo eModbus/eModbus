@@ -4,6 +4,8 @@
 // =================================================================================================
 #include "ModbusServerRTU.h"
 
+#if HAS_FREERTOS
+
 #undef LOG_LEVEL_LOCAL
 #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
@@ -163,3 +165,5 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     delay(1);
   }
 }
+
+#endif

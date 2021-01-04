@@ -8,6 +8,12 @@
 // #undef LOCAL_LOG_LEVEL
 #include "Logging.h"
 
+#if USE_MUTEX
+#define LOCK_GUARD(x) std::lock_guard<std::mutex> lock(x);
+#else
+#define LOCK_GUARD(x)
+#endif
+
 ModbusServerTCPasync::mb_client::mb_client(ModbusServerTCPasync* s, AsyncClient* c) :
   server(s),
   client(c),
@@ -27,7 +33,7 @@ ModbusServerTCPasync::mb_client::~mb_client() {
 
 void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
   lastActiveTime = millis();
-  LOG_D("data len %d", len);
+  LOG_D("data len %d\n", len);
 
   Error error = SUCCESS;
   size_t i = 0;
@@ -47,12 +53,12 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
     // 2. preliminary validation: protocol bytes and message length
     if ((*message)[2] != 0 || (*message)[3] != 0) {
         error = TCP_HEAD_MISMATCH;
-        LOG_D("invalid protocol");
+        LOG_D("invalid protocol\n");
     }
     size_t messageLength = (((*message)[4] << 8) | (*message)[5]) + 6;
     if (messageLength > 264) {  // 256 + ID(1) + FC(1) + MBAP(6) = 264
       error = PACKET_LENGTH_ERROR;
-      LOG_D("max length error");
+      LOG_D("max length error\n");
     }
     if (error != SUCCESS) {
       ModbusMessage* response = new ModbusMessage(
@@ -71,9 +77,9 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
       message->push_back(data[i++]);
     }
     if (message->size() == messageLength) {
-      LOG_D("request complete (len:%d)", message->size());
+      LOG_D("request complete (len:%d)\n", message->size());
     } else {
-      LOG_D("request incomplete (len:%d), waiting for next TCP packet", message->size());
+      LOG_D("request incomplete (len:%d), waiting for next TCP packet\n", message->size());
       continue;
     }
 
@@ -131,29 +137,29 @@ void ModbusServerTCPasync::mb_client::onPoll() {
   handleOutbox();
   if (server->idle_timeout > 0 && 
       millis() - lastActiveTime > server->idle_timeout) {
-    LOG_D("client idle, closing");
+    LOG_D("client idle, closing\n");
     client->close();
   }
 }
 
 void ModbusServerTCPasync::mb_client::onDisconnect() {
-  LOG_D("client disconnected");
+  LOG_D("client disconnected\n");
   server->onClientDisconnect(this);
 }
 
 void ModbusServerTCPasync::mb_client::addResponseToOutbox(ModbusMessage* response) {
-  if (response->size() > 0) { 
-    std::lock_guard<std::mutex> lock(m);
+  if (response->size() > 0) {
+    LOCK_GUARD(obLock);
     outbox.push(response);
   }
 }
 
 void ModbusServerTCPasync::mb_client::handleOutbox() {
-  std::lock_guard<std::mutex> lock(m);
+  LOCK_GUARD(obLock);
   while (!outbox.empty()) {
     ModbusMessage* m = outbox.front();
     if (m->size() <= client->space()) {
-      LOG_D("sending (%d)", m->size());
+      LOG_D("sending (%d)\n", m->size());
       client->add(reinterpret_cast<const char*>(m->data()), m->size());
       client->send();
       delete m;
@@ -180,7 +186,7 @@ ModbusServerTCPasync::~ModbusServerTCPasync() {
 
 
 uint16_t ModbusServerTCPasync::activeClients() {
-  std::lock_guard<std::mutex> cntLock(m);
+  LOCK_GUARD(cListLock);
   return clients.size();
 }
 
@@ -196,10 +202,10 @@ bool ModbusServerTCPasync::start(uint16_t port, uint8_t maxClients, uint32_t tim
     server->setNoDelay(true);
     server->onClient([](void* i, AsyncClient* c) { (static_cast<ModbusServerTCPasync*>(i))->onClientConnect(c); }, this);
     server->begin();
-    LOG_D("modbus server started");
+    LOG_D("modbus server started\n");
     return true;
   }
-  LOG_E("could not start server");
+  LOG_E("could not start server\n");
   return false;
 }
 
@@ -208,35 +214,35 @@ bool ModbusServerTCPasync::stop() {
   server->end();
 
   // now close existing clients
-  std::lock_guard<std::mutex> cntLock(m);
+  LOCK_GUARD(cListLock);
   while (!clients.empty()) {
     // prevent onDisconnect handler to be called, resulting in deadlock
     clients.front()->client->onDisconnect(nullptr, nullptr);
     delete clients.front();
     clients.pop_front();
   }
-  LOG_D("modbus server stopped");
+  LOG_D("modbus server stopped\n");
   return true;
 }
 
 void ModbusServerTCPasync::onClientConnect(AsyncClient* client) {
-  LOG_D("new client");
-  std::lock_guard<std::mutex> cntLock(m);
+  LOG_D("new client\n");
+  LOCK_GUARD(cListLock);
   if (clients.size() < maxNoClients) {
     clients.emplace_back(new mb_client(this, client));
-    LOG_D("nr clients: %d", clients.size());
+    LOG_D("nr clients: %d\n", clients.size());
   } else {
-    LOG_D("max number of clients reached, closing new");
+    LOG_D("max number of clients reached, closing new\n");
     client->close(true);
     delete client;
   }
 }
 
 void ModbusServerTCPasync::onClientDisconnect(mb_client* client) {
-  std::lock_guard<std::mutex> cntLock(m);
+  LOCK_GUARD(cListLock);
   // delete mb_client from list
   clients.remove_if([client](mb_client* i) { return i->client == client->client; });
   // delete client itself
   delete client;
-  LOG_D("nr clients: %d", clients.size());
+  LOG_D("nr clients: %d\n", clients.size());
 }

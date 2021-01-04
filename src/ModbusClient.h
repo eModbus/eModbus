@@ -4,12 +4,17 @@
 // =================================================================================================
 #ifndef _MODBUS_CLIENT_H
 #define _MODBUS_CLIENT_H
+
+#include "options.h"
+
 #include "ModbusMessage.h"
 
+#if HAS_FREERTOS
 extern "C" {
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 }
+#endif
 
 typedef void (*MBOnData) (ModbusMessage msg, uint32_t token);
 typedef void (*MBOnError) (Modbus::Error errorCode, uint32_t token);
@@ -26,7 +31,9 @@ protected:
   ModbusClient();             // Default constructor
   virtual void isInstance() = 0;   // Make class abstract
   uint32_t messageCount;           // Number of requests generated. Used for transactionID in TCPhead
+  #if HAS_FREERTOS
   TaskHandle_t worker;             // Interface instance worker task
+  #endif
   MBOnData onData;                 // Response data handler
   MBOnError onError;               // Error response handler
   static uint16_t instanceCounter; // Number of ModbusClients created

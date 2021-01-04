@@ -5,18 +5,28 @@
 #ifndef _MODBUS_SERVER_TCP_ASYNC_H
 #define _MODBUS_SERVER_TCP_ASYNC_H
 
+#include "options.h"
+
 #include <list>
 #include <queue>
+#if USE_MUTEX
 #include <mutex> // NOLINT
+#endif
 #include <vector>
 
 #include <Arduino.h>  // for millis()
 
+#if defined(ESP32)
 #include <AsyncTCP.h>
+#elif defined(ESP8266)
+#include <ESPAsyncTCP.h>
+#endif
 
 #include "ModbusServer.h"
 
+#if USE_MUTEX
 using std::lock_guard;
+#endif
 
 class ModbusServerTCPasync : public ModbusServer {
 
@@ -40,7 +50,9 @@ class ModbusServerTCPasync : public ModbusServer {
     ModbusMessage* message;
     Modbus::Error error;
     std::queue<ModbusMessage*> outbox;
-    std::mutex m;
+    #if USE_MUTEX
+    std::mutex obLock;  // outbox protection
+    #endif
   };
 
 
@@ -69,7 +81,9 @@ class ModbusServerTCPasync : public ModbusServer {
   std::list<mb_client*> clients;
   uint8_t maxNoClients;
   uint32_t idle_timeout;
-  std::mutex m;
+  #if USE_MUTEX
+  std::mutex cListLock;  // client list protection
+  #endif
 };
 
 #endif

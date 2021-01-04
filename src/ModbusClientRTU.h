@@ -4,16 +4,26 @@
 // =================================================================================================
 #ifndef _MODBUS_CLIENT_RTU_H
 #define _MODBUS_CLIENT_RTU_H
+
+#include "options.h"
+
+#if HAS_FREERTOS
+
 #include "ModbusClient.h"
 #include "HardwareSerial.h"
 #include "RTUutils.h"
 #include <queue>
+
+#if USE_MUTEX
 #include <mutex>                  // NOLINT
+#endif
 #include <vector>
 
 using std::queue;
+#if USE_MUTEX
 using std::mutex;
 using std::lock_guard;
+#endif
 
 #define DEFAULTTIMEOUT 2000
 
@@ -73,7 +83,9 @@ protected:
 
   void isInstance() { return; }   // make class instantiable
   queue<RequestEntry> requests;   // Queue to hold requests to be processed
+  #if USE_MUTEX
   mutex qLock;                    // Mutex to protect queue
+  #endif
   HardwareSerial& MR_serial;      // Ptr to the serial interface used
   uint32_t MR_lastMicros;         // Microseconds since last bus activity
   uint32_t MR_interval;           // Modbus RTU bus quiet time
@@ -83,4 +95,6 @@ protected:
 
 };
 
-#endif
+#endif  // HAS_FREERTOS
+
+#endif  // INCLUDE GUARD

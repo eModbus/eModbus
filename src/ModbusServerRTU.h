@@ -5,6 +5,10 @@
 #ifndef _MODBUS_SERVER_RTU_H
 #define _MODBUS_SERVER_RTU_H
 
+#include "options.h"
+
+#if HAS_FREERTOS
+
 #include <Arduino.h>
 #include "HardwareSerial.h"
 #include "ModbusServer.h"
@@ -52,4 +56,6 @@ protected:
   static void serve(ModbusServerRTU *myself);
 };
 
-#endif
+#endif  // HAS_FREERTOS
+
+#endif // INCLUDE GUARD
