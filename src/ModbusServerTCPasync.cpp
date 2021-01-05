@@ -28,6 +28,11 @@ ModbusServerTCPasync::mb_client::mb_client(ModbusServerTCPasync* s, AsyncClient*
 }
 
 ModbusServerTCPasync::mb_client::~mb_client() {
+  // clear outbox, if data is left
+  while (!outbox.empty()) {
+    outbox.pop();
+  }
+
   delete client;  // will also close connection, if any
 }
 
@@ -56,23 +61,25 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
         LOG_D("invalid protocol\n");
     }
     size_t messageLength = (((*message)[4] << 8) | (*message)[5]) + 6;
-    if (messageLength > 264) {  // 256 + ID(1) + FC(1) + MBAP(6) = 264
+    if (messageLength > 262) {  // 256 + MBAP(6) = 262
       error = PACKET_LENGTH_ERROR;
       LOG_D("max length error\n");
     }
     if (error != SUCCESS) {
-      ModbusMessage* response = new ModbusMessage(
-        message->getServerID(),
-        message->getFunctionCode()
-      );
-      addResponseToOutbox(response);  // outbox has pointer ownership now
+      ModbusMessage response;
+      response.setError(message->getServerID(), message->getFunctionCode(), error);
+      message->resize(4);
+      message->add(static_cast<uint16_t>(3));
+      message->append(response);
+      addResponseToOutbox(message);  // outbox has pointer ownership now
       // reset to starting values and process remaining data
-      delete message;
       message = nullptr;
+      // @Bert: new message starting with whatever now is in data[i]
+      //        I'd rather do a return; here
       continue;
     }
 
-    // 3. receive untill request is complete
+    // 3. receive until request is complete
     while (message->size() < messageLength && i < len) {
       message->push_back(data[i++]);
     }
@@ -119,17 +126,18 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
     } else {  // mismatch server ID
       error = INVALID_SERVER;
     }
-    if (error == SUCCESS) {
-      message->resize(4);
-      message->add(static_cast<uint16_t>(userData.size()));
-      message->append(userData);
-    } else {
+    if (error != SUCCESS) {
       userData.setError(request.getServerID(), request.getFunctionCode(), error);
     }
-    if (message->size() > 3) {
-      addResponseToOutbox(message);
-      message = nullptr;
-    }
+    // Keep transaction id and protocol id
+    message->resize(4);
+    // Add new payload length
+    message->add(static_cast<uint16_t>(userData.size()));
+    // Append payload
+    message->append(userData);
+    // Transfer message data to outbox
+    addResponseToOutbox(message);
+    message = nullptr;
   }  // end while loop iterating incoming data
 }
 
@@ -193,7 +201,10 @@ uint16_t ModbusServerTCPasync::activeClients() {
 
 bool ModbusServerTCPasync::start(uint16_t port, uint8_t maxClients, uint32_t timeout, int coreID) {
   // don't restart if already running
-  if (server) return false;
+  if (server) {
+    LOG_W("Server already running.\n");
+    return false;
+  }
   
   maxNoClients = maxClients;
   idle_timeout = timeout;
@@ -202,10 +213,10 @@ bool ModbusServerTCPasync::start(uint16_t port, uint8_t maxClients, uint32_t tim
     server->setNoDelay(true);
     server->onClient([](void* i, AsyncClient* c) { (static_cast<ModbusServerTCPasync*>(i))->onClientConnect(c); }, this);
     server->begin();
-    LOG_D("modbus server started\n");
+    LOG_D("Modbus server started\n");
     return true;
   }
-  LOG_E("could not start server\n");
+  LOG_E("Could not start server\n");
   return false;
 }
 
@@ -221,7 +232,9 @@ bool ModbusServerTCPasync::stop() {
     delete clients.front();
     clients.pop_front();
   }
-  LOG_D("modbus server stopped\n");
+  delete server;
+  server = nullptr;
+  LOG_D("Modbus server stopped\n");
   return true;
 }
 
