@@ -8,9 +8,11 @@
 #if defined(ESP32) 
 #define USE_MUTEX 1
 #define HAS_FREERTOS 1
+#define HAS_ETHERNET 1
 #elif defined(ESP8266)
 #define USE_MUTEX 0
 #define HAS_FREERTOS 0
+#define HAS_ETHERNET 0
 #else
 #error Define target in options.h
 #endif
