@@ -117,7 +117,6 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request) {
     if (txQueue.size() + rxQueue.size() < MTA_qLimit) {
       HEXDUMP_V("Enqueue", request.data(), request.size());
       RequestEntry *re = new RequestEntry(token, request);
-      re->head.transactionID = messageCount++;
       if (!re) return false;  //TODO: proper error returning in case allocation fails
       // inject proper transactionID
       re->head.transactionID = messageCount++;
@@ -198,44 +197,47 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   // reset idle timeout
   MTA_lastActivity = millis();
 
-  while (length > 0) {
+  if (length) {
     LOG_D("parsing (len:%d)\n", length + 1);
-
+  }
+  while (length > 0) {
     RequestEntry* request = nullptr;
     ModbusMessage* response = nullptr;
     uint16_t transactionID = 0;
+    uint16_t protocolID = 0;
     uint16_t messageLength = 0;
+    bool isOkay = false;
 
     // 1. Check for valid modbus message
 
     // MBAP header is 6 bytes, we can't do anything with less
-    // total message should be longer then byte 5 (remaining length) + MBAP length
-    // remaining length should be less then 254
-    if (length > 6 &&
-        data[2] == 0 &&
-        data[3] == 0 &&
-        length >= (uint32_t)data[5] + 6 &&  // cast to avoid overflow and comparison
-        data[5] < 254) {
-      transactionID = data[0] << 8 | data[1];
-      messageLength = data[4] << 8 | data[5];
-      response = new ModbusMessage(messageLength);
-      response->add(&data[6], messageLength);
-      LOG_D("packet validated (len:%d)\n", messageLength);
+    // total message should fit MBAP plus remaining bytes (in data[4], data[5])
+    if (length > 6) {
+      transactionID = (data[0] << 8) | data[1];
+      protocolID = (data[2] << 8) | data[3];
+      messageLength = (data[4] << 8) | data[5];
+      if (protocolID == 0 &&
+        length >= (uint32_t)messageLength + 6 &&
+        messageLength < 256) {
+        response = new ModbusMessage(messageLength);
+        response->add(&data[6], messageLength);
+        LOG_D("packet validated (len:%d)\n", messageLength);
 
-      // on next iteration: adjust remaining lengt and pointer to data
-      length -= 6 + messageLength;
-      data += 6 + messageLength;
-    } else {
+        // on next iteration: adjust remaining length and pointer to data
+        length -= 6 + messageLength;
+        data += 6 + messageLength;
+        isOkay = true;
+      }
+    }
+
+    if (!isOkay) {
       // invalid packet, abort function
       LOG_W("packet invalid\n");
       // try again skipping the first byte
       --length;
-      return;
-    }
-
-    // 2. if we got a valid response, match with a request
-
-    if (response) {
+      continue;
+    } else {
+      // 2. we got a valid response, match with a request
       #if USE_MUTEX
       lock_guard<mutex> qLockGuard(qLock);
       #endif
@@ -250,17 +252,13 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
         LOG_W("no matching request found\n");
         return;
       }
-    } else {
-      // response was not set
-      return;
-    }
+    } 
 
     // 3. we have a valid request and a valid response, call appropriate callback
-
     if (request) {
       // compare request with response
       Error error = SUCCESS;
-      if (request->msg.getFunctionCode() != response->getFunctionCode()) {
+      if (request->msg.getFunctionCode() != (response->getFunctionCode() & 0x7F)) {
         error = FC_MISMATCH;
       } else if (request->msg.getServerID() != response->getServerID()) {
         error = SERVER_ID_MISMATCH;
