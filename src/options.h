@@ -17,4 +17,11 @@
 #error Define target in options.h
 #endif
 
+/* === COMMON MACROS === */
+#if USE_MUTEX
+#define LOCK_GUARD(x,y) std::lock_guard<std::mutex> x(y);
+#else
+#define LOCK_GUARD(x,y)
+#endif
+
 #endif

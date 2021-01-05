@@ -8,12 +8,6 @@
 // #undef LOCAL_LOG_LEVEL
 #include "Logging.h"
 
-#if USE_MUTEX
-#define LOCK_GUARD(x) std::lock_guard<std::mutex> lock(x);
-#else
-#define LOCK_GUARD(x)
-#endif
-
 ModbusServerTCPasync::mb_client::mb_client(ModbusServerTCPasync* s, AsyncClient* c) :
   server(s),
   client(c),
@@ -74,9 +68,7 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
       addResponseToOutbox(message);  // outbox has pointer ownership now
       // reset to starting values and process remaining data
       message = nullptr;
-      // @Bert: new message starting with whatever now is in data[i]
-      //        I'd rather do a return; here
-      continue;
+      return;  // protocol validation, abort further parsing
     }
 
     // 3. receive until request is complete
@@ -157,18 +149,18 @@ void ModbusServerTCPasync::mb_client::onDisconnect() {
 
 void ModbusServerTCPasync::mb_client::addResponseToOutbox(ModbusMessage* response) {
   if (response->size() > 0) {
-    LOCK_GUARD(obLock);
+    LOCK_GUARD(lock1, obLock);
     outbox.push(response);
   }
 }
 
 void ModbusServerTCPasync::mb_client::handleOutbox() {
-  LOCK_GUARD(obLock);
+  LOCK_GUARD(lock1, obLock);
   while (!outbox.empty()) {
     ModbusMessage* m = outbox.front();
     if (m->size() <= client->space()) {
       LOG_D("sending (%d)\n", m->size());
-      client->add(reinterpret_cast<const char*>(m->data()), m->size());
+      client->add(reinterpret_cast<const char*>(m->data()), m->size(), ASYNC_WRITE_FLAG_COPY);
       client->send();
       delete m;
       outbox.pop();
@@ -194,7 +186,7 @@ ModbusServerTCPasync::~ModbusServerTCPasync() {
 
 
 uint16_t ModbusServerTCPasync::activeClients() {
-  LOCK_GUARD(cListLock);
+  LOCK_GUARD(lock1, cListLock);
   return clients.size();
 }
 
@@ -225,7 +217,7 @@ bool ModbusServerTCPasync::stop() {
   server->end();
 
   // now close existing clients
-  LOCK_GUARD(cListLock);
+  LOCK_GUARD(lock1, cListLock);
   while (!clients.empty()) {
     // prevent onDisconnect handler to be called, resulting in deadlock
     clients.front()->client->onDisconnect(nullptr, nullptr);
@@ -240,7 +232,7 @@ bool ModbusServerTCPasync::stop() {
 
 void ModbusServerTCPasync::onClientConnect(AsyncClient* client) {
   LOG_D("new client\n");
-  LOCK_GUARD(cListLock);
+  LOCK_GUARD(lock1, cListLock);
   if (clients.size() < maxNoClients) {
     clients.emplace_back(new mb_client(this, client));
     LOG_D("nr clients: %d\n", clients.size());
@@ -252,7 +244,7 @@ void ModbusServerTCPasync::onClientConnect(AsyncClient* client) {
 }
 
 void ModbusServerTCPasync::onClientDisconnect(mb_client* client) {
-  LOCK_GUARD(cListLock);
+  LOCK_GUARD(lock1, cListLock);
   // delete mb_client from list
   clients.remove_if([client](mb_client* i) { return i->client == client->client; });
   // delete client itself

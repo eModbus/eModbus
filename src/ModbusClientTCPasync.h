@@ -19,10 +19,6 @@
 #include <mutex>      // NOLINT
 #endif
 
-#if USE_MUTEX
-using std::mutex;
-using std::lock_guard;
-#endif
 using std::vector;
 
 #define DEFAULTTIMEOUT 10000
@@ -115,12 +111,12 @@ protected:
     uint32_t token;
     ModbusMessage msg;
     ModbusTCPhead head;
-    uint32_t timeout;
+    uint32_t sentTime;
     RequestEntry(uint32_t t, ModbusMessage m) :
       token(t),
       msg(m),
       head(ModbusTCPhead()),
-      timeout(0) {}
+      sentTime(0) {}
   };
 
 
@@ -148,8 +144,8 @@ protected:
   std::list<RequestEntry*> txQueue;           // Queue to hold requests to be sent
   std::map<uint16_t, RequestEntry*> rxQueue;  // Queue to hold requests to be processed
   #if USE_MUTEX
-  mutex sLock;                         // Mutex to protect state
-  mutex qLock;                         // Mutex to protect queues
+  std::mutex sLock;                         // Mutex to protect state
+  std::mutex qLock;                         // Mutex to protect queues
   #endif
 
   AsyncClient MTA_client;           // Async TCP client
