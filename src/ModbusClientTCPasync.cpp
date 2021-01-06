@@ -111,7 +111,6 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request) {
     if (txQueue.size() + rxQueue.size() < MTA_qLimit) {
       HEXDUMP_V("Enqueue", request.data(), request.size());
       RequestEntry *re = new RequestEntry(token, request);
-      re->sentTime = millis(); //@Miq1 Why do I need to put this here?
       if (!re) return false;  //TODO: proper error returning in case allocation fails
       // inject proper transactionID
       re->head.transactionID = messageCount++;
@@ -306,18 +305,18 @@ void ModbusClientTCPasync::handleSendingQueue() {
   // by mutex.
 
   // try to send everything we have waiting
-  std::list<RequestEntry*>::iterator i = txQueue.begin();
-  while (i != txQueue.end()) {
+  std::list<RequestEntry*>::iterator it = txQueue.begin();
+  while (it != txQueue.end()) {
     // get the actual element
-    RequestEntry* r = *i;
-    if (send(r)) {
+    if (send(*it)) {
       // after sending, update timeout value, add to other queue and remove from this queue
-      r->sentTime = millis();  //@Miq1 sentTime is already set, changing here doesn't work?
-      rxQueue[r->head.transactionID] = r;      // push request to other queue
-      i = txQueue.erase(i);  // remove from toSend queue and point i to next request
+      LOG_N("adding millis: %lu\n", millis());
+      (*it)->sentTime = millis();  //@Miq1 sentTime is already set, changing here doesn't work?
+      rxQueue[(*it)->head.transactionID] = (*it);      // push request to other queue
+      it = txQueue.erase(it);  // remove from toSend queue and point i to next request
     } else {
       // sending didn't succeed, try next request
-      ++i;
+      ++it;
     }
   }
 }
@@ -327,8 +326,9 @@ bool ModbusClientTCPasync::send(RequestEntry* re) {
   // Calling sites must assure shared resources are protected
   // by mutex.
 
-  if (rxQueue.size() >= MTA_maxInflightRequests)
+  if (rxQueue.size() >= MTA_maxInflightRequests) {
     return false;
+  }
 
   // check if TCP client is able to send
   if (MTA_client.space() > ((uint32_t)re->msg.size() + 6)) {
@@ -338,7 +338,6 @@ bool ModbusClientTCPasync::send(RequestEntry* re) {
     MTA_client.add(reinterpret_cast<const char*>(re->msg.data()), re->msg.size(), ASYNC_WRITE_FLAG_COPY);
     // done
     MTA_client.send();
-    // reset idle timeout
     LOG_D("request sent (msgid:%d)\n", re->head.transactionID);
     return true;
   }
