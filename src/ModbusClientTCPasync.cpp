@@ -118,6 +118,7 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request) {
       // if we're already connected, try to send and push to rxQueue
       // or else push to txQueue and (re)connect
       if (MTA_state == CONNECTED && send(re)) {
+        re->sentTime = millis();
         rxQueue[re->head.transactionID] = re;
       } else {
         txQueue.push_back(re);
@@ -310,8 +311,7 @@ void ModbusClientTCPasync::handleSendingQueue() {
     // get the actual element
     if (send(*it)) {
       // after sending, update timeout value, add to other queue and remove from this queue
-      LOG_N("adding millis: %lu\n", millis());
-      (*it)->sentTime = millis();  //@Miq1 sentTime is already set, changing here doesn't work?
+      (*it)->sentTime = millis();
       rxQueue[(*it)->head.transactionID] = (*it);      // push request to other queue
       it = txQueue.erase(it);  // remove from toSend queue and point i to next request
     } else {
