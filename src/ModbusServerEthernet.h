@@ -4,6 +4,7 @@
 // =================================================================================================
 #ifndef _MODBUS_SERVER_ETHERNET_H
 #define _MODBUS_SERVER_ETHERNET_H
+#include "options.h"
 #if HAS_ETHERNET == 1
 #include <Ethernet.h>
 #include <SPI.h>

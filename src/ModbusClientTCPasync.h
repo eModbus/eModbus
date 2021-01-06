@@ -10,6 +10,7 @@
 #elif defined ESP8266
 #include <ESPAsyncTCP.h>
 #endif
+#include "options.h"
 #include "ModbusMessage.h"
 #include "ModbusClient.h"
 #include <list>
