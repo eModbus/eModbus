@@ -11,7 +11,9 @@ uint16_t ModbusClient::instanceCounter = 0;
 // Default constructor: set the default timeout to 2000ms, zero out all other 
 ModbusClient::ModbusClient() :
   messageCount(0),
+  #if HAS_FREERTOS
   worker(NULL),
+  #endif
   onData(nullptr),
   onError(nullptr) { instanceCounter++; }
 

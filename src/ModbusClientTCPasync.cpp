@@ -39,8 +39,8 @@ ModbusClientTCPasync::~ModbusClientTCPasync() {
   // Clean up queue
   {
     // Safely lock access
-    lock_guard<mutex> lockGuard(qLock);
-    lock_guard<mutex> lockguard(sLock);
+    LOCK_GUARD(lock1, qLock);
+    LOCK_GUARD(lock2, sLock);
     // Delete all elements from queues
     while (!txQueue.empty()) {
       delete txQueue.front();
@@ -57,8 +57,8 @@ ModbusClientTCPasync::~ModbusClientTCPasync() {
 
 // optionally manually connect to modbus server. Otherwise connection will be made upon first request
 void ModbusClientTCPasync::connect() {
-  LOG_D("connecting");
-  lock_guard<mutex> lockGuard(sLock);
+  LOG_D("connecting\n");
+  LOCK_GUARD(lock1, sLock);
   // only connect if disconnected
   if (MTA_state == DISCONNECTED) {
     MTA_state = CONNECTING;
@@ -68,7 +68,7 @@ void ModbusClientTCPasync::connect() {
 
 // manually disconnect from modbus server. Connection will also auto close after idle time
 void ModbusClientTCPasync::disconnect(bool force) {
-  LOG_D("disconnecting");
+  LOG_D("disconnecting\n");
   MTA_client.close(force);
 }
 
@@ -107,11 +107,10 @@ Error ModbusClientTCPasync::addRequest(ModbusMessage msg, uint32_t token) {
 bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request) {
   // Did we get one?
   if (request) {
-    lock_guard<mutex> lockGuard(qLock);
+    LOCK_GUARD(lock1, qLock);
     if (txQueue.size() + rxQueue.size() < MTA_qLimit) {
       HEXDUMP_V("Enqueue", request.data(), request.size());
       RequestEntry *re = new RequestEntry(token, request);
-      re->head.transactionID = messageCount++;
       if (!re) return false;  //TODO: proper error returning in case allocation fails
       // inject proper transactionID
       re->head.transactionID = messageCount++;
@@ -119,6 +118,7 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request) {
       // if we're already connected, try to send and push to rxQueue
       // or else push to txQueue and (re)connect
       if (MTA_state == CONNECTED && send(re)) {
+        re->sentTime = millis();
         rxQueue[re->head.transactionID] = re;
       } else {
         txQueue.push_back(re);
@@ -128,26 +128,26 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request) {
       }
       return true;
     }
-    LOG_E("queue is full");
+    LOG_E("queue is full\n");
   }
   return false;
 }
 
 void ModbusClientTCPasync::onConnected() {
-  LOG_D("connected");
-  lock_guard<mutex> lockGuard(sLock);
+  LOG_D("connected\n");
+  LOCK_GUARD(lock1, sLock);
   MTA_state = CONNECTED;
   MTA_lastActivity = millis();
   // from now on onPoll will be called every 500 msec
 }
 
 void ModbusClientTCPasync::onDisconnected() {
-  LOG_D("disconnected");
-  lock_guard<mutex> slockGuard(sLock);
+  LOG_D("disconnected\n");
+  LOCK_GUARD(lock1, sLock);
   MTA_state = DISCONNECTED;
 
   // empty queue on disconnect, calling errorcode on every waiting request
-  lock_guard<mutex> qlockGuard(qLock);
+  LOCK_GUARD(lock2, qLock);
   while (!txQueue.empty()) {
     RequestEntry* r = txQueue.front();
     if (onError) {
@@ -169,7 +169,7 @@ void ModbusClientTCPasync::onDisconnected() {
 
 void ModbusClientTCPasync::onACError(AsyncClient* c, int8_t error) {
   // onDisconnect will alse be called, so nothing to do here
-  LOG_W("TCP error: %s", c->errorToString(error));
+  LOG_W("TCP error: %s\n", c->errorToString(error));
 }
 
 /*
@@ -182,71 +182,68 @@ void onAck(size_t len, uint32_t time) {
 }
 */
 void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
-  LOG_D("packet received (len:%d)", length);
+  LOG_D("packet received (len:%d)\n", length);
   // reset idle timeout
   MTA_lastActivity = millis();
 
+  if (length) {
+    LOG_D("parsing (len:%d)\n", length + 1);
+  }
   while (length > 0) {
-    LOG_D("parsing (len:%d)", length + 1);
-
     RequestEntry* request = nullptr;
     ModbusMessage* response = nullptr;
     uint16_t transactionID = 0;
+    uint16_t protocolID = 0;
     uint16_t messageLength = 0;
+    bool isOkay = false;
 
     // 1. Check for valid modbus message
 
     // MBAP header is 6 bytes, we can't do anything with less
-    // total message should be longer then byte 5 (remaining length) + MBAP length
-    // remaining length should be less then 254
-    if (length > 6 &&
-        data[2] == 0 &&
-        data[3] == 0 &&
-        length >= data[5] + 6 &&
-        data[5] < 254) {
-      transactionID = data[0] << 8 | data[1];
-      messageLength = data[4] << 8 | data[5];
-      response = new ModbusMessage(messageLength);
-      response->add(&data[6], messageLength);
-      LOG_D("packet validated (len:%d)", messageLength);
+    // total message should fit MBAP plus remaining bytes (in data[4], data[5])
+    if (length > 6) {
+      transactionID = (data[0] << 8) | data[1];
+      protocolID = (data[2] << 8) | data[3];
+      messageLength = (data[4] << 8) | data[5];
+      if (protocolID == 0 &&
+        length >= (uint32_t)messageLength + 6 &&
+        messageLength < 256) {
+        response = new ModbusMessage(messageLength);
+        response->add(&data[6], messageLength);
+        LOG_D("packet validated (len:%d)\n", messageLength);
 
-      // on next iteration: adjust remaining lengt and pointer to data
-      length -= 6 + messageLength;
-      data += 6 + messageLength;
-    } else {
-      // invalid packet, abort function
-      LOG_W("packet invalid");
-      // try again skipping the first byte
-      --length;
-      return;
+        // on next iteration: adjust remaining length and pointer to data
+        length -= 6 + messageLength;
+        data += 6 + messageLength;
+        isOkay = true;
+      }
     }
 
-    // 2. if we got a valid response, match with a request
-
-    if (response) {
-      lock_guard<mutex> lockGuard(qLock);
+    if (!isOkay) {
+      // invalid packet, abort function
+      LOG_W("packet invalid\n");
+      return;
+    } else {
+      // 2. we got a valid response, match with a request
+      LOCK_GUARD(lock1, qLock);
       auto i = rxQueue.find(transactionID);
       if (i != rxQueue.end()) {
         // found it, handle it and stop iterating
         request = i->second;
         i = rxQueue.erase(i);
-        LOG_D("matched request");
+        LOG_D("matched request\n");
       } else {
         // TCP packet did not yield valid modbus response, abort function
-        LOG_W("no matching request found");
+        LOG_W("no matching request found\n");
         return;
       }
-    } else {
-      // response was not set
-      return;
     }
 
     // 3. we have a valid request and a valid response, call appropriate callback
-
     if (request) {
       // compare request with response
       Error error = SUCCESS;
-      if (request->msg.getFunctionCode() != response->getFunctionCode()) {
+      if (request->msg.getFunctionCode() != (response->getFunctionCode() & 0x7F)) {
         error = FC_MISMATCH;
       } else if (request->msg.getServerID() != response->getServerID()) {
         error = SERVER_ID_MISMATCH;
@@ -269,15 +266,13 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   }  // end processing of incoming data
 
   // check if we have to send the next request
-  lock_guard<mutex> lockGuard(qLock);
+  LOCK_GUARD(lock1, qLock);
   handleSendingQueue();
 }
 
 void ModbusClientTCPasync::onPoll() {
   {
-  lock_guard<mutex> lockGuard(qLock);
-
-  LOG_D("Queue sizes: tx:%d rx:%d", txQueue.size(), rxQueue.size());
+  LOCK_GUARD(lock1, qLock);
 
   // try to send whatever is waiting
   handleSendingQueue();
@@ -285,8 +280,8 @@ void ModbusClientTCPasync::onPoll() {
   // next check if timeout has struck for oldest request
   if (!rxQueue.empty()) {
     RequestEntry* request = rxQueue.begin()->second;
-    if (millis() - request->timeout > MTA_timeout) {
-      LOG_D("request timeouts");
+    if (millis() - request->sentTime > MTA_timeout) {
+      LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
       // oldest element timeouts, call onError and clean up
       if (onError) {
         // Handle timeout error
@@ -311,18 +306,17 @@ void ModbusClientTCPasync::handleSendingQueue() {
   // by mutex.
 
   // try to send everything we have waiting
-  std::list<RequestEntry*>::iterator i = txQueue.begin();
-  while (i != txQueue.end()) {
+  std::list<RequestEntry*>::iterator it = txQueue.begin();
+  while (it != txQueue.end()) {
     // get the actual element
-    RequestEntry* r = *i;
-    if (send(r)) {
+    if (send(*it)) {
       // after sending, update timeout value, add to other queue and remove from this queue
-      r->timeout = millis();
-      rxQueue[r->head.transactionID] = r;      // push request to other queue
-      i = txQueue.erase(i);  // remove from toSend queue and point i to next request
+      (*it)->sentTime = millis();
+      rxQueue[(*it)->head.transactionID] = (*it);      // push request to other queue
+      it = txQueue.erase(it);  // remove from toSend queue and point i to next request
     } else {
       // sending didn't succeed, try next request
-      ++i;
+      ++it;
     }
   }
 }
@@ -332,19 +326,19 @@ bool ModbusClientTCPasync::send(RequestEntry* re) {
   // Calling sites must assure shared resources are protected
   // by mutex.
 
-  if (rxQueue.size() >= MTA_maxInflightRequests)
+  if (rxQueue.size() >= MTA_maxInflightRequests) {
     return false;
+  }
 
   // check if TCP client is able to send
-  if (MTA_client.space() > re->msg.size() + 6) {
+  if (MTA_client.space() > ((uint32_t)re->msg.size() + 6)) {
     // Write TCP header first
-    MTA_client.add(reinterpret_cast<const char *>((const uint8_t *)(re->head)), 6);
+    MTA_client.add(reinterpret_cast<const char *>((const uint8_t *)(re->head)), 6, ASYNC_WRITE_FLAG_COPY);
     // Request comes next
-    MTA_client.add(reinterpret_cast<const char*>(re->msg.data()), re->msg.size());
+    MTA_client.add(reinterpret_cast<const char*>(re->msg.data()), re->msg.size(), ASYNC_WRITE_FLAG_COPY);
     // done
     MTA_client.send();
-    // reset idle timeout
-    LOG_D("request sent (msgid:%d)", re->head.transactionID);
+    LOG_D("request sent (msgid:%d)\n", re->head.transactionID);
     return true;
   }
   return false;

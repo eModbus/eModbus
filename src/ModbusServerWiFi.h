@@ -4,6 +4,7 @@
 // =================================================================================================
 #ifndef _MODBUS_SERVER_WIFI_H
 #define _MODBUS_SERVER_WIFI_H
+#include "options.h"
 #include <WiFi.h>
 #include "ModbusServerTCPtemp.h"
 

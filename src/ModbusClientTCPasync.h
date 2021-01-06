@@ -5,16 +5,21 @@
 #ifndef _MODBUS_CLIENT_TCP_ASYNC_H
 #define _MODBUS_CLIENT_TCP_ASYNC_H
 #include <Arduino.h>
+#if defined ESP32
 #include <AsyncTCP.h>
+#elif defined ESP8266
+#include <ESPAsyncTCP.h>
+#endif
+#include "options.h"
 #include "ModbusMessage.h"
 #include "ModbusClient.h"
 #include <list>
 #include <map>
 #include <vector>
+#if USE_MUTEX
 #include <mutex>      // NOLINT
+#endif
 
-using std::mutex;
-using std::lock_guard;
 using std::vector;
 
 #define DEFAULTTIMEOUT 10000
@@ -107,12 +112,12 @@ protected:
     uint32_t token;
     ModbusMessage msg;
     ModbusTCPhead head;
-    uint32_t timeout;
+    uint32_t sentTime;
     RequestEntry(uint32_t t, ModbusMessage m) :
       token(t),
       msg(m),
       head(ModbusTCPhead()),
-      timeout(0) {}
+      sentTime(0) {}
   };
 
 
@@ -139,8 +144,10 @@ protected:
 
   std::list<RequestEntry*> txQueue;           // Queue to hold requests to be sent
   std::map<uint16_t, RequestEntry*> rxQueue;  // Queue to hold requests to be processed
-  mutex sLock;                         // Mutex to protect state
-  mutex qLock;                         // Mutex to protect queues
+  #if USE_MUTEX
+  std::mutex sLock;                         // Mutex to protect state
+  std::mutex qLock;                         // Mutex to protect queues
+  #endif
 
   AsyncClient MTA_client;           // Async TCP client
   uint32_t MTA_timeout;             // Standard timeout value taken

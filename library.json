@@ -31,6 +31,12 @@
       "platforms": ["espressif32"]
     },
     {
+      "owner": "me-no-dev",
+      "name": "ESPAsyncTCP",
+      "version": "*",
+      "platforms": ["espressif8266"]
+    },
+    {
       "name": "Ethernet",
       "url": "https://github.com/maxgerhardt/Ethernet.git",
       "platforms": ["espressif32"]
@@ -53,6 +59,7 @@
   },
   "frameworks": "arduino",
   "platforms": [
-    "espressif32"
+    "espressif32",
+    "espressif8266"
   ]
 }

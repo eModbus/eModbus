@@ -4,16 +4,25 @@
 // =================================================================================================
 #ifndef _MODBUS_CLIENT_TCP_H
 #define _MODBUS_CLIENT_TCP_H
+
+#include "options.h"
+
+#if HAS_FREERTOS
+
 #include <Arduino.h>
 #include "ModbusClient.h"
 #include "Client.h"
 #include <queue>
 #include <vector>
+#if USE_MUTEX
 #include <mutex>                    // NOLINT
+#endif
 
 using std::queue;
+#if USE_MUTEX
 using std::mutex;
 using std::lock_guard;
+#endif
 
 #define TARGETHOSTINTERVAL 10
 #define DEFAULTTIMEOUT 2000
@@ -171,7 +180,9 @@ protected:
 
   void isInstance() { return; }   // make class instantiable
   queue<RequestEntry *> requests;   // Queue to hold requests to be processed
+  #if USE_MUTEX
   mutex qLock;                    // Mutex to protect queue
+  #endif
   Client& MT_client;              // Client reference for Internet connections (EthernetClient or WifiClient)
   TargetHost MT_lastTarget;       // last used server
   TargetHost MT_target;           // Description of target server
@@ -180,4 +191,6 @@ protected:
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
 };
 
-#endif
+#endif  // HAS_FREERTOS
+
+#endif  // INCLUDE GUARD

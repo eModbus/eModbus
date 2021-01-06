@@ -3,6 +3,9 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusClientRTU.h"
+
+#if HAS_FREERTOS
+
 #undef LOCAL_LOG_LEVEL
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
@@ -23,7 +26,7 @@ ModbusClientRTU::~ModbusClientRTU() {
   // Clean up queue
   {
     // Safely lock access
-    lock_guard<mutex> lockGuard(qLock);
+    LOCK_GUARD(lockGuard, qLock);
     // Get all queue entries one by one
     while (!requests.empty()) {
       // Remove front entry
@@ -94,7 +97,7 @@ bool ModbusClientRTU::addToQueue(uint32_t token, ModbusMessage request) {
     if (requests.size()<MR_qLimit) {
       // Yes. Safely lock queue and push request to queue
       rc = true;
-      lock_guard<mutex> lockGuard(qLock);
+      LOCK_GUARD(lockGuard, qLock);
       requests.push(re);
     }
     messageCount++;
@@ -177,7 +180,7 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       // Clean-up time. 
       {
         // Safely lock the queue
-        lock_guard<mutex> lockGuard(instance->qLock);
+        LOCK_GUARD(lockGuard, instance->qLock);
         // Remove the front queue entry
         instance->requests.pop();
       }
@@ -186,3 +189,5 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
     }
   }
 }
+
+#endif  // HAS_FREERTOS
