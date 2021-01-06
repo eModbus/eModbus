@@ -59,9 +59,7 @@ bool ModbusServer::isServerFor(uint8_t serverID) {
 uint32_t ModbusServer::getMessageCount() { 
   uint32_t retCnt = 0;
   {
-    #if USE_MUTEX
-    lock_guard<mutex> cntLock(m);
-    #endif
+    LOCK_GUARD(cntLock, m);
     retCnt = messageCount;
   }
   return retCnt;

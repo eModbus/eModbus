@@ -26,9 +26,7 @@ ModbusClientRTU::~ModbusClientRTU() {
   // Clean up queue
   {
     // Safely lock access
-    #if USE_MUTEX
-    lock_guard<mutex> lockGuard(qLock);
-    #endif
+    LOCK_GUARD(lockGuard, qLock);
     // Get all queue entries one by one
     while (!requests.empty()) {
       // Remove front entry
@@ -99,9 +97,7 @@ bool ModbusClientRTU::addToQueue(uint32_t token, ModbusMessage request) {
     if (requests.size()<MR_qLimit) {
       // Yes. Safely lock queue and push request to queue
       rc = true;
-      #if USE_MUTEX
-      lock_guard<mutex> lockGuard(qLock);
-      #endif
+      LOCK_GUARD(lockGuard, qLock);
       requests.push(re);
     }
     messageCount++;
@@ -184,9 +180,7 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       // Clean-up time. 
       {
         // Safely lock the queue
-        #if USE_MUTEX
-        lock_guard<mutex> lockGuard(instance->qLock);
-        #endif
+        LOCK_GUARD(lockGuard, instance->qLock);
         // Remove the front queue entry
         instance->requests.pop();
       }
