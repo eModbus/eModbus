@@ -9,8 +9,6 @@
 #include <type_traits>
 #include <vector>
 
-#undef NO_MOVE
-
 using Modbus::Error;
 using std::vector;
 
@@ -158,12 +156,12 @@ template <typename T> uint16_t get(uint16_t index, T& retval) {
 }
 
 // add() variants for float and double values
-uint16_t add(float v);
-uint16_t add(double v);
+uint16_t add(float v, int swapRules = 0);
+uint16_t add(double v, int swapRules = 0);
 
 // get() variants for float and double values
-uint16_t get(uint16_t index, float& v);
-uint16_t get(uint16_t index, double& v);
+uint16_t get(uint16_t index, float& v, int swapRules = 0);
+uint16_t get(uint16_t index, double& v, int swapRules = 0);
 
   // Message generation methods
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -226,6 +224,9 @@ protected:
 
   static uint8_t determineFloatOrder();
   static uint8_t determineDoubleOrder();
+
+  static float swapFloat(float& f, int swapRule);
+  static double swapDouble(double& f, int swapRule);
 };
 
 #endif

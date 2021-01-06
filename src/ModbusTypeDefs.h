@@ -78,6 +78,23 @@ enum Error : uint8_t {
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
 
+// Constants for float and double re-ordering
+#define SWAP_BYTES     0x01
+#define SWAP_REGISTERS 0x02
+#define SWAP_WORDS     0x04
+#define SWAP_NIBBLES   0x08
+
+const uint8_t swapTables[8][8] = {
+  { 0, 1, 2, 3, 4, 5, 6, 7 },  // no swap
+  { 1, 0, 3, 2, 5, 4, 7, 6 },  // bytes only
+  { 2, 3, 0, 1, 6, 7, 4, 5 },  // registers only
+  { 3, 2, 1, 0, 7, 6, 5, 4 },  // registers and bytes
+  { 4, 5, 6, 7, 0, 1, 2, 3 },  // words only (double)
+  { 5, 4, 7, 6, 1, 0, 3, 2 },  // words and bytes (double)
+  { 6, 7, 4, 5, 2, 3, 0, 1 },  // words and registers (double)
+  { 7, 6, 5, 4, 3, 2, 1, 0 }   // Words, registers and bytes (double)
+};
+
 }  // namespace Modbus
 
 

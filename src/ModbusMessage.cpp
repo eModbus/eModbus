@@ -246,30 +246,92 @@ uint8_t ModbusMessage::determineDoubleOrder() {
   return doubleSize;
 }
 
+// swapFloat() and swapDouble() will re-order the bytes of a float or double value
+// according a user-given pattern
+float ModbusMessage::swapFloat(float& f, int swapRule) {
+  LOG_V("swap float, swapRule=%02X\n", swapRule);
+  uint8_t *src = (uint8_t *)&f;
+  float interim;
+  uint8_t *dst = (uint8_t *)&interim;
+  for (uint8_t i = 0; i < sizeof(float); ++i) {
+    LOG_V("dst[%d] = src[%d]\n", i, swapTables[swapRule & 0x03][i]);
+    dst[i] = src[swapTables[swapRule & 0x03][i]];
+    if (swapRule & 0x08) {
+      uint8_t nib = ((dst[i] & 0x0f) << 4) | ((dst[i] >> 4) & 0x0F);
+      dst[i] = nib;
+    }
+  }
+  f = interim;
+  return interim;
+}
+
+double ModbusMessage::swapDouble(double& f, int swapRule) {
+  LOG_V("swap double, swapRule=%02X\n", swapRule);
+  uint8_t *src = (uint8_t *)&f;
+  double interim;
+  uint8_t *dst = (uint8_t *)&interim;
+  for (uint8_t i = 0; i < sizeof(double); ++i) {
+    LOG_V("dst[%d] = src[%d]\n", i, swapTables[swapRule & 0x07][i]);
+    dst[i] = src[swapTables[swapRule & 0x07][i]];
+    if (swapRule & 0x08) {
+      uint8_t nib = ((dst[i] & 0x0f) << 4) | ((dst[i] >> 4) & 0x0F);
+      dst[i] = nib;
+    }
+  }
+  f = interim;
+  return interim;
+}
+
 // add() variants for float and double values
 // values will be added in IEEE754 byte sequence (MSB first)
-uint16_t ModbusMessage::add(float v) {
+uint16_t ModbusMessage::add(float v, int swapRule) {
   // First check if we need to determine byte order
+  LOG_V("add float, swapRule=%02X\n", swapRule);
+  HEXDUMP_V("float", (uint8_t *)&v, sizeof(float));
   if (determineFloatOrder()) {
     // If we get here, the floatOrder is known
-    uint8_t *bytes = (uint8_t *)&v;
+    float interim = 0;
+    uint8_t *dst = (uint8_t *)&interim;
+    uint8_t *src = (uint8_t *)&v;
     // Put out the bytes of v in floatOrder sequence
-    for (uint8_t i = 0; i < 4; ++i) {
-      MM_data.push_back(bytes[floatOrder[i]]);
+    for (uint8_t i = 0; i < sizeof(float); ++i) {
+      dst[i] = src[floatOrder[i]];
+    }
+    HEXDUMP_V("normalized float", (uint8_t *)&interim, sizeof(float));
+    if (swapRule & 0x0B) {
+      swapFloat(interim, swapRule & 0x0B);
+    }
+    HEXDUMP_V("swapped float", (uint8_t *)&interim, sizeof(float));
+    // Put out the bytes of v in floatOrder sequence
+    for (uint8_t i = 0; i < sizeof(float); ++i) {
+      MM_data.push_back(dst[i]);
     }
   }
 
   return MM_data.size();
 }
 
-uint16_t ModbusMessage::add(double v) {
+uint16_t ModbusMessage::add(double v, int swapRule) {
   // First check if we need to determine byte order
+  LOG_V("add double, swapRule=%02X\n", swapRule);
+  HEXDUMP_V("double", (uint8_t *)&v, sizeof(double));
   if (determineDoubleOrder()) {
     // If we get here, the doubleOrder is known
-    uint8_t *bytes = (uint8_t *)&v;
+    double interim = 0;
+    uint8_t *dst = (uint8_t *)&interim;
+    uint8_t *src = (uint8_t *)&v;
     // Put out the bytes of v in doubleOrder sequence
-    for (uint8_t i = 0; i < 8; ++i) {
-      MM_data.push_back(bytes[doubleOrder[i]]);
+    for (uint8_t i = 0; i < sizeof(double); ++i) {
+      dst[i] = src[doubleOrder[i]];
+    }
+    HEXDUMP_V("normalized double", (uint8_t *)&interim, sizeof(double));
+    if (swapRule & 0x0F) {
+      swapDouble(interim, swapRule & 0x0F);
+    }
+    HEXDUMP_V("swapped double", (uint8_t *)&interim, sizeof(double));
+    // Put out the bytes of v in doubleOrder sequence
+    for (uint8_t i = 0; i < sizeof(double); ++i) {
+      MM_data.push_back(dst[i]);
     }
   }
 
@@ -278,7 +340,7 @@ uint16_t ModbusMessage::add(double v) {
 
 // get() variants for float and double values
 // values will be read in IEEE754 byte sequence (MSB first)
-uint16_t ModbusMessage::get(uint16_t index, float& v) {
+uint16_t ModbusMessage::get(uint16_t index, float& v, int swapRule) {
   // First check if we need to determine byte order
   if (determineFloatOrder()) {
     // If we get here, the floatOrder is known
@@ -289,6 +351,11 @@ uint16_t ModbusMessage::get(uint16_t index, float& v) {
       for (uint8_t i = 0; i < sizeof(float); ++i) {
         bytes[i] = MM_data[index + floatOrder[i]];
       }
+      HEXDUMP_V("got float", (uint8_t *)&v, sizeof(float));
+      if (swapRule & 0x0B) {
+        swapFloat(v, swapRule & 0x0B);
+      }
+      HEXDUMP_V("got float swapped", (uint8_t *)&v, sizeof(float));
       index += sizeof(float);
     }
   }
@@ -296,7 +363,7 @@ uint16_t ModbusMessage::get(uint16_t index, float& v) {
   return index;
 }
 
-uint16_t ModbusMessage::get(uint16_t index, double& v) {
+uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) {
   // First check if we need to determine byte order
   if (determineDoubleOrder()) {
     // If we get here, the doubleOrder is known
@@ -307,6 +374,11 @@ uint16_t ModbusMessage::get(uint16_t index, double& v) {
       for (uint8_t i = 0; i < sizeof(double); ++i) {
         bytes[i] = MM_data[index + doubleOrder[i]];
       }
+      HEXDUMP_V("got double", (uint8_t *)&v, sizeof(double));
+      if (swapRule & 0x0F) {
+        swapDouble(v, swapRule & 0x0F);
+      }
+      HEXDUMP_V("got double swapped", (uint8_t *)&v, sizeof(double));
       index += sizeof(double);
     }
   }
