@@ -38,7 +38,10 @@
     },
     {
       "name":"Ethernet",
-      "url": "https://github.com/maxgerhardt/Ethernet.git",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/maxgerhardt/Ethernet.git"
+      },
       "platforms": ["espressif32"]
     }
   ],
