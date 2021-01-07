@@ -513,6 +513,48 @@ void setup()
   MSG08(1, 0x05, (Error)0xE1, LNO(__LINE__) "correct call", "01 85 E1");
   MSG08(1, 0x05, (Error)0x73, LNO(__LINE__) "correct call (unk.err)", "01 85 73");
 
+  // Testing add()
+  ModbusMessage adder;
+
+  uint8_t b = 0x11;
+  uint16_t r = 0x2233;
+  uint32_t w = 0x44556677;
+  float f = 1.2345678;
+  double d = -9.87654321;
+
+  // add uint8_t, uint16_t and uint32_t
+  adder.clear();
+  adder.add(b, r, w);
+  testOutput(__func__, LNO(__LINE__) "add uint types", makeVector("11 22 33 44 55 66 77"), adder);
+
+  // add float in normalized form
+  adder.clear();
+  adder.add(b);
+  adder.add(f);
+  adder.add(b);
+  testOutput(__func__, LNO(__LINE__) "add float normalized", makeVector("11 3F 9E 06 51 11"), adder);
+
+  // add float in register- and nibble-swapped form
+  adder.clear();
+  adder.add(b);
+  adder.add(f, SWAP_REGISTERS|SWAP_NIBBLES);
+  adder.add(b);
+  testOutput(__func__, LNO(__LINE__) "add float swapped", makeVector("11 60 15 F3 E9 11"), adder);
+
+  // add double in normalized form
+  adder.clear();
+  adder.add(b);
+  adder.add(d);
+  adder.add(b);
+  testOutput(__func__, LNO(__LINE__) "add double normalized", makeVector("11 C0 23 C0 CA 45 88 F6 33 11"), adder);
+
+  // add double in word- and byte-swapped form
+  adder.clear();
+  adder.add(b);
+  adder.add(d, SWAP_WORDS|SWAP_BYTES);
+  adder.add(b);
+  testOutput(__func__, LNO(__LINE__) "add double swapped", makeVector("11 88 45 33 F6 23 C0 CA C0 11"), adder);
+
   // ******************************************************************************
   // Write test cases above this line!
   // ******************************************************************************
