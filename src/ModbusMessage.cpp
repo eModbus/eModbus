@@ -195,6 +195,7 @@ uint8_t ModbusMessage::determineFloatOrder() {
     if (matches != floatSize) {
       // No! There is something fishy...
       LOG_E("Unable to determine float byte order (matched=%d of %d)\n", matches, floatSize);
+      floatOrder[0] = 0xFF;
       return 0;
     } else {
       HEXDUMP_V("floatOrder", floatOrder, floatSize);
@@ -238,6 +239,7 @@ uint8_t ModbusMessage::determineDoubleOrder() {
     if (matches != doubleSize) {
       // No! There is something fishy...
       LOG_E("Unable to determine double byte order (matched=%d of %d)\n", matches, doubleSize);
+      doubleOrder[0] = 0xFF;
       return 0;
     } else {
       HEXDUMP_V("doubleOrder", doubleOrder, doubleSize);
@@ -250,34 +252,49 @@ uint8_t ModbusMessage::determineDoubleOrder() {
 // according a user-given pattern
 float ModbusMessage::swapFloat(float& f, int swapRule) {
   LOG_V("swap float, swapRule=%02X\n", swapRule);
+  // Make a byte pointer to the given float
   uint8_t *src = (uint8_t *)&f;
+  // Define a "work bench" float and byte pointer to it
   float interim;
   uint8_t *dst = (uint8_t *)&interim;
+  // Loop over all bytes of a float
   for (uint8_t i = 0; i < sizeof(float); ++i) {
+    // Get i-th byte from the spot the swap table tells
+    // (only the first 4 tables are valid for floats)
     LOG_V("dst[%d] = src[%d]\n", i, swapTables[swapRule & 0x03][i]);
     dst[i] = src[swapTables[swapRule & 0x03][i]];
+    // Does the swar rule require nibble swaps?
     if (swapRule & 0x08) {
+      // Yes, it does. 
       uint8_t nib = ((dst[i] & 0x0f) << 4) | ((dst[i] >> 4) & 0x0F);
       dst[i] = nib;
     }
   }
+  // Save and return result
   f = interim;
   return interim;
 }
 
 double ModbusMessage::swapDouble(double& f, int swapRule) {
   LOG_V("swap double, swapRule=%02X\n", swapRule);
+  // Make a byte pointer to the given double
   uint8_t *src = (uint8_t *)&f;
+  // Define a "work bench" double and byte pointer to it
   double interim;
   uint8_t *dst = (uint8_t *)&interim;
+  // Loop over all bytes of a double
   for (uint8_t i = 0; i < sizeof(double); ++i) {
+    // Get i-th byte from the spot the swap table tells
     LOG_V("dst[%d] = src[%d]\n", i, swapTables[swapRule & 0x07][i]);
     dst[i] = src[swapTables[swapRule & 0x07][i]];
+    // Does the swar rule require nibble swaps?
     if (swapRule & 0x08) {
+      // Yes, it does. 
       uint8_t nib = ((dst[i] & 0x0f) << 4) | ((dst[i] >> 4) & 0x0F);
       dst[i] = nib;
     }
   }
+  // Save and return result
   f = interim;
   return interim;
 }
@@ -293,16 +310,18 @@ uint16_t ModbusMessage::add(float v, int swapRule) {
     float interim = 0;
     uint8_t *dst = (uint8_t *)&interim;
     uint8_t *src = (uint8_t *)&v;
-    // Put out the bytes of v in floatOrder sequence
+    // Put out the bytes of v in normalized sequence
     for (uint8_t i = 0; i < sizeof(float); ++i) {
       dst[i] = src[floatOrder[i]];
     }
     HEXDUMP_V("normalized float", (uint8_t *)&interim, sizeof(float));
+    // Do we need to apply a swap rule?
     if (swapRule & 0x0B) {
+      // Yes, so do it.
       swapFloat(interim, swapRule & 0x0B);
     }
     HEXDUMP_V("swapped float", (uint8_t *)&interim, sizeof(float));
-    // Put out the bytes of v in floatOrder sequence
+    // Put out the bytes of v in normalized (and swapped) sequence
     for (uint8_t i = 0; i < sizeof(float); ++i) {
       MM_data.push_back(dst[i]);
     }
@@ -320,16 +339,18 @@ uint16_t ModbusMessage::add(double v, int swapRule) {
     double interim = 0;
     uint8_t *dst = (uint8_t *)&interim;
     uint8_t *src = (uint8_t *)&v;
-    // Put out the bytes of v in doubleOrder sequence
+    // Put out the bytes of v in normalized sequence
     for (uint8_t i = 0; i < sizeof(double); ++i) {
       dst[i] = src[doubleOrder[i]];
     }
     HEXDUMP_V("normalized double", (uint8_t *)&interim, sizeof(double));
+    // Do we need to apply a swap rule?
     if (swapRule & 0x0F) {
+      // Yes, so do it.
       swapDouble(interim, swapRule & 0x0F);
     }
     HEXDUMP_V("swapped double", (uint8_t *)&interim, sizeof(double));
-    // Put out the bytes of v in doubleOrder sequence
+    // Put out the bytes of v in normalized (and swapped) sequence
     for (uint8_t i = 0; i < sizeof(double); ++i) {
       MM_data.push_back(dst[i]);
     }
@@ -346,13 +367,15 @@ uint16_t ModbusMessage::get(uint16_t index, float& v, int swapRule) {
     // If we get here, the floatOrder is known
     // Will it fit?
     if (index <= MM_data.size() - sizeof(float)) {
-      // Yes. Put out the bytes of v in floatOrder sequence
+      // Yes. Get the bytes of v in normalized sequence
       uint8_t *bytes = (uint8_t *)&v;
       for (uint8_t i = 0; i < sizeof(float); ++i) {
         bytes[i] = MM_data[index + floatOrder[i]];
       }
       HEXDUMP_V("got float", (uint8_t *)&v, sizeof(float));
+      // Do we need to apply a swap rule?
       if (swapRule & 0x0B) {
+        // Yes, so do it.
         swapFloat(v, swapRule & 0x0B);
       }
       HEXDUMP_V("got float swapped", (uint8_t *)&v, sizeof(float));
@@ -369,13 +392,15 @@ uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) {
     // If we get here, the doubleOrder is known
     // Will it fit?
     if (index <= MM_data.size() - sizeof(double)) {
-      // Yes. Put out the bytes of v in doubleOrder sequence
+      // Yes. Get the bytes of v in normalized sequence
       uint8_t *bytes = (uint8_t *)&v;
       for (uint8_t i = 0; i < sizeof(double); ++i) {
         bytes[i] = MM_data[index + doubleOrder[i]];
       }
       HEXDUMP_V("got double", (uint8_t *)&v, sizeof(double));
+      // Do we need to apply a swap rule?
       if (swapRule & 0x0F) {
+        // Yes, so do it.
         swapDouble(v, swapRule & 0x0F);
       }
       HEXDUMP_V("got double swapped", (uint8_t *)&v, sizeof(double));
