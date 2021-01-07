@@ -42,6 +42,7 @@
       "platforms": ["espressif32"]
     }
   ],
+  "libCompatMode": "strict",
   "export": {
     "include":
     [
