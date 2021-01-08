@@ -37,8 +37,8 @@
       "platforms": ["espressif8266"]
     },
     {
-      "name": "Ethernet",
-      "url": "https://github.com/maxgerhardt/Ethernet.git",
+      "name": "custom-Ethernet",
+      "version": "https://github.com/maxgerhardt/Ethernet.git",
       "platforms": ["espressif32"]
     }
   ],
