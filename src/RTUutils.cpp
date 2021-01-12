@@ -197,7 +197,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       // the core FIFO handling takes much longer than that.
       //
       // Workaround: uncomment the following line to wait for 16ms(!) for the handling to finish:
-      #if !RXFIFO_FULL_THRHD_PATCHED
+      #if RXFIFO_FULL_THRHD_PATCHED == 0
       if (micros() - lastMicros >= 16000) {
       #endif
       //
@@ -208,7 +208,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       // from 112 (as is implemented in the core) to 1, effectively firing the interrupt
       // for any single byte.
       // Then you may uncomment the line below instead:
-      #if RXFIFO_FULL_THRHD_PATCHED
+      #if RXFIFO_FULL_THRHD_PATCHED == 1
       if (micros() - lastMicros >= interval) {
       #endif
         state = DATA_READ;
