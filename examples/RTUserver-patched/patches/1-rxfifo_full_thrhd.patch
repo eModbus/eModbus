@@ -1,0 +1,4 @@
+102c102
+<     uart->dev->conf1.rxfifo_full_thrhd = 112;
+---
+>     uart->dev->conf1.rxfifo_full_thrhd = 1;  // patched to 1 from 112

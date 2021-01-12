@@ -5,6 +5,10 @@
 #ifndef _EMODBUS_OPTIONS_H
 #define _EMODBUS_OPTIONS_H
 
+#ifndef RXFIFO_FULL_THRHD_PATCHED
+#define RXFIFO_FULL_THRHD_PATCHED 0
+#endif
+
 #if defined(ESP32) 
 #define USE_MUTEX 1
 #define HAS_FREERTOS 1
