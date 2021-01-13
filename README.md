@@ -11,6 +11,7 @@ Modbus communication is done in separate tasks, so Modbus requests and responses
 
 Key features:
 - for use in the Arduino framework
+- designed for ESP32, various interfaces supported; async versions run also on ESP8266
 - non blocking / asynchronous API
 - server, client and bridge modes
 - TCP (Ethernet, WiFi and Async) and RTU interfaces
