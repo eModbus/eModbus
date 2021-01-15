@@ -1,7 +1,7 @@
 
 # eModbus
 
-Read the docs at http://emodbus.github.io!
+**Read the docs at http://emodbus.github.io!**
 
 ![eModbus](https://github.com/eModbus/eModbus/workflows/Building/badge.svg)
 
