@@ -17,7 +17,7 @@ Key features:
 - TCP (Ethernet, WiFi and Async) and RTU interfaces
 - all common and user-defined Modbus standard function codes 
 
-This has been developed by enthusiasts. While we do our utmost best to make robust software, do not expect any bullet-proof, industry deployable, guaranteed software. **See the license** to learn about liabilities etc.
+This has been developed by enthusiasts. While we do our utmost best to make robust software, do not expect any bullet-proof, industry deployable, guaranteed software. [**See the license**](https://github.com/eModbus/eModbus/blob/master/license.md) to learn about liabilities etc.
 
 We do welcome any ideas, suggestions, bug reports or questions. Please use the "Issues" tab to report these!
 
