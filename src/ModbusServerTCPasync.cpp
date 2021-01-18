@@ -44,15 +44,14 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
     }
 
     //  1. get minimal 8 bytes to move on
-    if (message->size() < 8) {
+    while (message->size() < 8 && i < len) {
       message->push_back(data[i++]);
-      continue;
     }
     
     // 2. preliminary validation: protocol bytes and message length
     if ((*message)[2] != 0 || (*message)[3] != 0) {
-        error = TCP_HEAD_MISMATCH;
-        LOG_D("invalid protocol\n");
+      error = TCP_HEAD_MISMATCH;
+      LOG_D("invalid protocol\n");
     }
     size_t messageLength = (((*message)[4] << 8) | (*message)[5]) + 6;
     if (messageLength > 262) {  // 256 + MBAP(6) = 262
