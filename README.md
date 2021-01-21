@@ -1,5 +1,5 @@
 
-<img src=https://github.com/eModbus/emodbus.github.io/blob/main/eModbusLogo.png width="33%">
+<img src=https://github.com/eModbus/emodbus.github.io/blob/main/eModbusLogo.png width="33%" alt="eModbus">
 
 **Read the docs at http://emodbus.github.io!**
 
