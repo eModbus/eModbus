@@ -7,6 +7,8 @@
 
 This is a library to provide Modbus client (formerly known as master), server (formerly slave) and bridge/gateway functionalities for both Modbus RTU and TCP protocols.
 
+For Modbus protocol specifications, please refer to the [Modbus.org site](https://www.modbus.org/specs.php)!
+
 Modbus communication is done in separate tasks, so Modbus requests and responses are non-blocking. Callbacks are provided to prepare or receive the responses asynchronously.
 
 Key features:
