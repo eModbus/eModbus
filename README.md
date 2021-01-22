@@ -21,6 +21,6 @@ Key features:
 
 This has been developed by enthusiasts. While we do our utmost best to make robust software, do not expect any bullet-proof, industry deployable, guaranteed software. [**See the license**](https://github.com/eModbus/eModbus/blob/master/license.md) to learn about liabilities etc.
 
-We do welcome any ideas, suggestions, bug reports or questions. Please use the "Issues" tab to report these!
+We do welcome any ideas, suggestions, bug reports or questions. Please use the "[Issues](https://github.com/eModbus/eModbus/issues)" tab to report bugs and request new features and visit the "[Discussions](https://github.com/eModbus/eModbus/discussions)" tab for all else.
 
 Have fun!
