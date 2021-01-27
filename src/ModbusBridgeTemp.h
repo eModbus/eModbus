@@ -231,6 +231,8 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
         if (responseBuffer->data.size() > 1) {
           // Yes, we got a data buffer.
           response = responseBuffer->data;
+          // Inject the server ID known to the outside world
+          response.setServerID(aliasID);
         } else {
           // No, size==1 - error code
           response.setError(aliasID, functionCode, static_cast<Error>(responseBuffer->data[0]));
