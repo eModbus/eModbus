@@ -101,6 +101,10 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
             break;
           case 0xF1: // ECHO
             userData = request;
+            if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
+                request.getFunctionCode() == WRITE_MULT_COILS) {
+              userData.resize(6);
+            }
             LOG_D("ECHO response\n");
             break;
           default:   // Will not get here!

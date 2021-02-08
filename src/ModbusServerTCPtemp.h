@@ -279,6 +279,10 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
                   break;
                 case 0xF1: // ECHO
                   response = request;
+                  if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
+                      request.getFunctionCode() == WRITE_MULT_COILS) {
+                    response.resize(6);
+                  }
                   LOG_D("ECHO response\n");
                   break;
                 default:   // Will not get here!

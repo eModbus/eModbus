@@ -126,6 +126,10 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
               break;
             case 0xF1: // ECHO
               response = request;
+              if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
+                  request.getFunctionCode() == WRITE_MULT_COILS) {
+                response.resize(6);
+              }
               break;
             default:   // Will not get here, but lint likes it!
               break;
