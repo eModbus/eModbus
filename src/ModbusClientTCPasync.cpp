@@ -66,6 +66,16 @@ void ModbusClientTCPasync::connect() {
   }
 }
 
+// connect to another modbus server.
+void ModbusClientTCPasync::connect(IPAddress host, uint16_t port) {
+  // First disconnect, if connected
+  disconnect(true);
+  // Set new host and port
+  MTA_host = host;
+  MTA_port = port;
+  connect();
+}
+
 // manually disconnect from modbus server. Connection will also auto close after idle time
 void ModbusClientTCPasync::disconnect(bool force) {
   LOG_D("disconnecting\n");

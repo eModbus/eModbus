@@ -35,6 +35,8 @@ public:
 
   // optionally manually connect to modbus server. Otherwise connection will be made upon first request
   void connect();
+  // Connect to another Modbus server
+  void connect(IPAddress host, uint16_t port = 502);
 
   // manually disconnect from modbus server. Connection will also auto close after idle time
   void disconnect(bool force = false);
