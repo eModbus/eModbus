@@ -51,9 +51,9 @@ constexpr const char* file_name(const char* str) {
     return str_slant(str) ? r_slant(str_end(str)) : str;
 }
 
-extern int MBUlogLvl;
 extern Print *LOGDEVICE;
-void logHexDump(Print& output, const char *letter, const char *label, const uint8_t *data, const size_t length);
+extern int MBUlogLvl;
+void logHexDump(Print *output, const char *letter, const char *label, const uint8_t *data, const size_t length);
 #endif  // _MODBUS_LOGGING
 
 // The remainder may need to be redefined if LOCAL_LOG_LEVEL was set differently before
@@ -95,7 +95,7 @@ void logHexDump(Print& output, const char *letter, const char *label, const uint
 #define LOG_RAW_C(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE->printf(LL_RED format LL_NORM, ##__VA_ARGS__)
 #define LOG_RAW_E(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE->printf(LL_YELLOW format LL_NORM, ##__VA_ARGS__)
 #define LOG_RAW_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE->printf(format, ##__VA_ARGS__)
-#define HEX_DUMP_T(x, level, label, address, length) if (MBUlogLvl >= level) logHexDump(*LOGDEVICE, #x, label, address, length)
+#define HEX_DUMP_T(x, level, label, address, length) if (MBUlogLvl >= level) logHexDump(LOGDEVICE, #x, label, address, length)
 
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_NONE
 #define LOG_N(format, ...) LOG_LINE_T(LOG_LEVEL_NONE, N, format, ##__VA_ARGS__)
