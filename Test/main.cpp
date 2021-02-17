@@ -8,10 +8,27 @@
 #include "ModbusClientTCP.h"
 #include "ModbusServerWiFi.h"
 
+#undef LOCAL_LOG_LEVEL
+#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
+#include "Logging.h"
+
 #include "TCPstub.h"
 
 #define STRINGIFY(x) #x
 #define LNO(x) "line " STRINGIFY(x) " "
+
+// Define alternate LOGDEVICE class to test rerouting of the log output
+class AltLog : public Print {
+  size_t write(uint8_t c) {
+    Serial.write(c);
+    return 1;
+  }
+  size_t write(const uint8_t *buffer, size_t size) {
+    Serial.write(buffer, size);
+    return size;
+  }
+};
+AltLog a;
 
 // Test prerequisites
 TCPstub stub;
@@ -391,6 +408,8 @@ void setup()
   while (!Serial) {}
   Serial.println("__ OK __");
 
+  LOGDEVICE = &a;
+
   // Init WiFi with fake ssid/pass (we will use loopback only)
   WiFi.begin("foo", "bar");
 
@@ -398,8 +417,6 @@ void setup()
   delay(10000);
 
   Serial.println("-----> Some timeout tests may take a while. Wait patiently for 'All finished.'");
-
-  // MBUlogLvl = LOG_LEVEL_VERBOSE;
 
   // ******************************************************************************
   // Write test cases below this line!
@@ -1506,6 +1523,29 @@ void setup()
   // Print summary. We will have to wait a bit to get all test cases executed!
   delay(2000);
   Serial.printf("----->    TCP WiFi loopback tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+  // Logging tests
+  MBUlogLvl = LOG_LEVEL_VERBOSE;
+  LOG_N("If you see this, Logging is working on a user-defined LOGDEVICE.\n");
+  HEXDUMP_N("Test data", (uint8_t *)&words, 10);
+
+  LOG_C("Critical log message\n");
+  HEXDUMP_C("Test data", (uint8_t *)&words, 10);
+
+  LOG_E("Error log message\n");
+  HEXDUMP_E("Test data", (uint8_t *)&words, 10);
+
+  LOG_W("Warning log message\n");
+  HEXDUMP_W("Test data", (uint8_t *)&words, 10);
+
+  LOG_I("Informational log message\n");
+  HEXDUMP_I("Test data", (uint8_t *)&words, 10);
+
+  LOG_D("Debug log message\n");
+  HEXDUMP_D("Test data", (uint8_t *)&words, 10);
+
+  LOG_V("Verbose log message\n");
+  HEXDUMP_V("Test data", (uint8_t *)&words, 10);
 
   Serial.println("All finished.");
 }
