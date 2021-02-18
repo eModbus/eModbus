@@ -11,8 +11,12 @@ void logHexDump(Print *output, const char *letter, const char *label, const uint
   size_t cnt = 0;
   size_t step = 0;
   char limiter = '|';
-  char ascbuf[17];
-       ascbuf[16] = 0;
+  // Use line buffer to speed up output
+  const uint16_t BUFLEN(80);
+  const uint16_t ascOffset(61);
+  char linebuf[BUFLEN];
+  char *cp = linebuf;
+  const char HEXDIGIT[] = "0123456789ABCDEF";
 
   // Print out header
   output->printf("[%s] %s: @%08X/%d:\n", letter, label, (uint32_t)data, length);
@@ -22,31 +26,35 @@ void logHexDump(Print *output, const char *letter, const char *label, const uint
     step = cnt % 16;
     // New line?
     if (step == 0) {
-      // Yes. Print header and clear ascii 
-      output->printf("  %c %04X: ", limiter, cnt);
-      memset(ascbuf, ' ', 16);
+      // Yes. Clear line and print address header
+      memset(linebuf, ' ', BUFLEN);
+      linebuf[60] = limiter;
+      linebuf[77] = limiter;
+      linebuf[78] = '\n';
+      linebuf[BUFLEN - 1] = 0;
+      snprintf(linebuf, BUFLEN, "  %c %04X: ", limiter, cnt);
+      cp = linebuf + strlen(linebuf);
       // No, but first block of 8 done?
     } else if (step == 8) {
       // Yes, put out additional space
-      output->print(' ');
+      cp++;
     }
     // Print data byte
     uint8_t c = data[cnt];
-    output->printf("%02X ", c);
-    if (c >= 32 && c <= 127) ascbuf[cnt % 16] = c;
-    else                     ascbuf[cnt % 16] = '.';
+    *cp++ = HEXDIGIT[(c >> 4) & 0x0F];
+    *cp++ = HEXDIGIT[c & 0x0F];
+    *cp++ = ' ';
+    if (c >= 32 && c <= 127) linebuf[ascOffset + step] = c;
+    else                     linebuf[ascOffset + step] = '.';
     // Line end?
     if (step == 15) {
-      // Yes, print ascii
-      output->printf(" %c%s%c\n", limiter, ascbuf, limiter);
+      // Yes, print line
+      output->write(linebuf, BUFLEN);
     }
   }
   // Unfinished line?
   if (length && step != 15) {
-    for (uint8_t i = step; i < 15; ++i) {
-      output->print("   ");
-    }
-    if (step < 8) output->print(' ');
-    output->printf(" %c%s%c\n", limiter, ascbuf, limiter);
+      // Yes, print line
+      output->write(linebuf, BUFLEN);
   }
 }
