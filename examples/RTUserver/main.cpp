@@ -25,7 +25,7 @@ ModbusMessage FC03(ModbusMessage request) {
   // Address and words valid? We assume 10 registers here for demo
   if (address && words && (address + words) <= 10) {
     // Looks okay. Set up message with serverID, FC and length of data
-    response.add(request.getServerID(), response.getFunctionCode(), 2 * words);
+    response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
     // Fill response with requested data
     for (uint16_t i = address; i < address + words; ++i) {
       response.add(i);
