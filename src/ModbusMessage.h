@@ -90,7 +90,7 @@ public:
   // Exposed methods of std::vector
   const uint8_t   *data();  // address of MM_data
   uint16_t   size();  // used length in MM_data
-  const uint8_t    operator[](uint16_t index); // provide restricted operator[] interface
+  uint8_t    operator[](uint16_t index) const; // provide restricted operator[] interface
   void push_back(const uint8_t& val); // add a byte at the end of MM_data
   void clear();             // delete message contents
   uint16_t resize(uint16_t newSize);  // resize MM_data

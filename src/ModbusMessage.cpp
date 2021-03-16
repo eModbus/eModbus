@@ -83,7 +83,7 @@ uint16_t       ModbusMessage::size() { return MM_data.size(); }
 void           ModbusMessage::push_back(const uint8_t& val) { MM_data.push_back(val); }
 void           ModbusMessage::clear() { MM_data.clear(); }
 // provide restricted operator[] interface
-const uint8_t  ModbusMessage::operator[](uint16_t index) {
+uint8_t  ModbusMessage::operator[](uint16_t index) const {
   if (index < MM_data.size()) {
     return MM_data[index];
   }
