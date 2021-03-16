@@ -19,7 +19,7 @@ void logHexDump(Print *output, const char *letter, const char *label, const uint
   const char HEXDIGIT[] = "0123456789ABCDEF";
 
   // Print out header
-  output->printf("[%s] %s: @%08X/%d:\n", letter, label, (uint32_t)data, length);
+  output->printf("[%s] %s: @%" PRIXPTR "/%" PRIu32 ":\n", letter, label, (uintptr_t)data, (uint32_t)(length & 0xFFFFFFFF));
 
   // loop over data in steps of 16
   for (cnt = 0; cnt < length; ++cnt) {
