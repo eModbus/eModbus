@@ -19,6 +19,8 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t
   MR_rtsPin(rtsPin),
   MR_qLimit(queueLimit),
   MR_timeoutValue(DEFAULTTIMEOUT) {
+    // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
+    RTUutils::UARTinit(serial, 1);
 }
 
 // Destructor: clean up queue, task etc.
@@ -127,11 +129,13 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MR_rtsPin, request.msg);
 
       LOG_D("Request sent.\n");
+      // HEXDUMP_V("Data", request.msg.data(), request.msg.size());
 
       // Get the response - if any
       ModbusMessage response = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval);
 
-      LOG_D("%s response received.\n", response.size()>1 ? "Data" : "Error");
+      LOG_D("%s response (%d bytes) received.\n", response.size()>1 ? "Data" : "Error", response.size());
+      HEXDUMP_V("Data", response.data(), response.size());
 
       // No error in receive()?
       if (response.size() > 1) {

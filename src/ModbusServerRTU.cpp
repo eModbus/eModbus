@@ -7,7 +7,6 @@
 #if HAS_FREERTOS
 
 #undef LOG_LEVEL_LOCAL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 // Init number of created ModbusServerRTU objects
@@ -29,6 +28,8 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
     pinMode(MSRrtsPin, OUTPUT);
     digitalWrite(MSRrtsPin, LOW);
   }
+  // Set the UART FIFO copy threshold to 1 byte
+  RTUutils::UARTinit(serial, 1);
 }
 
 // Destructor

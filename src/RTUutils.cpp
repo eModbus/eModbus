@@ -5,8 +5,8 @@
 #include "options.h"
 #include "ModbusMessage.h"
 #include "RTUutils.h"
-// #undef LOCAL_LOG_LEVEL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_WARNING
+#undef LOCAL_LOG_LEVEL
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 // calcCRC: calculate Modbus CRC16 on a given array of bytes
@@ -101,6 +101,45 @@ void RTUutils::addCRC(ModbusMessage& raw) {
   raw.push_back((crc16 >> 8) & 0xFF);
 }
 
+// UARTinit: modify the UART FIFO copy trigger threshold 
+// This is normally set to 112 by default, resulting in short messages not being 
+// recognized fast enough for higher Modbus bus speeds
+// Our default is 1 - every single byte arriving will have the UART FIFO
+// copied to the serial buffer.
+int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
+  int rc = 0;
+  // Is the threshold value valid? The UART FIFO is 128 bytes only
+  if (thresholdBytes > 0 && thresholdBytes < 128) {
+    // Yes, it is. Try to identify the Serial/Serial1/Serial2 the user has provided.
+    // Is it Serial (UART0)?
+    if (&serial == &Serial) {
+      // Yes. get the current value and set ours instead
+      rc = UART0.conf1.rxfifo_full_thrhd;
+      UART0.conf1.rxfifo_full_thrhd = thresholdBytes;
+      LOG_D("Serial FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
+    // No, but perhaps is Serial1?
+    } else if (&serial == &Serial1) {
+      // It is. Get the current value and set ours.
+      rc = UART1.conf1.rxfifo_full_thrhd;
+      UART1.conf1.rxfifo_full_thrhd = thresholdBytes;
+      LOG_D("Serial1 FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
+    // No, but it may be Serial2
+    } else if (&serial == &Serial2) {
+      // Found it. Get the current value and set ours.
+      rc = UART2.conf1.rxfifo_full_thrhd;
+      UART2.conf1.rxfifo_full_thrhd = thresholdBytes;
+      LOG_D("Serial2 FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
+    // None of the three, so we are at an end here
+    } else {
+      LOG_W("Unable to identify serial\n");
+    }
+  } else {
+    Serial.printf("Threshold must be between 1 and 127! (was %d)", thresholdBytes);
+  }
+  // Return the previous value in case someone likes to see it.
+  return rc;
+}
+
 // send: send a message via Serial, watching interval times - including CRC!
 void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, const uint8_t *data, uint16_t len) {
   uint16_t crc16 = calcCRC(data, len);
@@ -176,41 +215,27 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       // Data waiting and space left in buffer?
       while (serial.available()) {
         // Yes. Catch the byte
-        buffer[bufferPtr++] = serial.read();
-        // Buffer full?
-        if (bufferPtr >= bufferBlocks * BUFBLOCKSIZE) {
-          // Yes. Extend it by another block
-          bufferBlocks++;
-          uint8_t *temp = new uint8_t[bufferBlocks * BUFBLOCKSIZE];
-          memcpy(temp, buffer, (bufferBlocks - 1) * BUFBLOCKSIZE);
-          delete[] buffer;
-          buffer = temp;
+        // Due to a latent bug in esp32-hal-uart.c of the arduino-esp32 core,
+        // available() may return a 1 although there is no byte in the buffer yet.
+        // So we have to attempt a read() and discard the result, if it is < 0.
+        int b = serial.read();
+        if (b >= 0) {
+          buffer[bufferPtr++] = b;
+          // Buffer full?
+          if (bufferPtr >= bufferBlocks * BUFBLOCKSIZE) {
+            // Yes. Extend it by another block
+            bufferBlocks++;
+            uint8_t *temp = new uint8_t[bufferBlocks * BUFBLOCKSIZE];
+            memcpy(temp, buffer, (bufferBlocks - 1) * BUFBLOCKSIZE);
+            delete[] buffer;
+            buffer = temp;
+          }
+          // Rewind timer
+          lastMicros = micros();
         }
-        // Rewind timer
-        lastMicros = micros();
       }
       // Gap of at least _interval micro seconds passed without data?
-      // ***********************************************
-      // Important notice!
-      // Due to an implementation decision done in the ESP32 Arduino core code,
-      // the correct time to detect a gap of _interval µs is not effective, as
-      // the core FIFO handling takes much longer than that.
-      //
-      // Workaround: uncomment the following line to wait for 16ms(!) for the handling to finish:
-      #if RXFIFO_FULL_THRHD_PATCHED == 0
-      if (micros() - lastMicros >= 16000) {
-      #endif
-      //
-      // Alternate solution: is to modify the uartEnableInterrupt() function in
-      // the core implementation file 'esp32-hal-uart.c', to have the line
-      //    'uart->dev->conf1.rxfifo_full_thrhd = 1; // 112;'
-      // This will change the number of bytes received to trigger the copy interrupt
-      // from 112 (as is implemented in the core) to 1, effectively firing the interrupt
-      // for any single byte.
-      // Then you may uncomment the line below instead:
-      #if RXFIFO_FULL_THRHD_PATCHED == 1
       if (micros() - lastMicros >= interval) {
-      #endif
         state = DATA_READ;
       }
       break;
