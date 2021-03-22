@@ -2,7 +2,6 @@
 // eModbus: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to eModbus
 //               MIT license - see license.md for details
 // =================================================================================================
-#include <Arduino.h>
 #include "ModbusMessage.h"
 #undef LOCAL_LOG_LEVEL
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_ERROR
@@ -87,7 +86,7 @@ uint8_t  ModbusMessage::operator[](uint16_t index) const {
   if (index < MM_data.size()) {
     return MM_data[index];
   }
-  LOG_W("Index %d out of bounds (>=%d).\n", index, MM_data.size());
+  LOG_W("Index %d out of bounds (>=%ld).\n", index, MM_data.size());
   return 0;
 }
 // Resize internal MM_data

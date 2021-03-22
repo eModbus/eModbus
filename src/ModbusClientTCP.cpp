@@ -4,7 +4,7 @@
 // =================================================================================================
 #include "ModbusClientTCP.h"
 
-#if HAS_FREERTOS
+#if HAS_FREERTOS || IS_LINUX
 
 #undef LOCAL_LOG_LEVEL
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
@@ -45,17 +45,38 @@ ModbusClientTCP::~ModbusClientTCP() {
   }
   LOG_D("TCP client worker killed.\n");
   // Kill task
+#if IS_LINUX
+  pthread_cancel(worker);
+#else
   vTaskDelete(worker);
+#endif
 }
 
 // begin: start worker task
+#if IS_LINUX
+void *ModbusClientTCP::pHandle(void *p) {
+  handleConnection((ModbusClientTCP *)p);
+  return nullptr;
+}
+#endif
+
 void ModbusClientTCP::begin(int coreID) {
+#if IS_LINUX
+  int rc = pthread_create(&worker, NULL, &pHandle, this);
+  if (rc) {
+    LOG_E("Error creating TCP client thread: %d\n", rc);
+  } else {
+    LOG_D("TCP client worker started.\n");
+  }
+
+#else
   // Create unique task name
   char taskName[12];
   snprintf(taskName, 12, "Modbus%02XTCP", instanceCounter);
   // Start task to handle the queue
   xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
   LOG_D("TCP client worker %s started\n", taskName);
+#endif
 }
 
 // Set default timeout value (and interval)
@@ -97,7 +118,7 @@ Error ModbusClientTCP::addRequest(ModbusMessage msg, uint32_t token) {
 bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHost target) {
   bool rc = false;
   // Did we get one?
-  LOG_D("Queue size: %d\n", requests.size());
+  LOG_D("Queue size: %d\n", (uint32_t)requests.size());
   HEXDUMP_V("Enqueue", request.data(), request.size());
   if (request) {
     if (requests.size()<MT_qLimit) {

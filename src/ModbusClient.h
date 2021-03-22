@@ -14,6 +14,8 @@ extern "C" {
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 }
+#elif IS_LINUX
+#include <pthread.h>
 #endif
 
 typedef void (*MBOnData) (ModbusMessage msg, uint32_t token);
@@ -31,9 +33,11 @@ protected:
   ModbusClient();             // Default constructor
   virtual void isInstance() = 0;   // Make class abstract
   uint32_t messageCount;           // Number of requests generated. Used for transactionID in TCPhead
-  #if HAS_FREERTOS
+#if HAS_FREERTOS
   TaskHandle_t worker;             // Interface instance worker task
-  #endif
+#elif IS_LINUX
+  pthread_t worker;
+#endif
   MBOnData onData;                 // Response data handler
   MBOnError onError;               // Error response handler
   static uint16_t instanceCounter; // Number of ModbusClients created

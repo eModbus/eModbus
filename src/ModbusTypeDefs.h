@@ -6,6 +6,7 @@
 #define _MODBUS_TYPEDEFS_H
 #include <stdint.h>
 #include <stddef.h>
+#include <cstdint>
 
 namespace Modbus {
 
