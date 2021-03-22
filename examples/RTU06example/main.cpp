@@ -17,15 +17,18 @@
 
 // Create a ModbusRTU client instance
 // In my case the RS485 module had auto halfduplex, so no second parameter with the DE/RE pin is required!
-ModbusClientRTU MB(Serial2, GPIO_NUM_25);
+ModbusClientRTU MB(Serial2);
 
 // Define an onData handler function to receive the regular responses
 // Arguments are Modbus server ID, the function code requested, the message data and length of it, 
 // plus a user-supplied token to identify the causing request
 void handleData(ModbusMessage response, uint32_t token) 
 {
-  LOG_N("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
-  HEXDUMP_N("Data", response.data(), response.size());
+  // Only print out result of the "real" example - not the request preparing the field
+  if (token > 1111) {
+    LOG_N("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+    HEXDUMP_N("Data", response.data(), response.size());
+  }
 }
 
 // Define an onError handler function to receive error responses
@@ -62,6 +65,7 @@ void setup() {
 // then write to it and finally read it again to verify the change
 
 // Set defined conditions first - write 0x1234 to the register
+// The Token value is used in handleData to avoid the output for this first preparation request!
   uint32_t Token = 1111;
 
   Error err = MB.addRequest(Token++, 1, WRITE_HOLD_REGISTER, 10, 0x1234);
@@ -110,20 +114,17 @@ void setup() {
   }
 
 // The output on the Serial Monitor will be (depending on your Modbus the data will be different):
-//      __ OK __
-//      [N] 156| main.cpp             [  27] handleData: Response: serverID=1, FC=6, Token=00000457, length=6:
-//      [N] Data: @3FFB9878/6:
-//        | 0000: 01 06 00 0A 12 34                                 |.....4          |
-//      [N] 181| main.cpp             [  27] handleData: Response: serverID=1, FC=3, Token=00000458, length=5:
-//      [N] Data: @3FFB9800/5:
-//        | 0000: 01 03 02 12 34                                    |....4           |
-//      [N] 205| main.cpp             [  27] handleData: Response: serverID=1, FC=6, Token=00000459, length=6:
-//      [N] Data: @3FFB9800/6:
-//        | 0000: 01 06 00 0A BE EF                                 |......          |
-//      [N] 231| main.cpp             [  27] handleData: Response: serverID=1, FC=3, Token=0000045A, length=5:
-//      [N] Data: @3FFB9800/5:
-//        | 0000: 01 03 02 BE EF                                    |.....           |
-//      [E] 255| main.cpp             [  37] handleError: Error response: 01 - Illegal function code
+//     __ OK __
+//     [N] 163| main.cpp             [  29] handleData: Response: serverID=1, FC=3, Token=00000458, length=5:
+//     [N] Data: @3FFB9808/5:
+//       | 0000: 01 03 02 12 34                                    |....4           |
+//     [N] 185| main.cpp             [  29] handleData: Response: serverID=1, FC=6, Token=00000459, length=6:
+//     [N] Data: @3FFB9808/6:
+//       | 0000: 01 06 00 0A BE EF                                 |......          |
+//     [N] 209| main.cpp             [  29] handleData: Response: serverID=1, FC=3, Token=0000045A, length=5:
+//     [N] Data: @3FFB9808/5:
+//       | 0000: 01 03 02 BE EF                                    |.....           |
+//     [E] 231| main.cpp             [  40] handleError: Error response: 01 - Illegal function code
 }
 
 // loop() - nothing done here today!
