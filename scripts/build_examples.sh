@@ -7,11 +7,19 @@
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
 NC='\033[0m'
 
 lines=$(find ./examples/ -maxdepth 1 -mindepth 1 -type d)
 retval=0
 while read line; do
+  # Skip building Linux examples
+  if [[ "$line" = *Linux* ]]
+  then
+    echo -e "========================== BUILDING $line =========================="
+    echo -e "${YELLOW}SKIPPING${NC}"
+    continue
+  fi
   echo -e "========================== BUILDING $line =========================="
   if [[ -e "$line/platformio.ini" ]]
   then
