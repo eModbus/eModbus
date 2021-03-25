@@ -66,13 +66,13 @@ int Client::connect(IPAddress ip, uint16_t p) {
 int Client::connect(const char *host, uint16_t port) {
 // Get IP for given hostname
   char ip[16];
-  if (hostname_to_ip(host, ip)) {
+  IPAddress myHost = hostname_to_ip(host);
+  if (myHost != NIL_ADDR) {
   // Failure. Report and bail out
     LOG_E("No such host '%s'\n", host);
     return -1;
   }
   // Success - connect to found IP/port
-  IPAddress myHost = ip;
   return connect(myHost, port);
 }
 
@@ -221,8 +221,9 @@ void Client::setNoDelay(bool yesNo) {
 }
 
 // hostname_to_ip: try to find an IP address for a given host name
-int Client::hostname_to_ip(const char *hostname , char *ip)
+IPAddress Client::hostname_to_ip(const char *hostname)
 {
+  IPAddress returnIP = NIL_ADDR;
   struct addrinfo hints, *servinfo, *p;
   struct sockaddr_in *h;
   int rv;
@@ -232,29 +233,29 @@ int Client::hostname_to_ip(const char *hostname , char *ip)
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
 
+  LOG_D("Looking for '%s'\n", hostname);
+
 // ask for host data
   if ((rv = getaddrinfo(hostname, NULL, &hints, &servinfo)) != 0) {
     LOG_E("getaddrinfo: %s\n", gai_strerror(rv));
-    return 1;
+    return returnIP;
   }
 
   // loop through all the results and connect to the first we can
   for (p = servinfo; p != NULL; p = p->ai_next) {
     h = (struct sockaddr_in *)p->ai_addr;
-    strcpy(ip, inet_ntoa(h->sin_addr));
-  // IP address has to have at least one digit per group ("8.8.8.8")
-    if (strlen(ip) >= 7) break;
+    returnIP = h->sin_addr.s_addr;
+    if (returnIP != NIL_ADDR) break;
   }
   // Release allocated memory
   freeaddrinfo(servinfo);
 
-  if (strlen(ip) >= 7) {
-    LOG_D("Host '%s'=%s\n", hostname, ip);
-    return 0;
+  if (returnIP != NIL_ADDR) {
+    LOG_D("Host '%s'=%s\n", hostname, string(returnIP));
+  } else {
+    LOG_D("No IP for '%s' found\n", hostname);
   }
-  LOG_E("Invalid IP: %s\n", ip);
-  *ip = 0;  
-  return 1;
+  return returnIP;
 }
 
 #endif // IS_LINUX

@@ -25,6 +25,9 @@ public:
   bool operator==(IPAddress other);
   bool operator==(uint32_t w);
   bool operator==(const char *ip);
+  bool operator!=(IPAddress other);
+  bool operator!=(uint32_t w);
+  bool operator!=(const char *ip);
   IPAddress& operator=(uint32_t w);
   IPAddress& operator=(const char *ip);
   operator std::string() const;

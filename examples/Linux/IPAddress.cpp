@@ -62,6 +62,17 @@ bool IPAddress::operator==(const char *ip) {
   return addr.word == fromChar(ip);
 }
 
+// Same triple for inequality
+bool IPAddress::operator!=(IPAddress other) { 
+  return addr.word != other.addr.word; 
+}
+bool IPAddress::operator!=(uint32_t w) { 
+  return addr.word != w; 
+}
+bool IPAddress::operator!=(const char *ip) { 
+  return addr.word != fromChar(ip);
+}
+
 // Assignment of raw 4-byte value
 IPAddress& IPAddress::operator=(uint32_t w) {
   addr.word = w;

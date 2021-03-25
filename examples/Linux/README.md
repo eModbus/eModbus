@@ -10,6 +10,8 @@ applies!
 ### Prerequisites
 The files in this folder are Linux-only. 
 - ``Client.cpp`` and ``Client.h`` are implementing the same ``Client`` class the Arduino/ESP32/ESP8266 core does provide, whereas ``IPAddress.cpp`` and ``IPAddress.h`` are supplying the class holding IP addresses the way the eModbus library likes it.
+- *Note*: ``Client`` is providing a public function ``IPAddress hostname_to_ip(const char *hostname);`` that does a DNS conversion for the hostname given. If no IP could be found, a NIL_ADDR is returned!
+- *Note*: In addition to the known types, ``IPAddress`` does support initialization, assignment and comparison with a ``const char *ip``also. It is perfectly valid to conveniently write ``IPAddress i = "192.168.178.1";``.
 - ``main.cpp`` is a basic example of a command line Modbus client that can be used to issue ``READ_HOLD_REGISTER`` request to any Modbus server your network may provide. 
 - the ``Makefile`` is set up to build this example client.
 

@@ -37,13 +37,13 @@ public:
   void setNoDelay(bool yesNo);
   uint8_t connected();
   operator bool();
+  IPAddress hostname_to_ip(const char *hostname);
 
 protected:
   int sockfd;
   IPAddress host;
   uint16_t port;
   struct sockaddr_in server;
-  int hostname_to_ip(const char *hostname , char *ip);
 };
 
 #endif // IS_LINUX
