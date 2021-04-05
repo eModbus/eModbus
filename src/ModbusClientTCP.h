@@ -7,19 +7,19 @@
 
 #include "options.h"
 
+#if HAS_FREERTOS || IS_LINUX
 #if HAS_FREERTOS
-
 #include <Arduino.h>
+#endif
+
 #include "ModbusClient.h"
 #include "Client.h"
 #include <queue>
 #include <vector>
+using std::queue;
+
 #if USE_MUTEX
 #include <mutex>                    // NOLINT
-#endif
-
-using std::queue;
-#if USE_MUTEX
 using std::mutex;
 using std::lock_guard;
 #endif
@@ -171,6 +171,9 @@ protected:
 
   // handleConnection: worker task method
   static void handleConnection(ModbusClientTCP *instance);
+#if IS_LINUX
+  static void *pHandle(void *p);
+#endif
 
   // send: send request via Client connection
   void send(RequestEntry *request);

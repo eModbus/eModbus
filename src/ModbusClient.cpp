@@ -13,6 +13,8 @@ ModbusClient::ModbusClient() :
   messageCount(0),
   #if HAS_FREERTOS
   worker(NULL),
+  #elif IS_LINUX
+  worker(0),
   #endif
   onData(nullptr),
   onError(nullptr) { instanceCounter++; }

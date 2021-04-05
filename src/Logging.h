@@ -3,9 +3,6 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 
-// Include Arduino.h to make Print and Serial known
-#include <Arduino.h>
-
 #ifndef LOG_LEVEL
 #define LOG_LEVEL LOG_LEVEL_ERROR
 #endif
@@ -17,6 +14,7 @@
 // The following needs to be defined only once
 #ifndef _MODBUS_LOGGING
 #define _MODBUS_LOGGING
+#include "options.h"
 
 #define LOG_LEVEL_NONE (0)
 #define LOG_LEVEL_CRITICAL (1)
@@ -51,9 +49,13 @@ constexpr const char* file_name(const char* str) {
     return str_slant(str) ? r_slant(str_end(str)) : str;
 }
 
+#if IS_LINUX
+void logHexDump(const char *letter, const char *label, const uint8_t *data, const size_t length);
+#else
 extern Print *LOGDEVICE;
-extern int MBUlogLvl;
 void logHexDump(Print *output, const char *letter, const char *label, const uint8_t *data, const size_t length);
+#endif
+extern int MBUlogLvl;
 #endif  // _MODBUS_LOGGING
 
 // The remainder may need to be redefined if LOCAL_LOG_LEVEL was set differently before
@@ -89,6 +91,15 @@ void logHexDump(Print *output, const char *letter, const char *label, const uint
 #endif
 
 // Now we can define the macros based on LOCAL_LOG_LEVEL
+#if IS_LINUX
+#define LOG_LINE_C(level, x, format, ...) if (MBUlogLvl >= level) printf(LL_RED LOG_HEADER(x) format LL_NORM, millis(), file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
+#define LOG_LINE_E(level, x, format, ...) if (MBUlogLvl >= level) printf(LL_YELLOW LOG_HEADER(x) format LL_NORM, millis(), file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
+#define LOG_LINE_T(level, x, format, ...) if (MBUlogLvl >= level) printf(LOG_HEADER(x) format, millis(), file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
+#define LOG_RAW_C(level, x, format, ...) if (MBUlogLvl >= level) printf(LL_RED format LL_NORM, ##__VA_ARGS__)
+#define LOG_RAW_E(level, x, format, ...) if (MBUlogLvl >= level) printf(LL_YELLOW format LL_NORM, ##__VA_ARGS__)
+#define LOG_RAW_T(level, x, format, ...) if (MBUlogLvl >= level) printf(format, ##__VA_ARGS__)
+#define HEX_DUMP_T(x, level, label, address, length) if (MBUlogLvl >= level) logHexDump(#x, label, address, length)
+#else
 #define LOG_LINE_C(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE->printf(LL_RED LOG_HEADER(x) format LL_NORM, millis(), file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
 #define LOG_LINE_E(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE->printf(LL_YELLOW LOG_HEADER(x) format LL_NORM, millis(), file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
 #define LOG_LINE_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE->printf(LOG_HEADER(x) format, millis(), file_name(__FILE__), __LINE__, __func__, ##__VA_ARGS__)
@@ -96,6 +107,7 @@ void logHexDump(Print *output, const char *letter, const char *label, const uint
 #define LOG_RAW_E(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE->printf(LL_YELLOW format LL_NORM, ##__VA_ARGS__)
 #define LOG_RAW_T(level, x, format, ...) if (MBUlogLvl >= level) LOGDEVICE->printf(format, ##__VA_ARGS__)
 #define HEX_DUMP_T(x, level, label, address, length) if (MBUlogLvl >= level) logHexDump(LOGDEVICE, #x, label, address, length)
+#endif
 
 #if LOCAL_LOG_LEVEL >= LOG_LEVEL_NONE
 #define LOG_N(format, ...) LOG_LINE_T(LOG_LEVEL_NONE, N, format, ##__VA_ARGS__)

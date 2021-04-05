@@ -3,11 +3,19 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "Logging.h"
+#include <cinttypes>
 
 int MBUlogLvl = LOG_LEVEL;
+#if IS_LINUX
+#define PrintOut printf
+
+void logHexDump(const char *letter, const char *label, const uint8_t *data, const size_t length) {
+#else
 Print *LOGDEVICE = &Serial;
+#define PrintOut output->printf
 
 void logHexDump(Print *output, const char *letter, const char *label, const uint8_t *data, const size_t length) {
+#endif
   size_t cnt = 0;
   size_t step = 0;
   char limiter = '|';
@@ -19,7 +27,7 @@ void logHexDump(Print *output, const char *letter, const char *label, const uint
   const char HEXDIGIT[] = "0123456789ABCDEF";
 
   // Print out header
-  output->printf("[%s] %s: @%" PRIXPTR "/%" PRIu32 ":\n", letter, label, (uintptr_t)data, (uint32_t)(length & 0xFFFFFFFF));
+  PrintOut ("[%s] %s: @%" PRIXPTR "/%" PRIu32 ":\n", letter, label, (uintptr_t)data, (uint32_t)(length & 0xFFFFFFFF));
 
   // loop over data in steps of 16
   for (cnt = 0; cnt < length; ++cnt) {
@@ -32,7 +40,7 @@ void logHexDump(Print *output, const char *letter, const char *label, const uint
       linebuf[77] = limiter;
       linebuf[78] = '\n';
       linebuf[BUFLEN - 1] = 0;
-      snprintf(linebuf, BUFLEN, "  %c %04X: ", limiter, cnt);
+      snprintf(linebuf, BUFLEN, "  %c %04X: ", limiter, (uint16_t)(cnt & 0xFFFF));
       cp = linebuf + strlen(linebuf);
       // No, but first block of 8 done?
     } else if (step == 8) {
@@ -49,12 +57,12 @@ void logHexDump(Print *output, const char *letter, const char *label, const uint
     // Line end?
     if (step == 15) {
       // Yes, print line
-      output->write(linebuf, BUFLEN);
+      PrintOut ("%s", linebuf);
     }
   }
   // Unfinished line?
   if (length && step != 15) {
       // Yes, print line
-      output->write(linebuf, BUFLEN);
+      PrintOut ("%s", linebuf);
   }
 }
