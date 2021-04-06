@@ -10,9 +10,10 @@ applies!
 ### Prerequisites
 The files in this folder are Linux-only. 
 - ``Client.cpp`` and ``Client.h`` are implementing the same ``Client`` class the Arduino/ESP32/ESP8266 core does provide, whereas ``IPAddress.cpp`` and ``IPAddress.h`` are supplying the class holding IP addresses the way the eModbus library likes it.
-- *Note*: ``Client`` is providing a public function ``IPAddress hostname_to_ip(const char *hostname);`` that does a DNS conversion for the hostname given. If no IP could be found, a NIL_ADDR is returned!
+- *Note*: ``Client`` is providing a public static function ``IPAddress hostname_to_ip(const char *hostname);`` that does a DNS conversion for the hostname given. If no IP could be found, a NIL_ADDR is returned!
 - *Note*: In addition to the known types, ``IPAddress`` does support initialization, assignment and comparison with a ``const char *ip``also. It is perfectly valid to conveniently write ``IPAddress i = "192.168.178.1";``.
 - ``main.cpp`` is a basic example of a command line Modbus client that can be used to issue ``READ_HOLD_REGISTER`` request to any Modbus server your network may provide. 
+- ``parseTarget.h`` and ``parseTarget.cpp`` are providing an ``int parseTarget(const char *source, IPAddress &IP, uint16_t &port, uint8_t &serverID)`` call to analyze and extract a Modbus server target description to a combination of IP, port and server ID. The descriptor has the form ``IP[:port[:serverID]]`` or ``hostname[:port[:serverID]]``.
 - the ``Makefile`` is set up to build this example client.
 
 Additionally, the ``libexplain`` lib was installed to get better error descriptions. It is used in ``Client.cpp``.
@@ -37,17 +38,15 @@ The ``Makefile`` has some more targets:
 - ``make dist`` will pack all necessary files into a zipped file ``MB.zip``.
 
 ### Trying the example client
-The client is called with up to 5 arguments:
+The client is called with 3 arguments:
 ```
-./testMB [IP [port [serverID [address [words]]]]]
+./testMB <target> <addr> <words>
 ```
-There are defaults for all parameters  that are omitted, but you may only drop parameters from the end of the command:
-only ``words`` or ``address`` **and** ``words`` or ``serverID`` **and** ``address`` **and** ``words`` and so on.
 
 A typical run may look like:
 ```
-miq@LinuxBox:~/MB/work$ ./testMB 192.168.178.77 6502 20 1 100
-.Response: serverID=20, FC=3, Token=04FE49CA, length=203:
+miq@LinuxBox:~/MB/work$ ./testMB 192.168.178.77:6502:20 1 100
+Response: serverID=20, FC=3, Token=04FE49CA, length=203:
 [N] Data: @7FD2DC000DC0/203:
   | 0000: 14 03 64 48 21 00 90 51  32 00 00 01 39 00 09 00  |..dH!..Q2...9...|
   | 0010: 03 C0 A8 C7 28 01 F6 FF  FF FF 00 C0 A8 C7 01 C0  |....(...........|
