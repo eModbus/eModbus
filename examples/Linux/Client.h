@@ -37,7 +37,7 @@ public:
   void setNoDelay(bool yesNo);
   uint8_t connected();
   operator bool();
-  IPAddress hostname_to_ip(const char *hostname);
+  static IPAddress hostname_to_ip(const char *hostname);
 
 protected:
   int sockfd;

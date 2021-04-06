@@ -1,6 +1,6 @@
 all: testMB
 
-OBJ = main.o ModbusMessage.o Logging.o ModbusClient.o ModbusClientTCP.o IPAddress.o Client.o
+OBJ = main.o ModbusMessage.o Logging.o ModbusClient.o ModbusClientTCP.o IPAddress.o Client.o parseTarget.o
 CXXFLAGS = -Wextra 
 CPPFLAGS = -DLOG_LEVEL=3
 
@@ -19,5 +19,5 @@ clean:
 	$(RM) core *.o *.d
 
 dist:
-	zip -f MB *.h *.cpp Makefile
+	zip -u MB *.h *.cpp Makefile
 
