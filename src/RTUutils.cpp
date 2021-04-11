@@ -108,6 +108,7 @@ void RTUutils::addCRC(ModbusMessage& raw) {
 // copied to the serial buffer.
 int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
   int rc = 0;
+#if NEED_UART_PATCH
   // Is the threshold value valid? The UART FIFO is 128 bytes only
   if (thresholdBytes > 0 && thresholdBytes < 128) {
     // Yes, it is. Try to identify the Serial/Serial1/Serial2 the user has provided.
@@ -136,6 +137,7 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
   } else {
     Serial.printf("Threshold must be between 1 and 127! (was %d)", thresholdBytes);
   }
+#endif
   // Return the previous value in case someone likes to see it.
   return rc;
 }

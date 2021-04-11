@@ -16,6 +16,7 @@
 #define HAS_FREERTOS 1
 #define HAS_ETHERNET 1
 #define IS_LINUX 0
+#define NEED_UART_PATCH 1
 
 /* === ESP8266 DEFINITIONS AND MACROS === */
 #elif defined(ESP8266)
@@ -24,6 +25,7 @@
 #define HAS_FREERTOS 0
 #define HAS_ETHERNET 0
 #define IS_LINUX 0
+#define NEED_UART_PATCH 0
 
 /* === LINUX DEFINITIONS AND MACROS === */
 #elif defined(__linux__)
@@ -31,6 +33,7 @@
 #define HAS_FREERTOS 0
 #define HAS_ETHERNET 0
 #define IS_LINUX 1
+#define NEED_UART_PATCH 0
 #include <cstdio>  // for printf()
 #include <cstring> // for memcpy(), strlen() etc.
 #include <chrono>  // NOLINT
