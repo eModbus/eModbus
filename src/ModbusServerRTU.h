@@ -50,7 +50,7 @@ protected:
   HardwareSerial& MSRserial;             // The serial interface to use
   uint32_t MSRinterval;                  // Bus quiet time between messages
   uint32_t MSRlastMicros;                // microsecond time stamp of last bus activity
-  uint32_t MSRrtsPin;                    // GPIO number of the RS485 module's RE/DE line
+  int8_t MSRrtsPin;                      // GPIO number of the RS485 module's RE/DE line
 
   // serve: loop function for server task
   static void serve(ModbusServerRTU *myself);
