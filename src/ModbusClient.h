@@ -18,8 +18,10 @@ extern "C" {
 #include <pthread.h>
 #endif
 
-typedef void (*MBOnData) (ModbusMessage msg, uint32_t token);
-typedef void (*MBOnError) (Modbus::Error errorCode, uint32_t token);
+#include <functional> 
+
+typedef std::function<void(ModbusMessage msg, uint32_t token)> MBOnData;
+typedef std::function<void(Modbus::Error errorCode, uint32_t token)> MBOnError;
 
 class ModbusClient {
 public:
