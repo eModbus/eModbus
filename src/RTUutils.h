@@ -11,6 +11,9 @@
 #include <vector>
 #include "HardwareSerial.h"
 #include "ModbusTypeDefs.h"
+#include <functional> 
+
+typedef std::function<void(bool level)> RTScallback;
 
 using namespace Modbus;  // NOLINT
 
@@ -43,6 +46,9 @@ public:
 // addCRC: extend a RTUMessage by a valid CRC
   static void addCRC(ModbusMessage& raw);
 
+// RTSauto: dummy callback for auto half duplex RS485 boards
+  inline static void RTSauto(bool level) { return; } // NOLINT
+
 protected:
   RTUutils() = delete;
 
@@ -53,8 +59,8 @@ protected:
   static ModbusMessage receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval);
 
 // send: send a Modbus message in either format (ModbusMessage or data/len)
-  static void send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, const uint8_t *data, uint16_t len);
-  static void send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, ModbusMessage raw);
+  static void send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, RTScallback r, const uint8_t *data, uint16_t len);
+  static void send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, RTScallback r, ModbusMessage raw);
 };
 
 #endif

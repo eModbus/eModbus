@@ -30,13 +30,22 @@ class AltLog : public Print {
 };
 AltLog a;
 
+// RTS callback test function
+uint32_t ExpectedToggles = 0;
+uint32_t cntRTShigh = 0;
+uint32_t cntRTSlow = 0;
+void RTStest(bool level) {
+  if (level) cntRTShigh++;
+  else       cntRTSlow++;
+}
+
 // Test prerequisites
 TCPstub stub;
 ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance for stub use.
 WiFiClient wc;
 ModbusClientTCP TestClientWiFi(wc, 25);         // ModbusClientTCP test instance for WiFi loopback use.
-ModbusClientRTU RTUclient(Serial1);             // ModbusClientRTU test instance.
-ModbusServerRTU RTUserver(Serial2, 20000);      // ModbusServerRTU instance
+ModbusClientRTU RTUclient(Serial1, GPIO_NUM_4);  // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
+ModbusServerRTU RTUserver(Serial2, 20000, RTStest);      // ModbusServerRTU instance
 ModbusServerWiFi MBserver;                      // ModbusServerWiFi instance
 IPAddress ip = {127,   0,   0,   1};            // IP address of ModbusServerWiFi (loopback IF)
 uint16_t port = 502;                            // port of modbus server
@@ -1098,6 +1107,8 @@ void setup()
 
     RTUserver.start();
 
+    ExpectedToggles = 0;
+
     // Set up test memory
     for (uint16_t i = 0; i < 32; ++i) {
       memo[i] = (i * 2) << 8 | ((i * 2) + 1);
@@ -1119,6 +1130,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 16, 1);
     if (e != SUCCESS) {
       ModbusMessage r;
@@ -1139,6 +1151,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x06, 16, 0xBEEF);
     if (e != SUCCESS) {
       ModbusMessage r;
@@ -1159,6 +1172,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 14, 4);
     if (e != SUCCESS) {
       ModbusMessage r;
@@ -1179,6 +1193,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 2, READ_HOLD_REGISTER, 28, 4);
     if (e != SUCCESS) {
       ModbusMessage r;
@@ -1199,6 +1214,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 2, 0x07);
     if (e != SUCCESS) {
       ModbusMessage r;
@@ -1219,6 +1235,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x07);
     if (e != SUCCESS) {
       ModbusMessage r;
@@ -1286,6 +1303,15 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    }
+
+    // Check RTS toggle
+    testsExecuted++;
+    // We expect one more LOW callback (initialization)
+    if (cntRTShigh != ExpectedToggles || cntRTSlow != ExpectedToggles + 1) {
+      Serial.printf("RTS toggle counts do not match. Expected=%d, HIGH=%d, LOW=%d\n", ExpectedToggles, cntRTShigh, cntRTSlow);
+    } else {
+      testsPassed++;
     }
 
     // ******************************************************************************
@@ -1527,25 +1553,26 @@ void setup()
   // Logging tests
   MBUlogLvl = LOG_LEVEL_VERBOSE;
   LOG_N("If you see this, Logging is working on a user-defined LOGDEVICE.\n");
+  LOG_N("Following shall be a Test dump, then 6 pairs of output for different log levels.\n");
   HEXDUMP_N("Test data", (uint8_t *)&words, 10);
 
-  LOG_C("Critical log message\n");
-  HEXDUMP_C("Test data", (uint8_t *)&words, 10);
+  LOG_C("\nCritical log message\n");
+  HEXDUMP_C("Critical dump", (uint8_t *)&words, 10);
 
-  LOG_E("Error log message\n");
-  HEXDUMP_E("Test data", (uint8_t *)&words, 10);
+  LOG_E("\nError log message\n");
+  HEXDUMP_E("Error dump", (uint8_t *)&words, 10);
 
-  LOG_W("Warning log message\n");
-  HEXDUMP_W("Test data", (uint8_t *)&words, 10);
+  LOG_W("\nWarning log message\n");
+  HEXDUMP_W("Warning dump", (uint8_t *)&words, 10);
 
-  LOG_I("Informational log message\n");
-  HEXDUMP_I("Test data", (uint8_t *)&words, 10);
+  LOG_I("\nInformational log message\n");
+  HEXDUMP_I("Info dump", (uint8_t *)&words, 10);
 
-  LOG_D("Debug log message\n");
-  HEXDUMP_D("Test data", (uint8_t *)&words, 10);
+  LOG_D("\nDebug log message\n");
+  HEXDUMP_D("Debug dump", (uint8_t *)&words, 10);
 
-  LOG_V("Verbose log message\n");
-  HEXDUMP_V("Test data", (uint8_t *)&words, 10);
+  LOG_V("\nVerbose log message\n");
+  HEXDUMP_V("Verbose dump data", (uint8_t *)&words, 10);
 
   Serial.println("All finished.");
 }

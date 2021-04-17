@@ -19,6 +19,30 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t
   MR_rtsPin(rtsPin),
   MR_qLimit(queueLimit),
   MR_timeoutValue(DEFAULTTIMEOUT) {
+    if (MR_rtsPin >= 0) {
+      pinMode(MR_rtsPin, OUTPUT);
+      MTRSrts = [this](bool level) {
+        digitalWrite(MR_rtsPin, level);
+      };
+      MTRSrts(LOW);
+    } else {
+      MTRSrts = RTUutils::RTSauto;
+    }
+    // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
+    RTUutils::UARTinit(serial, 1);
+}
+
+// Alternative constructor takes Serial reference and RTS callback function
+ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, RTScallback rts, uint16_t queueLimit) :
+  ModbusClient(),
+  MR_serial(serial),
+  MR_lastMicros(micros()),
+  MR_interval(2000),
+  MTRSrts(rts),
+  MR_qLimit(queueLimit),
+  MR_timeoutValue(DEFAULTTIMEOUT) {
+    MR_rtsPin = -1;
+    MTRSrts(LOW);
     // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
     RTUutils::UARTinit(serial, 1);
 }
@@ -44,11 +68,8 @@ ModbusClientRTU::~ModbusClientRTU() {
 void ModbusClientRTU::begin(int coreID) {
   // Only start worker if HardwareSerial has been initialized!
   if (MR_serial.baudRate()) {
-    // If rtsPin is >=0, the RS485 adapter needs send/receive toggle
-    if (MR_rtsPin >= 0) {
-      pinMode(MR_rtsPin, OUTPUT);
-      digitalWrite(MR_rtsPin, LOW);
-    }
+    // Pull down RTS toggle, if necessary
+    MTRSrts(LOW);
 
     // silent interval is at least 3.5x character time
     MR_interval = 35000000UL / MR_serial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
@@ -126,7 +147,7 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       LOG_D("Pulled request from queue\n");
 
       // Send it via Serial
-      RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MR_rtsPin, request.msg);
+      RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MTRSrts, request.msg);
 
       LOG_D("Request sent.\n");
       // HEXDUMP_V("Data", request.msg.data(), request.msg.size());

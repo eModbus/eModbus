@@ -143,11 +143,11 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, const uint8_t *data, uint16_t len) {
+void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, RTScallback rts, const uint8_t *data, uint16_t len) {
   uint16_t crc16 = calcCRC(data, len);
   while (micros() - lastMicros < interval) delayMicroseconds(1);  // respect _interval
   // Toggle rtsPin, if necessary
-  if (rtsPin >= 0) digitalWrite(rtsPin, HIGH);
+  rts(HIGH);
   // Write message
   serial.write(data, len);
   // Write CRC in LSB order
@@ -155,7 +155,7 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
   serial.write((crc16 >> 8) & 0xFF);
   serial.flush();
   // Toggle rtsPin, if necessary
-  if (rtsPin >= 0) digitalWrite(rtsPin, LOW);
+  rts(LOW);
 
   HEXDUMP_D("Sent packet", data, len);
 
@@ -164,8 +164,8 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, int rtsPin, ModbusMessage raw) {
-  send(serial, lastMicros, interval, rtsPin, raw.data(), raw.size());
+void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, RTScallback rts, ModbusMessage raw) {
+  send(serial, lastMicros, interval, rts, raw.data(), raw.size());
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval

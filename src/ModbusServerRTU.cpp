@@ -12,7 +12,7 @@
 // Init number of created ModbusServerRTU objects
 uint8_t ModbusServerRTU::instanceCounter = 0;
 
-// Constructor
+// Constructor with RTS pin GPIO (or -1)
 ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin) :
   ModbusServer(),
   serverTask(nullptr),
@@ -26,8 +26,31 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
   // If we have a GPIO RE/DE pin, configure it.
   if (MSRrtsPin >= 0) {
     pinMode(MSRrtsPin, OUTPUT);
-    digitalWrite(MSRrtsPin, LOW);
+    MRTSrts = [this](bool level) {
+      digitalWrite(MSRrtsPin, level);
+    };
+    MRTSrts(LOW);
+  } else {
+    MRTSrts = RTUutils::RTSauto;
   }
+  // Set the UART FIFO copy threshold to 1 byte
+  RTUutils::UARTinit(serial, 1);
+}
+
+// Constructor with RTS callback
+ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts) :
+  ModbusServer(),
+  serverTask(nullptr),
+  serverTimeout(20000),
+  MSRserial(serial),
+  MSRinterval(2000),     // will be calculated in start()!
+  MSRlastMicros(0),
+  MRTSrts(rts) {
+  // Count instances one up
+  instanceCounter++;
+  // Configure RTS callback
+  MSRrtsPin = -1;
+  MRTSrts(LOW);
   // Set the UART FIFO copy threshold to 1 byte
   RTUutils::UARTinit(serial, 1);
 }
@@ -154,7 +177,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       // Do we have gathered a valid response now?
       if (response.size() >= 3) {
         // Yes. send it back.
-        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRrtsPin, response);
+        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response);
         LOG_D("Response sent.\n");
       }
     } else {
