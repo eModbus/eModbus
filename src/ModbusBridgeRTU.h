@@ -1,4 +1,3 @@
-#include "options.h"
 // =================================================================================================
 // eModbus: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to eModbus
 //               MIT license - see license.md for details
@@ -8,6 +7,7 @@
 #include "options.h"
 #include "ModbusServerRTU.h"
 #include "ModbusBridgeTemp.h"
+#include "RTUutils.h"
 
 using ModbusBridgeRTU = ModbusBridge<ModbusServerRTU>;
 

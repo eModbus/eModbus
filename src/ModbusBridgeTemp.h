@@ -9,6 +9,7 @@
 #include <functional>
 #include "ModbusClient.h"
 #include "ModbusClientTCP.h"  // Needed for client.setTarget()
+#include "RTUutils.h"  // Needed for RTScallback
 
 #undef LOCAL_LOG_LEVEL
 #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
@@ -27,8 +28,9 @@ public:
   // Constructor for TCP server variants. TOV is the timeout while waiting for a client to respond
   explicit ModbusBridge(uint32_t TOV = 10000);
 
-  // Constructor for the RTU variant. Parameters as are for ModbusServerRTU, plus TOV (see before)
+  // Constructors for the RTU variant. Parameters as are for ModbusServerRTU, plus TOV (see before)
   ModbusBridge(HardwareSerial& serial, uint32_t timeout, uint32_t TOV = 10000, int rtsPin = -1);
+  ModbusBridge(HardwareSerial& serial, uint32_t timeout, RTScallback rts, uint32_t TOV = 10000);
 
   // Destructor
   ~ModbusBridge();
@@ -100,10 +102,16 @@ ModbusBridge<SERVERCLASS>::ModbusBridge(uint32_t TOV) :
   SERVERCLASS(),
   requestTimeout(TOV) { } 
 
-// Constructor for RTU variant
+// Constructors for RTU variant
 template<typename SERVERCLASS>
 ModbusBridge<SERVERCLASS>::ModbusBridge(HardwareSerial& serial, uint32_t timeout, uint32_t TOV, int rtsPin) :
   SERVERCLASS(serial, timeout, rtsPin),
+  requestTimeout(TOV) { }
+
+// Alternate constructors for RTU variant
+template<typename SERVERCLASS>
+ModbusBridge<SERVERCLASS>::ModbusBridge(HardwareSerial& serial, uint32_t timeout, RTScallback rts, uint32_t TOV) :
+  SERVERCLASS(serial, timeout, rts),
   requestTimeout(TOV) { }
 
 // Destructor
