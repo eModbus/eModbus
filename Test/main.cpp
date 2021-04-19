@@ -608,9 +608,8 @@ void setup()
   IPAddress testHost2 = IPAddress(26, 183, 4, 22);
   uint32_t Token = 1;
 
-  // Register onData and onError handlers
-  TestTCP.onDataHandler(&handleData);
-  TestTCP.onErrorHandler(&handleError);
+  // Register onResponse handler
+  TestTCP.onResponseHandler(&handleData);
 
   // Start ModbusClientTCP background task
   TestTCP.begin();
@@ -715,7 +714,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 07"),
-    .expected = makeVector("E0"),
+    .expected = makeVector("01 87 E0"),
     .delayTime = 3000,
     .stopAfterResponding = false,
     .fakeTransactionID = false
@@ -738,7 +737,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 07"),
-    .expected = makeVector("EB"),
+    .expected = makeVector("01 87 EB"),
     .delayTime = 0,
     .stopAfterResponding = false,
     .fakeTransactionID = true
@@ -760,7 +759,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("2F 03 06 11 22 33 44 55 66"),
-    .expected = makeVector("E4"),
+    .expected = makeVector("01 83 E4"),
     .delayTime = 0,
     .stopAfterResponding = false,
     .fakeTransactionID = false
@@ -782,7 +781,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 04 06 11 22 33 44 55 66"),
-    .expected = makeVector("E3"),
+    .expected = makeVector("01 83 E3"),
     .delayTime = 0,
     .stopAfterResponding = false,
     .fakeTransactionID = false
@@ -804,7 +803,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = empty,
-    .expected = makeVector("E0"),
+    .expected = makeVector("01 83 E0"),
     .delayTime = 0,
     .stopAfterResponding = false,
     .fakeTransactionID = false
@@ -893,7 +892,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 07 2B"),
-    .expected = makeVector("EA"),
+    .expected = makeVector("01 87 EA"),
     .delayTime = 0,
     .stopAfterResponding = false,
     .fakeTransactionID = false
@@ -916,7 +915,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 87 46"),
-    .expected = makeVector("46"),
+    .expected = makeVector("01 87 46"),
     .delayTime = 0,
     .stopAfterResponding = false,
     .fakeTransactionID = false
@@ -942,7 +941,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 87 01"),
-    .expected = makeVector("01"),
+    .expected = makeVector("01 87 01"),
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
@@ -963,7 +962,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 87 02"),
-    .expected = makeVector("02"),
+    .expected = makeVector("01 87 02"),
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
@@ -986,7 +985,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 87 11"),
-    .expected = makeVector("11"),
+    .expected = makeVector("01 87 11"),
     .delayTime = 0,
     .stopAfterResponding = false,
     .fakeTransactionID = false
@@ -1009,7 +1008,7 @@ void setup()
     .transactionID = static_cast<uint16_t>(TestTCP.getMessageCount() & 0xFFFF),
     .token = Token++,
     .response = makeVector("01 87 03"),
-    .expected = makeVector("03"),
+    .expected = makeVector("01 87 03"),
     .delayTime = 0,
     .stopAfterResponding = true,
     .fakeTransactionID = false
