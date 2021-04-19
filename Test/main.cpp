@@ -1090,8 +1090,9 @@ void setup()
     Serial.println("    RTU loop tests skipped.");
   } else {
     // Connections are as needed. Set up RTU client
-    RTUclient.onDataHandler(&handleData);
-    RTUclient.onErrorHandler(&handleError);
+    RTUclient.onResponseHandler(&handleData);
+    // RTUclient.onDataHandler(&handleData);
+    // RTUclient.onErrorHandler(&handleError);
     RTUclient.setTimeout(2000);
 
     RTUclient.begin();
@@ -1228,7 +1229,7 @@ void setup()
       .transactionID = 0,
       .token = Token++,
       .response = empty,
-      .expected = makeVector("01"), 
+      .expected = makeVector("01 87 01"), 
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
@@ -1249,7 +1250,7 @@ void setup()
       .transactionID = 0,
       .token = Token++,
       .response = empty,
-      .expected = makeVector("E0"), 
+      .expected = makeVector("03 87 E0"), 
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
@@ -1270,7 +1271,7 @@ void setup()
       .transactionID = 0,
       .token = Token++,
       .response = empty,
-      .expected = makeVector("E0"), 
+      .expected = makeVector("02 C1 E0"), 
       .delayTime = 0,
       .stopAfterResponding = true,
       .fakeTransactionID = false
@@ -1282,7 +1283,12 @@ void setup()
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
     }
-    delay(2000);   // #8 results in timeout, so wat a bit.
+    delay(5000);   // #8 results in timeout, so wat a bit.
+
+    // Test-wise, switch handlers
+    RTUclient.onResponseHandler(nullptr);
+    RTUclient.onDataHandler(handleData);
+    RTUclient.onErrorHandler(handleError);
 
     // #9: Error response
     tc = new TestCase { 
