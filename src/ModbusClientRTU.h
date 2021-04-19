@@ -32,24 +32,24 @@ public:
   // Base addRequest must be present
   Error addRequest(ModbusMessage msg, uint32_t token);
 
-template <typename... Args>
-Error addRequest(uint32_t token, Args&&... args) {
-  Error rc = SUCCESS;        // Return value
+  template <typename... Args>
+  Error addRequest(uint32_t token, Args&&... args) {
+    Error rc = SUCCESS;        // Return value
 
-  // Create request, if valid
-  ModbusMessage m;
-  rc = m.setMessage(std::forward<Args>(args) ...);
+    // Create request, if valid
+    ModbusMessage m;
+    rc = m.setMessage(std::forward<Args>(args) ...);
 
-  // Add it to the queue, if valid
-  if (rc == SUCCESS) {
-    // Queue add successful?
-    if (!addToQueue(token, m)) {
-      // No. Return error after deleting the allocated request.
-      rc = REQUEST_QUEUE_FULL;
+    // Add it to the queue, if valid
+    if (rc == SUCCESS) {
+      // Queue add successful?
+      if (!addToQueue(token, m)) {
+        // No. Return error after deleting the allocated request.
+        rc = REQUEST_QUEUE_FULL;
+      }
     }
+    return rc;
   }
-  return rc;
-}
 
   // Constructor takes Serial reference and optional DE/RE pin and queue limit
   explicit ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);

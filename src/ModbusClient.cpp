@@ -17,14 +17,18 @@ ModbusClient::ModbusClient() :
   worker(0),
   #endif
   onData(nullptr),
-  onError(nullptr) { instanceCounter++; }
+  onError(nullptr),
+  onResponse(nullptr) { instanceCounter++; }
 
 // onDataHandler: register callback for data responses
 bool ModbusClient::onDataHandler(MBOnData handler) {
   if (onData) {
     LOG_E("onData handler was already claimed\n");
     return false;
-  } 
+  } else if (onResponse) {
+    LOG_E("onData handler is unavailable with an onResponse handler\n");
+    return false;
+  }
   onData = handler;
   return true;
 }
@@ -34,8 +38,21 @@ bool ModbusClient::onErrorHandler(MBOnError handler) {
   if (onError) {
     LOG_E("onError handler was already claimed\n");
     return false;
+  } else if (onResponse) {
+    LOG_E("onError handler is unavailable with an onResponse handler\n");
+    return false;
   } 
   onError = handler;
+  return true;
+}
+
+// onResponseHandler: register callback for error responses
+bool ModbusClient::onResponseHandler(MBOnResponse handler) {
+  if (onError || onData) {
+    LOG_E("onResponse handler is unavailable with an onData or onError handler\n");
+    return false;
+  } 
+  onResponse = handler;
   return true;
 }
 

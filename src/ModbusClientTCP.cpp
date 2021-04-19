@@ -191,13 +191,19 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
 
         // Did we get a normal response?
         if (response.getError()==SUCCESS) {
-          // Yes. Do we have an onData handler registered?
-          LOG_D("Data response.\n");
-          if (instance->onData) {
-            // Yes. call it
-            instance->onData(response, request->token);
+          // Yes. Do we have an onResponse handler?
+          if (instance->onResponse) {
+            // Yes. Call it.
+            instance->onResponse(response, request->token);
           } else {
-            LOG_D("No onData handler\n");
+          // No, but do we have an onData handler registered?
+            LOG_D("Data response.\n");
+            if (instance->onData) {
+              // Yes. call it
+              instance->onData(response, request->token);
+            } else {
+              LOG_D("No onData handler\n");
+            }
           }
         } else {
           // No, something went wrong. All we have is an error
@@ -205,13 +211,19 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
             LOG_D("Retry on timeout...\n");
             doNotPop = true;
           } else {
-            // Do we have an onError handler?
-            LOG_D("Error response.\n");
-            if (instance->onError) {
-              // Yes. Forward the error code to it
-              instance->onError(response.getError(), request->token);
+            // Do we have an onResponse handler?
+            if (instance->onResponse) {
+              // Yes, call it.
+              instance->onResponse(response, request->token);
             } else {
-              LOG_D("No onError handler\n");
+              // No, but do we have an onError handler?
+              LOG_D("Error response.\n");
+              if (instance->onError) {
+                // Yes. Forward the error code to it
+                instance->onError(response.getError(), request->token);
+              } else {
+                LOG_D("No onError handler\n");
+              }
             }
           }
         }

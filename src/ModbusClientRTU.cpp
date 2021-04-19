@@ -187,19 +187,26 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       LOG_D("Response generated.\n");
       HEXDUMP_V("Response packet", response.data(), response.size());
 
-      // Did we get a normal response?
-      if (response.getError()==SUCCESS) {
-        // Yes. Do we have an onData handler registered?
-        if (instance->onData) {
-          // Yes. call it
-          instance->onData(response, request.token);
-        }
+      // Do we have an onResponse handler?
+      if (instance->onResponse) {
+        // Yes. Call it
+        instance->onResponse(response, request.token);
       } else {
-        // No, something went wrong. All we have is an error
-        // Do we have an onError handler?
-        if (instance->onError) {
-          // Yes. Forward the error code to it
-          instance->onError(response.getError(), request.token);
+        // No, but we may have onData or onError handlers
+        // Did we get a normal response?
+        if (response.getError()==SUCCESS) {
+          // Yes. Do we have an onData handler registered?
+          if (instance->onData) {
+            // Yes. call it
+            instance->onData(response, request.token);
+          }
+        } else {
+          // No, something went wrong. All we have is an error
+          // Do we have an onError handler?
+          if (instance->onError) {
+            // Yes. Forward the error code to it
+            instance->onError(response.getError(), request.token);
+          }
         }
       }
       // Clean-up time. 
