@@ -260,13 +260,17 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
       } else {
         error = response->getError();
       }
-      if (error == SUCCESS) {
-        if (onData) {
-          onData(*response, request->token);
-        }
+      if (onResponse) {
+        onResponse(*response, request->token);
       } else {
-        if (onError) {
-          onError(response->getError(), request->token);
+        if (error == SUCCESS) {
+          if (onData) {
+            onData(*response, request->token);
+          }
+        } else {
+          if (onError) {
+            onError(response->getError(), request->token);
+          }
         }
       }
       delete request;
