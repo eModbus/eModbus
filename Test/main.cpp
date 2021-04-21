@@ -1580,6 +1580,15 @@ void setup()
   HEXDUMP_V("Verbose dump data", (uint8_t *)&words, 10);
 
   Serial.println("All finished.");
+
+  ModbusMessage m(1, READ_HOLD_REGISTER, 1, 4);
+  ModbusMessage n = RTUclient.syncRequestM(m, (uint32_t)345653);
+  HEXDUMP_N("sync Request", m.data(), m.size());
+  HEXDUMP_N("sync Response", n.data(), n.size());
+
+  n = RTUclient.syncRequest((uint32_t)545454, (uint8_t)1, (uint8_t)251);
+  HEXDUMP_N("sync error", n.data(), n.size());
+
 }
 
 void loop() {

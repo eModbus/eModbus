@@ -60,3 +60,31 @@ bool ModbusClient::onResponseHandler(MBOnResponse handler) {
 uint32_t ModbusClient::getMessageCount() {
   return messageCount;
 }
+
+// waitSync: wait for response on syncRequest to arrive
+ModbusMessage ModbusClient::waitSync(uint8_t serverID, uint8_t functionCode, uint32_t token) {
+  ModbusMessage response;
+  uint32_t lostPatience = millis();
+ 
+  // Default response is TIMEOUT
+  response.setError(serverID, functionCode, TIMEOUT);
+
+  // Loop 60 seconds, if unlucky
+  while (millis() - lostPatience < 60000) {
+    {
+      LOCK_GUARD(lg, syncRespM);
+      // Look for the token
+      auto sR = syncResponse.find(token);
+      // Is it there?
+      if (sR != syncResponse.end()) {
+        // Yes. get the response, delete it from the map and return
+        response = sR->second;
+        syncResponse.erase(sR);
+        break;
+      }
+    }
+    // Give the watchdog time to act
+    delay(10);
+  }
+  return response;
+}

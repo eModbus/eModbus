@@ -97,7 +97,7 @@ void ModbusClientTCPasync::setMaxInflightRequests(uint32_t maxInflightRequests) 
 }
 
 // Base addRequest for preformatted ModbusMessage and last set target
-Error ModbusClientTCPasync::addRequest(ModbusMessage msg, uint32_t token) {
+Error ModbusClientTCPasync::addRequestM(ModbusMessage msg, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Add it to the queue, if valid
@@ -113,14 +113,33 @@ Error ModbusClientTCPasync::addRequest(ModbusMessage msg, uint32_t token) {
   return rc;
 }
 
+// Base syncRequest follows the same pattern
+ModbusMessage ModbusClientTCPasync::syncRequestM(ModbusMessage msg, uint32_t token) {
+  ModbusMessage response;
+
+  if (msg) {
+    // Queue add successful?
+    if (!addToQueue(token, msg, true)) {
+      // No. Return error after deleting the allocated request.
+      response.setError(msg.getServerID(), msg.getFunctionCode(), REQUEST_QUEUE_FULL);
+    } else {
+      // Request is queued - wait for the result.
+      response = waitSync(msg.getServerID(), msg.getFunctionCode(), token);
+    }
+  } else {
+    response.setError(msg.getServerID(), msg.getFunctionCode(), EMPTY_MESSAGE);
+  }
+  return response;
+}
+
 // addToQueue: send freshly created request to queue
-bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request) {
+bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, bool syncReq) {
   // Did we get one?
   if (request) {
     LOCK_GUARD(lock1, qLock);
     if (txQueue.size() + rxQueue.size() < MTA_qLimit) {
       HEXDUMP_V("Enqueue", request.data(), request.size());
-      RequestEntry *re = new RequestEntry(token, request);
+      RequestEntry *re = new RequestEntry(token, request, syncReq);
       if (!re) return false;  //TODO: proper error returning in case allocation fails
       // inject proper transactionID
       re->head.transactionID = messageCount++;
@@ -260,7 +279,13 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
       } else {
         error = response->getError();
       }
-      if (onResponse) {
+
+      if (request->isSyncRequest) {
+        {
+          LOCK_GUARD(sL ,syncRespM);
+          syncResponse[request->token] = *response;
+        }
+      } else if (onResponse) {
         onResponse(*response, request->token);
       } else {
         if (error == SUCCESS) {

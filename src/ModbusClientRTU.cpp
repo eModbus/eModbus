@@ -93,7 +93,7 @@ void ModbusClientRTU::setTimeout(uint32_t TOV) {
 }
 
 // Base addRequest taking a preformatted data buffer and length as parameters
-Error ModbusClientRTU::addRequest(ModbusMessage msg, uint32_t token) {
+Error ModbusClientRTU::addRequestM(ModbusMessage msg, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   LOG_D("request for %02X/%02X\n", msg.getServerID(), msg.getFunctionCode());
@@ -111,12 +111,31 @@ Error ModbusClientRTU::addRequest(ModbusMessage msg, uint32_t token) {
   return rc;
 }
 
+// Base syncRequest follows the same pattern
+ModbusMessage ModbusClientRTU::syncRequestM(ModbusMessage msg, uint32_t token) {
+  ModbusMessage response;
+
+  if (msg) {
+    // Queue add successful?
+    if (!addToQueue(token, msg, true)) {
+      // No. Return error after deleting the allocated request.
+      response.setError(msg.getServerID(), msg.getFunctionCode(), REQUEST_QUEUE_FULL);
+    } else {
+      // Request is queued - wait for the result.
+      response = waitSync(msg.getServerID(), msg.getFunctionCode(), token);
+    }
+  } else {
+    response.setError(msg.getServerID(), msg.getFunctionCode(), EMPTY_MESSAGE);
+  }
+  return response;
+}
+
 // addToQueue: send freshly created request to queue
-bool ModbusClientRTU::addToQueue(uint32_t token, ModbusMessage request) {
+bool ModbusClientRTU::addToQueue(uint32_t token, ModbusMessage request, bool syncReq) {
   bool rc = false;
   // Did we get one?
   if (request) {
-    RequestEntry re(token, request);
+    RequestEntry re(token, request, syncReq);
     if (requests.size()<MR_qLimit) {
       // Yes. Safely lock queue and push request to queue
       rc = true;
@@ -187,8 +206,15 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       LOG_D("Response generated.\n");
       HEXDUMP_V("Response packet", response.data(), response.size());
 
-      // Do we have an onResponse handler?
-      if (instance->onResponse) {
+      // Was it a synchronous request?
+      if (request.isSyncRequest) {
+        // Yes. Put it into the response map
+        {
+          LOCK_GUARD(sL, instance->syncRespM);
+          instance->syncResponse[request.token] = response;
+        }
+      // No, an async request. Do we have an onResponse handler?
+      } else if (instance->onResponse) {
         // Yes. Call it
         instance->onResponse(response, request.token);
       } else {
