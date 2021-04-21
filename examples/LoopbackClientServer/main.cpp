@@ -115,7 +115,7 @@ void loop() {
     }
     Serial.println("");
     // Send it
-    MB.addRequest(request, Token++);
+    MB.addRequestM(request, Token++);
   }
 
   delay(10000);
