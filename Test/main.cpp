@@ -1574,7 +1574,7 @@ void setup()
   testOutput("Sync request wrong serverID (WiFi)", LNO(__LINE__), makeVector("08 83 E1"), n);
 
   n = TestClientWiFi.syncRequest(Token++, 2, READ_HOLD_REGISTER, 32, 160);
-  testOutput("Sync request address/words invalid (WiFi)", LNO(__LINE__), makeVector("08 83 E7"), n);
+  testOutput("Sync request address/words invalid (WiFi)", LNO(__LINE__), makeVector("02 83 E7"), n);
 
   // Print summary.
   delay(2000);
