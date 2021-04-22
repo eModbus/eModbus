@@ -1616,6 +1616,24 @@ void setup()
   n = Bridge.localRequest(m);
   testOutput("FC not supported by bridge", LNO(__LINE__), makeVector("04 84 01"), n);
 
+  if (chkFailed) {
+    Serial.printf("Bridge RTU tests skipped\n");
+  } else {
+    MBUlogLvl = LOG_LEVEL_ERROR;
+    Bridge.attachServer(2, 1, READ_HOLD_REGISTER, &RTUclient);
+    Bridge.attachServer(6, 9, ANY_FUNCTION_CODE, &RTUclient);
+    Bridge.addFunctionCode(2, READ_HOLD_REGISTER);
+    MBUlogLvl = LOG_LEVEL_WARNING;
+
+    m.setMessage(2, READ_HOLD_REGISTER, 3, 2);
+    n = Bridge.localRequest(m);
+    testOutput("Regular request (RTU)", LNO(__LINE__), makeVector("02 03 04 04 05 06 07"), n);
+
+    m.setMessage(6, READ_HOLD_REGISTER, 3, 2);
+    n = Bridge.localRequest(m);
+    testOutput("Invalid server (RTU)", LNO(__LINE__), makeVector("06 83 E0"), n);
+  }
+
   // Print summary.
   Serial.printf("----->    Bridge tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
