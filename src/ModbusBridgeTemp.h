@@ -222,7 +222,7 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
     // Schedule request
     // Set real target server ID
     msg.setServerID(servers[aliasID]->serverID);
-    Error e = servers[aliasID]->client->addRequestM(msg, (uint32_t)responseBuffer);
+    Error e = servers[aliasID]->client->addRequest(msg, (uint32_t)responseBuffer);
     LOG_D("Request (%02X/%02X) sent\n", servers[aliasID]->serverID, functionCode);
     // If request is formally wrong, return error code
     if (e != SUCCESS) {
