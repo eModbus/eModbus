@@ -25,12 +25,12 @@ enum ServerType : uint8_t { TCP_SERVER, RTU_SERVER };
 template<typename SERVERCLASS>
 class ModbusBridge : public SERVERCLASS {
 public:
-  // Constructor for TCP server variants. TOV is the timeout while waiting for a client to respond
-  explicit ModbusBridge(uint32_t TOV = 10000);
+  // Constructor for TCP server variants.
+  ModbusBridge();
 
-  // Constructors for the RTU variant. Parameters as are for ModbusServerRTU, plus TOV (see before)
-  ModbusBridge(HardwareSerial& serial, uint32_t timeout, uint32_t TOV = 10000, int rtsPin = -1);
-  ModbusBridge(HardwareSerial& serial, uint32_t timeout, RTScallback rts, uint32_t TOV = 10000);
+  // Constructors for the RTU variant. Parameters as are for ModbusServerRTU
+  ModbusBridge(HardwareSerial& serial, uint32_t timeout, int rtsPin = -1);
+  ModbusBridge(HardwareSerial& serial, uint32_t timeout, RTScallback rts);
 
   // Destructor
   ~ModbusBridge();
@@ -76,28 +76,22 @@ protected:
 
   // Map of servers attached
   std::map<uint8_t, ServerData *> servers;
-
-  // Timeout for sent requests
-  uint32_t requestTimeout;
 };
 
 // Constructor for TCP variants
 template<typename SERVERCLASS>
-ModbusBridge<SERVERCLASS>::ModbusBridge(uint32_t TOV) :
-  SERVERCLASS(),
-  requestTimeout(TOV) { } 
+ModbusBridge<SERVERCLASS>::ModbusBridge() :
+  SERVERCLASS() { } 
 
 // Constructors for RTU variant
 template<typename SERVERCLASS>
-ModbusBridge<SERVERCLASS>::ModbusBridge(HardwareSerial& serial, uint32_t timeout, uint32_t TOV, int rtsPin) :
-  SERVERCLASS(serial, timeout, rtsPin),
-  requestTimeout(TOV) { }
+ModbusBridge<SERVERCLASS>::ModbusBridge(HardwareSerial& serial, uint32_t timeout, int rtsPin) :
+  SERVERCLASS(serial, timeout, rtsPin) { }
 
 // Alternate constructors for RTU variant
 template<typename SERVERCLASS>
-ModbusBridge<SERVERCLASS>::ModbusBridge(HardwareSerial& serial, uint32_t timeout, RTScallback rts, uint32_t TOV) :
-  SERVERCLASS(serial, timeout, rts),
-  requestTimeout(TOV) { }
+ModbusBridge<SERVERCLASS>::ModbusBridge(HardwareSerial& serial, uint32_t timeout, RTScallback rts) :
+  SERVERCLASS(serial, timeout, rts) { }
 
 // Destructor
 template<typename SERVERCLASS>
