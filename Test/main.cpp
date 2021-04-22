@@ -581,10 +581,6 @@ void setup()
   adder.add(b);
   testOutput(__func__, LNO(__LINE__) "add double swapped", makeVector("11 88 45 33 F6 23 C0 CA C0 11"), adder);
 
-  // ******************************************************************************
-  // Write test cases above this line!
-  // ******************************************************************************
-
   // Print summary.
   Serial.printf("----->    Generate messages tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
@@ -1023,11 +1019,6 @@ void setup()
   }
   delay(1000);
 
-
-  // ******************************************************************************
-  // Write test cases above this line!
-  // ******************************************************************************
-
   // Print summary. We will have to wait a bit to get all test cases executed!
   delay(2000);
   Serial.printf("----->    TCP loop stub tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
@@ -1319,10 +1310,6 @@ void setup()
       testsPassed++;
     }
 
-    // ******************************************************************************
-    // Write test cases above this line!
-    // ******************************************************************************
-
     // Print summary. We will have to wait a bit to get all test cases executed!
     delay(2000);
     Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
@@ -1547,48 +1534,90 @@ void setup()
     testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
-  // ******************************************************************************
-  // Write test cases above this line!
-  // ******************************************************************************
-
   // Print summary. We will have to wait a bit to get all test cases executed!
   delay(2000);
   Serial.printf("----->    TCP WiFi loopback tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
+  // ******************************************************************************
+  // Tests for synchronous requests
+  // ******************************************************************************
+
+  // Restart test case and tests passed counter
+  testsExecuted = 0;
+  testsPassed = 0;
+
+  printPassed = false;
+  ModbusMessage n, m;
+
+  if (chkFailed) {
+    Serial.printf("Synchronous RTU tests skipped\n");
+  } else {
+    m.setMessage(1, READ_HOLD_REGISTER, 1, 4);
+    n = RTUclient.syncRequest(m, Token++);
+    testOutput("Regular sync response (RTU)", LNO(__LINE__), makeVector("01 03 08 00 01 02 03 04 05 06 07"), n);
+
+    n = RTUclient.syncRequest(Token++, 1, 251);
+    testOutput("Sync FC error (RTU)", LNO(__LINE__), makeVector("01 FB 01"), n);
+
+    n = RTUclient.syncRequest(Token++, 8, READ_HOLD_REGISTER, 8, 4);
+    testOutput("Sync request wrong serverID (RTU)", LNO(__LINE__), makeVector("08 83 E0"), n);
+  }
+
+  n = TestClientWiFi.syncRequest(Token, 1, READ_HOLD_REGISTER, 4, 4);
+  testOutput("Sync regular request (WiFi)", LNO(__LINE__), makeVector("01 03 08 06 07 08 09 0A 0B 0C 0D"), n);
+
+  // Same Token!
+  n = TestClientWiFi.syncRequest(Token++, 1, READ_HOLD_REGISTER, 8, 4);
+  testOutput("Sync request same token (WiFi)", LNO(__LINE__), makeVector("01 03 08 0E 0F 10 11 12 13 14 15"), n);
+
+  n = TestClientWiFi.syncRequest(Token++, 8, READ_HOLD_REGISTER, 8, 4);
+  testOutput("Sync request wrong serverID (WiFi)", LNO(__LINE__), makeVector("08 83 E1"), n);
+
+  n = TestClientWiFi.syncRequest(Token++, 2, READ_HOLD_REGISTER, 32, 160);
+  testOutput("Sync request address/words invalid (WiFi)", LNO(__LINE__), makeVector("08 83 E7"), n);
+
+  // Print summary.
+  delay(2000);
+  Serial.printf("----->    Synchronous request tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+  // ******************************************************************************
   // Logging tests
+  // ******************************************************************************
+
+  Serial.printf("\n\n\n\nSome logging test output - please check yourself!\n");
+
   MBUlogLvl = LOG_LEVEL_VERBOSE;
   LOG_N("If you see this, Logging is working on a user-defined LOGDEVICE.\n");
-  LOG_N("Following shall be a Test dump, then 6 pairs of output for different log levels.\n");
+  LOG_N("Following shall be a Test dump, then 6 pairs of output for different log levels.\n\n");
   HEXDUMP_N("Test data", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_C("\nCritical log message\n");
   HEXDUMP_C("Critical dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_E("\nError log message\n");
   HEXDUMP_E("Error dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_W("\nWarning log message\n");
   HEXDUMP_W("Warning dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_I("\nInformational log message\n");
   HEXDUMP_I("Info dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_D("\nDebug log message\n");
   HEXDUMP_D("Debug dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_V("\nVerbose log message\n");
   HEXDUMP_V("Verbose dump data", (uint8_t *)&words, 10);
 
-  Serial.println("All finished.");
-
-  ModbusMessage m(1, READ_HOLD_REGISTER, 1, 4);
-  ModbusMessage n = RTUclient.syncRequestM(m, (uint32_t)345653);
-  HEXDUMP_N("sync Request", m.data(), m.size());
-  HEXDUMP_N("sync Response", n.data(), n.size());
-
-  n = RTUclient.syncRequest((uint32_t)545454, (uint8_t)1, (uint8_t)251);
-  HEXDUMP_N("sync error", n.data(), n.size());
-
+  // ======================================================================================
+  // Final message
+  Serial.println("\n\n *** ----> All finished.");
 }
 
 void loop() {
