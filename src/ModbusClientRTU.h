@@ -21,10 +21,6 @@ using std::queue;
 
 class ModbusClientRTU : public ModbusClient {
 public:
-  // Base addRequest and syncRequest must be present
-  Error addRequestM(ModbusMessage msg, uint32_t token);
-  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
-
   // Constructor takes Serial reference and optional DE/RE pin and queue limit
   explicit ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);
 
@@ -50,6 +46,10 @@ protected:
       msg(m),
       isSyncRequest(syncReq) {}
   };
+
+  // Base addRequest and syncRequest must be present
+  Error addRequestM(ModbusMessage msg, uint32_t token);
+  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
 
   // addToQueue: send freshly created request to queue
   bool addToQueue(uint32_t token, ModbusMessage msg, bool syncReq = false);

@@ -50,10 +50,6 @@ public:
   // Set maximum amount of messages awaiting a response. Subsequent messages will be queued.
   void setMaxInflightRequests(uint32_t maxInflightRequests);
 
-  // Base addRequest and syncRequest both must be present
-  Error addRequestM(ModbusMessage msg, uint32_t token);
-  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
-
 protected:
 
   // class describing the TCP header of Modbus packets
@@ -105,6 +101,9 @@ protected:
       isSyncRequest(syncReq) {}
   };
 
+  // Base addRequest and syncRequest both must be present
+  Error addRequestM(ModbusMessage msg, uint32_t token);
+  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
 
   // addToQueue: send freshly created request to queue
   bool addToQueue(int32_t token, ModbusMessage request, bool syncReq = false);

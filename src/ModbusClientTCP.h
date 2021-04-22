@@ -41,10 +41,6 @@ public:
   // Switch target host (if necessary)
   bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
 
-  // Base addRequest and syncRequest must be present
-  Error addRequestM(ModbusMessage msg, uint32_t token);
-  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
-
 protected:
   // class describing a target server
   struct TargetHost {
@@ -142,6 +138,10 @@ protected:
       head(ModbusTCPhead()),
       isSyncRequest(syncReq) {}
   };
+
+  // Base addRequest and syncRequest must be present
+  Error addRequestM(ModbusMessage msg, uint32_t token);
+  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
 
   // addToQueue: send freshly created request to queue
   bool addToQueue(uint32_t token, ModbusMessage request, TargetHost target, bool syncReq = false);
