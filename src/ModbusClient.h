@@ -105,6 +105,9 @@ protected:
 #if USE_MUTEX
   std::mutex syncRespM;                  // Mutex protecting syncResponse map against race conditions
 #endif
+
+  // Let any ModbusBridge class use protected members
+  template<typename SERVERCLASS> friend class ModbusBridge;
 };
 
 #endif
