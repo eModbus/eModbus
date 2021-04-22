@@ -61,7 +61,7 @@ public:
   ModbusMessage(uint8_t serverID, uint8_t functionCode, Args&&... args) { // NOLINT
     Error e = SUCCESS;
     if ((e = setMessage(serverID, functionCode, std::forward<Args>(args) ...)) != SUCCESS) {
-      printError(__FILE__, __LINE__, e);
+      printError(__FILE__, __LINE__, e, serverID, functionCode);
     }
   }
 
@@ -215,7 +215,7 @@ protected:
   static Error checkData(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes);
 
   // Error output in case a message constructor will fail
-  static void printError(const char *file, int lineNo, Error e);
+  static void printError(const char *file, int lineNo, Error e, uint8_t serverID, uint8_t functionCode);
 
   std::vector<uint8_t> MM_data;  // Message data buffer
 
