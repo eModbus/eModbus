@@ -7,6 +7,7 @@
 #include "ModbusClientRTU.h"
 #include "ModbusClientTCP.h"
 #include "ModbusServerWiFi.h"
+#include "ModbusBridgeWiFi.h"
 
 #undef LOCAL_LOG_LEVEL
 #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
@@ -47,6 +48,7 @@ ModbusClientTCP TestClientWiFi(wc, 25);         // ModbusClientTCP test instance
 ModbusClientRTU RTUclient(Serial1, GPIO_NUM_4);  // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
 ModbusServerRTU RTUserver(Serial2, 20000, RTStest);      // ModbusServerRTU instance
 ModbusServerWiFi MBserver;                      // ModbusServerWiFi instance
+ModbusBridgeWiFi Bridge;                        // Modbus bridge instance
 IPAddress ip = {127,   0,   0,   1};            // IP address of ModbusServerWiFi (loopback IF)
 uint16_t port = 502;                            // port of modbus server
 uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
@@ -1577,8 +1579,46 @@ void setup()
   testOutput("Sync request address/words invalid (WiFi)", LNO(__LINE__), makeVector("02 83 E7"), n);
 
   // Print summary.
-  delay(2000);
   Serial.printf("----->    Synchronous request tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+  // ******************************************************************************
+  // Bridge tests
+  // ******************************************************************************
+
+  // Restart test case and tests passed counter
+  testsExecuted = 0;
+  testsPassed = 0;
+
+  printPassed = false;
+
+  // Attaching the servers will include an "unfriendly takeover" of the onError and onData handlers,
+  // so prevent the warning to be printed
+  MBUlogLvl = LOG_LEVEL_ERROR;
+  Bridge.attachServer(3, 1, ANY_FUNCTION_CODE, &TestClientWiFi, ip, port);
+  Bridge.attachServer(4, 2, ANY_FUNCTION_CODE, &TestClientWiFi, ip, port);
+  Bridge.denyFunctionCode(4, READ_INPUT_REGISTER);
+  // Re-enable warnings
+  MBUlogLvl = LOG_LEVEL_WARNING;
+
+  m.setMessage(3, READ_HOLD_REGISTER, 3, 2);
+  n = Bridge.localRequest(m);
+  testOutput("Regular request", LNO(__LINE__), makeVector("03 03 04 04 05 06 07"), n);
+
+  m.setMessage(5, READ_HOLD_REGISTER, 3, 2);
+  n = Bridge.localRequest(m);
+  testOutput("Invalid server ID", LNO(__LINE__), makeVector("05 83 E1"), n);
+
+  m.setMessage(3, MASK_WRITE_REGISTER, 3, 2, 1);
+  n = Bridge.localRequest(m);
+  testOutput("FC not supported by server", LNO(__LINE__), makeVector("03 96 01"), n);
+
+  m.setMessage(4, READ_INPUT_REGISTER, 3, 2);
+  n = Bridge.localRequest(m);
+  testOutput("FC not supported by bridge", LNO(__LINE__), makeVector("04 84 01"), n);
+
+  // Print summary.
+  Serial.printf("----->    Bridge tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
 
   // ******************************************************************************
   // Logging tests
