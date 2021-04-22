@@ -35,12 +35,9 @@ public:
   bool onErrorHandler(MBOnError handler); // Accept onError handler 
   bool onResponseHandler(MBOnResponse handler); // Accept onResponse handler 
   uint32_t getMessageCount();              // Informative: return number of messages created
+  inline Error addRequest(ModbusMessage m, uint32_t token) { return addRequestM(m, token); }
+  inline ModbusMessage syncRequest(ModbusMessage m, uint32_t token) { return syncRequestM(m, token); }
 
-  // Virtual addRequest variant needed internally. All others done by template!
-  virtual Error addRequestM(ModbusMessage msg, uint32_t token) = 0;
-  // Virtual syncRequest variant following the same pattern
-  virtual ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token) = 0;
-  
   // Template function to generate syncRequest functions as long as there is a 
   // matching ModbusMessage::setMessage() call
   template <typename... Args>
@@ -88,6 +85,11 @@ protected:
   ModbusClient();             // Default constructor
   virtual void isInstance() = 0;   // Make class abstract
   ModbusMessage waitSync(uint8_t serverID, uint8_t functionCode, uint32_t token); // wait for syncRequest response to arrive
+  // Virtual addRequest variant needed internally. All others done by template!
+  virtual Error addRequestM(ModbusMessage msg, uint32_t token) = 0;
+  // Virtual syncRequest variant following the same pattern
+  virtual ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token) = 0;
+  
 
   uint32_t messageCount;           // Number of requests generated. Used for transactionID in TCPhead
 #if HAS_FREERTOS
