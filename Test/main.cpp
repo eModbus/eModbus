@@ -7,6 +7,7 @@
 #include "ModbusClientRTU.h"
 #include "ModbusClientTCP.h"
 #include "ModbusServerWiFi.h"
+#include "ModbusBridgeWiFi.h"
 
 #undef LOCAL_LOG_LEVEL
 #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
@@ -47,6 +48,7 @@ ModbusClientTCP TestClientWiFi(wc, 25);         // ModbusClientTCP test instance
 ModbusClientRTU RTUclient(Serial1, GPIO_NUM_4);  // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
 ModbusServerRTU RTUserver(Serial2, 20000, RTStest);      // ModbusServerRTU instance
 ModbusServerWiFi MBserver;                      // ModbusServerWiFi instance
+ModbusBridgeWiFi Bridge;                        // Modbus bridge instance
 IPAddress ip = {127,   0,   0,   1};            // IP address of ModbusServerWiFi (loopback IF)
 uint16_t port = 502;                            // port of modbus server
 uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
@@ -581,10 +583,6 @@ void setup()
   adder.add(b);
   testOutput(__func__, LNO(__LINE__) "add double swapped", makeVector("11 88 45 33 F6 23 C0 CA C0 11"), adder);
 
-  // ******************************************************************************
-  // Write test cases above this line!
-  // ******************************************************************************
-
   // Print summary.
   Serial.printf("----->    Generate messages tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
@@ -1023,11 +1021,6 @@ void setup()
   }
   delay(1000);
 
-
-  // ******************************************************************************
-  // Write test cases above this line!
-  // ******************************************************************************
-
   // Print summary. We will have to wait a bit to get all test cases executed!
   delay(2000);
   Serial.printf("----->    TCP loop stub tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
@@ -1319,10 +1312,6 @@ void setup()
       testsPassed++;
     }
 
-    // ******************************************************************************
-    // Write test cases above this line!
-    // ******************************************************************************
-
     // Print summary. We will have to wait a bit to get all test cases executed!
     delay(2000);
     Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
@@ -1547,39 +1536,146 @@ void setup()
     testOutput(tc->testname, tc->name, tc->expected, r);
   }
 
-  // ******************************************************************************
-  // Write test cases above this line!
-  // ******************************************************************************
-
   // Print summary. We will have to wait a bit to get all test cases executed!
   delay(2000);
   Serial.printf("----->    TCP WiFi loopback tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
+  // ******************************************************************************
+  // Tests for synchronous requests
+  // ******************************************************************************
+
+  // Restart test case and tests passed counter
+  testsExecuted = 0;
+  testsPassed = 0;
+
+  printPassed = false;
+  ModbusMessage n, m;
+
+  if (chkFailed) {
+    Serial.printf("Synchronous RTU tests skipped\n");
+  } else {
+    m.setMessage(1, READ_HOLD_REGISTER, 1, 4);
+    n = RTUclient.syncRequest(m, Token++);
+    testOutput("Regular sync response (RTU)", LNO(__LINE__), makeVector("01 03 08 00 01 02 03 04 05 06 07"), n);
+
+    n = RTUclient.syncRequest(Token++, 1, 251);
+    testOutput("Sync FC error (RTU)", LNO(__LINE__), makeVector("01 FB 01"), n);
+
+    n = RTUclient.syncRequest(Token++, 8, READ_HOLD_REGISTER, 8, 4);
+    testOutput("Sync request wrong serverID (RTU)", LNO(__LINE__), makeVector("08 83 E0"), n);
+  }
+
+  n = TestClientWiFi.syncRequest(Token, 1, READ_HOLD_REGISTER, 4, 4);
+  testOutput("Sync regular request (WiFi)", LNO(__LINE__), makeVector("01 03 08 06 07 08 09 0A 0B 0C 0D"), n);
+
+  // Same Token!
+  n = TestClientWiFi.syncRequest(Token++, 1, READ_HOLD_REGISTER, 8, 4);
+  testOutput("Sync request same token (WiFi)", LNO(__LINE__), makeVector("01 03 08 0E 0F 10 11 12 13 14 15"), n);
+
+  n = TestClientWiFi.syncRequest(Token++, 8, READ_HOLD_REGISTER, 8, 4);
+  testOutput("Sync request wrong serverID (WiFi)", LNO(__LINE__), makeVector("08 83 E1"), n);
+
+  n = TestClientWiFi.syncRequest(Token++, 2, READ_HOLD_REGISTER, 32, 160);
+  testOutput("Sync request address/words invalid (WiFi)", LNO(__LINE__), makeVector("02 83 E7"), n);
+
+  // Print summary.
+  Serial.printf("----->    Synchronous request tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+  // ******************************************************************************
+  // Bridge tests
+  // ******************************************************************************
+
+  // Restart test case and tests passed counter
+  testsExecuted = 0;
+  testsPassed = 0;
+
+  printPassed = false;
+
+  // Attaching the servers will include an "unfriendly takeover" of the onError and onData handlers,
+  // so prevent the warning to be printed
+  MBUlogLvl = LOG_LEVEL_ERROR;
+  Bridge.attachServer(3, 1, ANY_FUNCTION_CODE, &TestClientWiFi, ip, port);
+  Bridge.attachServer(4, 2, ANY_FUNCTION_CODE, &TestClientWiFi, ip, port);
+  Bridge.denyFunctionCode(4, READ_INPUT_REGISTER);
+  // Re-enable warnings
+  MBUlogLvl = LOG_LEVEL_WARNING;
+
+  m.setMessage(3, READ_HOLD_REGISTER, 3, 2);
+  n = Bridge.localRequest(m);
+  testOutput("Regular request", LNO(__LINE__), makeVector("03 03 04 04 05 06 07"), n);
+
+  m.setMessage(5, READ_HOLD_REGISTER, 3, 2);
+  n = Bridge.localRequest(m);
+  testOutput("Invalid server ID", LNO(__LINE__), makeVector("05 83 E1"), n);
+
+  m.setMessage(3, MASK_WRITE_REGISTER, 3, 2, 1);
+  n = Bridge.localRequest(m);
+  testOutput("FC not supported by server", LNO(__LINE__), makeVector("03 96 01"), n);
+
+  m.setMessage(4, READ_INPUT_REGISTER, 3, 2);
+  n = Bridge.localRequest(m);
+  testOutput("FC not supported by bridge", LNO(__LINE__), makeVector("04 84 01"), n);
+
+  if (chkFailed) {
+    Serial.printf("Bridge RTU tests skipped\n");
+  } else {
+    MBUlogLvl = LOG_LEVEL_ERROR;
+    Bridge.attachServer(2, 1, READ_HOLD_REGISTER, &RTUclient);
+    Bridge.attachServer(6, 9, ANY_FUNCTION_CODE, &RTUclient);
+    Bridge.addFunctionCode(2, READ_HOLD_REGISTER);
+    MBUlogLvl = LOG_LEVEL_WARNING;
+
+    m.setMessage(2, READ_HOLD_REGISTER, 3, 2);
+    n = Bridge.localRequest(m);
+    testOutput("Regular request (RTU)", LNO(__LINE__), makeVector("02 03 04 04 05 06 07"), n);
+
+    m.setMessage(6, READ_HOLD_REGISTER, 3, 2);
+    n = Bridge.localRequest(m);
+    testOutput("Invalid server (RTU)", LNO(__LINE__), makeVector("06 83 E0"), n);
+  }
+
+  // Print summary.
+  Serial.printf("----->    Bridge tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+
+  // ******************************************************************************
   // Logging tests
+  // ******************************************************************************
+
+  Serial.printf("\n\n\n\nSome logging test output - please check yourself!\n");
+
   MBUlogLvl = LOG_LEVEL_VERBOSE;
   LOG_N("If you see this, Logging is working on a user-defined LOGDEVICE.\n");
-  LOG_N("Following shall be a Test dump, then 6 pairs of output for different log levels.\n");
+  LOG_N("Following shall be a Test dump, then 6 pairs of output for different log levels.\n\n");
   HEXDUMP_N("Test data", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_C("\nCritical log message\n");
   HEXDUMP_C("Critical dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_E("\nError log message\n");
   HEXDUMP_E("Error dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_W("\nWarning log message\n");
   HEXDUMP_W("Warning dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_I("\nInformational log message\n");
   HEXDUMP_I("Info dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_D("\nDebug log message\n");
   HEXDUMP_D("Debug dump", (uint8_t *)&words, 10);
 
+  Serial.println();
   LOG_V("\nVerbose log message\n");
   HEXDUMP_V("Verbose dump data", (uint8_t *)&words, 10);
 
-  Serial.println("All finished.");
+  // ======================================================================================
+  // Final message
+  Serial.println("\n\n *** ----> All finished.");
 }
 
 void loop() {

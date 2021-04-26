@@ -1,17 +1,27 @@
-all: testMB
+all: SyncClient AsyncClient
 
-OBJ = main.o ModbusMessage.o Logging.o ModbusClient.o ModbusClientTCP.o IPAddress.o Client.o parseTarget.o
 CXXFLAGS = -Wextra 
 CPPFLAGS = -DLOG_LEVEL=3
+LIBDIR = ./eModbus
 
 DEPS := $(OBJ:.o=.d)
 	-include $(DEPS)
 
-testMB: $(OBJ)
-	$(CXX) $^ -pthread -lexplain -o $@
+BASESRC = ModbusMessage.cpp Logging.cpp ModbusClient.cpp ModbusClientTCP.cpp
+BASEINC = ModbusMessage.h Logging.h ModbusClient.h ModbusClientTCP.h ModbusTypeDefs.h ModbusError.h options.h
+
+$(info Be sure to copy files from the eModbus main directory into $(LIBDIR): )
+$(info "      Headers: $(BASEINC)" )
+$(info "      Sources: $(BASESRC)" )
+
+AsyncClient: AsyncClient.o
+	$(CXX) $^ -L $(LIBDIR) -leModbus -pthread -lexplain -o $@
+
+SyncClient: SyncClient.o
+	$(CXX) $^ -L $(LIBDIR) -leModbus -pthread -lexplain -o $@
 
 %.o: %.cpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -c $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I $(LIBDIR) -MMD -c $<
 
 .PHONY: clean all dist
 
@@ -19,5 +29,5 @@ clean:
 	$(RM) core *.o *.d
 
 dist:
-	zip -u MB *.h *.cpp Makefile
+	zip -u MBCLinux *.h *.cpp Makefile $(LIBDIR)/*.cpp $(LIBDIR)/*.h $(LIBDIR)/Makefile
 

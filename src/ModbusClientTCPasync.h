@@ -50,29 +50,6 @@ public:
   // Set maximum amount of messages awaiting a response. Subsequent messages will be queued.
   void setMaxInflightRequests(uint32_t maxInflightRequests);
 
-  // Base addRequest must be present
-  Error addRequest(ModbusMessage msg, uint32_t token);
-
-  // Template variant for last set target host
-  template <typename... Args>
-  Error addRequest(uint32_t token, Args&&... args) {
-    Error rc = SUCCESS;        // Return value
-
-    // Create request, if valid
-    ModbusMessage m;
-    rc = m.setMessage(std::forward<Args>(args) ...);
-
-    // Add it to the queue, if valid
-    if (rc == SUCCESS) {
-      // Queue add successful?
-      if (!addToQueue(token, m)) {
-        // No. Return error after deleting the allocated request.
-        rc = REQUEST_QUEUE_FULL;
-      }
-    }
-    return rc;
-  }
-
 protected:
 
   // class describing the TCP header of Modbus packets
@@ -115,16 +92,21 @@ protected:
     ModbusMessage msg;
     ModbusTCPhead head;
     uint32_t sentTime;
-    RequestEntry(uint32_t t, ModbusMessage m) :
+    bool isSyncRequest;
+    RequestEntry(uint32_t t, ModbusMessage m, bool syncReq = false) :
       token(t),
       msg(m),
       head(ModbusTCPhead()),
-      sentTime(0) {}
+      sentTime(0),
+      isSyncRequest(syncReq) {}
   };
 
+  // Base addRequest and syncRequest both must be present
+  Error addRequestM(ModbusMessage msg, uint32_t token);
+  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
 
   // addToQueue: send freshly created request to queue
-  bool addToQueue(int32_t token, ModbusMessage request);
+  bool addToQueue(int32_t token, ModbusMessage request, bool syncReq = false);
 
   // send: send request via Client connection
   bool send(RequestEntry *request);

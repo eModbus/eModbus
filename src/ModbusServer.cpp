@@ -6,7 +6,7 @@
 #include "ModbusServer.h"
 
 #undef LOCAL_LOG_LEVEL
-// #define LOCAL_LOG_LEVEL LOG_LEVEL_DEBUG
+// #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
 // registerWorker: register a worker function for a certain serverID/FC combination
@@ -67,6 +67,7 @@ uint32_t ModbusServer::getMessageCount() {
 
 // LocalRequest: get response from locally running server.
 ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
+  ModbusMessage m;
   uint8_t serverID = msg.getServerID();
   uint8_t functionCode = msg.getFunctionCode();
   LOG_D("Local request for %02X/%02X\n", serverID, functionCode);
@@ -77,7 +78,7 @@ ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
   if (worker != nullptr) {
     // Yes. call it and return the response
     LOG_D("Call worker\n");
-    ModbusMessage m = worker(msg);
+    m = worker(msg);
     LOG_D("Worker responded\n");
     HEXDUMP_V("Worker response", m.data(), m.size());
     // Process Response. Is it one of the predefined types?
@@ -102,15 +103,17 @@ ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
     // No. Is there at least one worker for the serverID?
     if (isServerFor(serverID)) {
       // Yes. Respond with "illegal function code"
-      return { serverID, static_cast<uint8_t>(functionCode | 0x80), ILLEGAL_FUNCTION };
+      m.setError(serverID, functionCode, ILLEGAL_FUNCTION);
     } else {
       // No. Respond with "Invalid server ID"
-      return { serverID, static_cast<uint8_t>(functionCode | 0x80), INVALID_SERVER };
+      m.setError(serverID, functionCode, INVALID_SERVER);
     }
+    return m;
   }
   // We should never get here...
   LOG_C("Internal problem: should not get here!\n");
-  return { serverID, static_cast<uint8_t>(functionCode | 0x80), UNDEFINED_ERROR };
+  m.setError(serverID, functionCode, UNDEFINED_ERROR);
+  return m;
 }
 
 // Constructor

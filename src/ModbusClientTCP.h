@@ -18,12 +18,6 @@
 #include <vector>
 using std::queue;
 
-#if USE_MUTEX
-#include <mutex>                    // NOLINT
-using std::mutex;
-using std::lock_guard;
-#endif
-
 #define TARGETHOSTINTERVAL 10
 #define DEFAULTTIMEOUT 2000
 
@@ -46,29 +40,6 @@ public:
 
   // Switch target host (if necessary)
   bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
-
-  // Base addRequest must be present
-  Error addRequest(ModbusMessage msg, uint32_t token);
-
-// Template variant for last set target host
-template <typename... Args>
-Error addRequest(uint32_t token, Args&&... args) {
-  Error rc = SUCCESS;        // Return value
-
-  // Create request, if valid
-  ModbusMessage m;
-  rc = m.setMessage(std::forward<Args>(args) ...);
-
-  // Add it to the queue, if valid
-  if (rc == SUCCESS) {
-    // Queue add successful?
-    if (!addToQueue(token, m, MT_target)) {
-      // No. Return error after deleting the allocated request.
-      rc = REQUEST_QUEUE_FULL;
-    }
-  }
-  return rc;
-}
 
 protected:
   // class describing a target server
@@ -159,15 +130,21 @@ protected:
     ModbusMessage msg;
     TargetHost target;
     ModbusTCPhead head;
-    RequestEntry(uint32_t t, ModbusMessage m, TargetHost tg) :
+    bool isSyncRequest;
+    RequestEntry(uint32_t t, ModbusMessage m, TargetHost tg, bool syncReq = false) :
       token(t),
       msg(m),
       target(tg),
-      head(ModbusTCPhead()) {}
+      head(ModbusTCPhead()),
+      isSyncRequest(syncReq) {}
   };
 
+  // Base addRequest and syncRequest must be present
+  Error addRequestM(ModbusMessage msg, uint32_t token);
+  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
+
   // addToQueue: send freshly created request to queue
-  bool addToQueue(uint32_t token, ModbusMessage request, TargetHost target);
+  bool addToQueue(uint32_t token, ModbusMessage request, TargetHost target, bool syncReq = false);
 
   // handleConnection: worker task method
   static void handleConnection(ModbusClientTCP *instance);

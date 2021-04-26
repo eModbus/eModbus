@@ -13,44 +13,14 @@
 #include "HardwareSerial.h"
 #include "RTUutils.h"
 #include <queue>
-
-#if USE_MUTEX
-#include <mutex>                  // NOLINT
-#endif
 #include <vector>
 
 using std::queue;
-#if USE_MUTEX
-using std::mutex;
-using std::lock_guard;
-#endif
 
 #define DEFAULTTIMEOUT 2000
 
 class ModbusClientRTU : public ModbusClient {
 public:
-  // Base addRequest must be present
-  Error addRequest(ModbusMessage msg, uint32_t token);
-
-  template <typename... Args>
-  Error addRequest(uint32_t token, Args&&... args) {
-    Error rc = SUCCESS;        // Return value
-
-    // Create request, if valid
-    ModbusMessage m;
-    rc = m.setMessage(std::forward<Args>(args) ...);
-
-    // Add it to the queue, if valid
-    if (rc == SUCCESS) {
-      // Queue add successful?
-      if (!addToQueue(token, m)) {
-        // No. Return error after deleting the allocated request.
-        rc = REQUEST_QUEUE_FULL;
-      }
-    }
-    return rc;
-  }
-
   // Constructor takes Serial reference and optional DE/RE pin and queue limit
   explicit ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin = -1, uint16_t queueLimit = 100);
 
@@ -70,13 +40,19 @@ protected:
   struct RequestEntry {
     uint32_t token;
     ModbusMessage msg;
-    RequestEntry(uint32_t t, ModbusMessage m) :
+    bool isSyncRequest;
+    RequestEntry(uint32_t t, ModbusMessage m, bool syncReq = false) :
       token(t),
-      msg(m) {}
+      msg(m),
+      isSyncRequest(syncReq) {}
   };
 
+  // Base addRequest and syncRequest must be present
+  Error addRequestM(ModbusMessage msg, uint32_t token);
+  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
+
   // addToQueue: send freshly created request to queue
-  bool addToQueue(uint32_t token, ModbusMessage msg);
+  bool addToQueue(uint32_t token, ModbusMessage msg, bool syncReq = false);
 
   // handleConnection: worker task method
   static void handleConnection(ModbusClientRTU *instance);

@@ -102,6 +102,9 @@ private:
     case TCP_HEAD_MISMATCH     : // 0xEB,
       return "TCP header mismatch";
       break;
+    case EMPTY_MESSAGE         : // 0xEC,
+      return "Incomplete request";
+      break;
     case UNDEFINED_ERROR       : // 0xFF  // otherwise uncovered communication error
     default:
       return "Unspecified error";

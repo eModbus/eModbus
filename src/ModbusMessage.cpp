@@ -799,8 +799,8 @@ Error ModbusMessage::setError(uint8_t serverID, uint8_t functionCode, Error erro
 }
 
 // Error output in case a message constructor will fail
-void ModbusMessage::printError(const char *file, int lineNo, Error e) {
-  LOG_E("(%s, line %d) Error in constructor: %02X - %s\n", file_name(file), lineNo, e, (const char *)(ModbusError(e)));
+void ModbusMessage::printError(const char *file, int lineNo, Error e, uint8_t serverID, uint8_t functionCode) {
+  LOG_E("(%s, line %d) Error in constructor: %02X - %s (%02X/%02X)\n", file_name(file), lineNo, e, (const char *)(ModbusError(e)), serverID, functionCode);
 }
 
 uint8_t ModbusMessage::floatOrder[] = { 0xFF };

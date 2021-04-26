@@ -98,7 +98,7 @@ bool ModbusClientTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout,
 }
 
 // Base addRequest for preformatted ModbusMessage and last set target
-Error ModbusClientTCP::addRequest(ModbusMessage msg, uint32_t token) {
+Error ModbusClientTCP::addRequestM(ModbusMessage msg, uint32_t token) {
   Error rc = SUCCESS;        // Return value
 
   // Add it to the queue, if valid
@@ -114,15 +114,34 @@ Error ModbusClientTCP::addRequest(ModbusMessage msg, uint32_t token) {
   return rc;
 }
 
+// Base syncRequest follows the same pattern
+ModbusMessage ModbusClientTCP::syncRequestM(ModbusMessage msg, uint32_t token) {
+  ModbusMessage response;
+
+  if (msg) {
+    // Queue add successful?
+    if (!addToQueue(token, msg, MT_target, true)) {
+      // No. Return error after deleting the allocated request.
+      response.setError(msg.getServerID(), msg.getFunctionCode(), REQUEST_QUEUE_FULL);
+    } else {
+      // Request is queued - wait for the result.
+      response = waitSync(msg.getServerID(), msg.getFunctionCode(), token);
+    }
+  } else {
+    response.setError(msg.getServerID(), msg.getFunctionCode(), EMPTY_MESSAGE);
+  }
+  return response;
+}
+
 // addToQueue: send freshly created request to queue
-bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHost target) {
+bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHost target, bool syncReq) {
   bool rc = false;
   // Did we get one?
   LOG_D("Queue size: %d\n", (uint32_t)requests.size());
   HEXDUMP_V("Enqueue", request.data(), request.size());
   if (request) {
     if (requests.size()<MT_qLimit) {
-      RequestEntry *re = new RequestEntry(token, request, target);
+      RequestEntry *re = new RequestEntry(token, request, target, syncReq);
       // inject proper transactionID
       re->head.transactionID = messageCount++;
       re->head.len = request.size();
@@ -191,39 +210,52 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
 
         // Did we get a normal response?
         if (response.getError()==SUCCESS) {
-          // Yes. Do we have an onResponse handler?
-          if (instance->onResponse) {
+          LOG_D("Data response.\n");
+          // Yes. Is it a synchronous request?
+          if (request->isSyncRequest) {
+            // Yes. Put the response into the response map
+            {
+              LOCK_GUARD(sL, instance->syncRespM);
+              instance->syncResponse[request->token] = response;
+            }
+          // No, async request. Do we have an onResponse handler?
+          } else if (instance->onResponse) {
             // Yes. Call it.
             instance->onResponse(response, request->token);
-          } else {
           // No, but do we have an onData handler registered?
-            LOG_D("Data response.\n");
-            if (instance->onData) {
-              // Yes. call it
-              instance->onData(response, request->token);
-            } else {
-              LOG_D("No onData handler\n");
-            }
+          } else if (instance->onData) {
+            // Yes. call it
+            instance->onData(response, request->token);
+          } else {
+            LOG_D("No handler for response!\n");
           }
         } else {
           // No, something went wrong. All we have is an error
+          // Shall we retry?
           if (response.getError() == TIMEOUT && retryCounter--) {
+            // Yes, do that.
             LOG_D("Retry on timeout...\n");
             doNotPop = true;
           } else {
-            // Do we have an onResponse handler?
-            if (instance->onResponse) {
+            // No, we have finally caught an error.
+            LOG_D("Error response.\n");
+            // Is it a synchronous request?
+            if (request->isSyncRequest) {
+              // Yes. Put the response into the response map
+              {
+                LOCK_GUARD(sL, instance->syncRespM);
+                instance->syncResponse[request->token] = response;
+              }
+            // No, but do we have an onResponse handler?
+            } else if (instance->onResponse) {
               // Yes, call it.
               instance->onResponse(response, request->token);
+            // No, but do we have an onError handler?
+            } else if (instance->onError) {
+              // Yes. Forward the error code to it
+              instance->onError(response.getError(), request->token);
             } else {
-              // No, but do we have an onError handler?
-              LOG_D("Error response.\n");
-              if (instance->onError) {
-                // Yes. Forward the error code to it
-                instance->onError(response.getError(), request->token);
-              } else {
-                LOG_D("No onError handler\n");
-              }
+              LOG_D("No onError handler\n");
             }
           }
         }
