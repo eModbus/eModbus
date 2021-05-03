@@ -145,7 +145,13 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
 // send: send a message via Serial, watching interval times - including CRC!
 void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, RTScallback rts, const uint8_t *data, uint16_t len) {
   uint16_t crc16 = calcCRC(data, len);
-  while (micros() - lastMicros < interval) delayMicroseconds(1);  // respect _interval
+
+  // Clear serial buffers
+  while (serial.available()) serial.read();
+
+  // Respect interval
+  while (micros() - lastMicros < interval) delayMicroseconds(1);
+
   // Toggle rtsPin, if necessary
   rts(HIGH);
   // Write message
@@ -171,7 +177,7 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
 // receive: get (any) message from Serial, taking care of timeout and interval
 ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
-  const uint16_t BUFBLOCKSIZE(128);
+  const uint16_t BUFBLOCKSIZE(256);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
   uint8_t bufferBlocks = 1;
   ModbusMessage rv;
@@ -232,9 +238,9 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
             delete[] buffer;
             buffer = temp;
           }
-          // Rewind timer
-          lastMicros = micros();
         }
+        // Rewind timer
+        lastMicros = micros();
       }
       // Gap of at least _interval micro seconds passed without data?
       if (micros() - lastMicros >= interval) {
@@ -257,8 +263,11 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
         state = FINISHED;
       }
       break;
-    // FINISHED: we are done, keep the compiler happy by pseudo-treating it.
+    // FINISHED: we are done, clean up.
     case FINISHED:
+      // CLear serial buffer in case something is left trailing
+      // May happen with servers too slow!
+      while (serial.available()) serial.read();
       break;
     }
   }
