@@ -114,6 +114,25 @@ Error ModbusClientTCP::addRequestM(ModbusMessage msg, uint32_t token) {
   return rc;
 }
 
+// TCP addRequest for preformatted ModbusMessage and adhoc target
+Error ModbusClientTCP::addRequestMT(ModbusMessage msg, uint32_t token, IPAddress targetHost, uint16_t targetPort) {
+  Error rc = SUCCESS;        // Return value
+
+  // Add it to the queue, if valid
+  if (msg) {
+    // Set up adhoc target 
+    TargetHost adhocTarget(targetHost, targetPort, MT_defaultTimeout, MT_defaultInterval);
+    // Queue add successful?
+    if (!addToQueue(token, msg, adhocTarget, true)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+    }
+  }
+
+  LOG_D("Add TCP request result: %02X\n", rc);
+  return rc;
+}
+
 // Base syncRequest follows the same pattern
 ModbusMessage ModbusClientTCP::syncRequestM(ModbusMessage msg, uint32_t token) {
   ModbusMessage response;
@@ -121,6 +140,27 @@ ModbusMessage ModbusClientTCP::syncRequestM(ModbusMessage msg, uint32_t token) {
   if (msg) {
     // Queue add successful?
     if (!addToQueue(token, msg, MT_target, true)) {
+      // No. Return error after deleting the allocated request.
+      response.setError(msg.getServerID(), msg.getFunctionCode(), REQUEST_QUEUE_FULL);
+    } else {
+      // Request is queued - wait for the result.
+      response = waitSync(msg.getServerID(), msg.getFunctionCode(), token);
+    }
+  } else {
+    response.setError(msg.getServerID(), msg.getFunctionCode(), EMPTY_MESSAGE);
+  }
+  return response;
+}
+
+// TCP syncRequest with adhoc target parameters
+ModbusMessage ModbusClientTCP::syncRequestMT(ModbusMessage msg, uint32_t token, IPAddress targetHost, uint16_t targetPort) {
+  ModbusMessage response;
+
+  if (msg) {
+    // Set up adhoc target 
+    TargetHost adhocTarget(targetHost, targetPort, MT_defaultTimeout, MT_defaultInterval);
+    // Queue add successful?
+    if (!addToQueue(token, msg, adhocTarget, true)) {
       // No. Return error after deleting the allocated request.
       response.setError(msg.getServerID(), msg.getFunctionCode(), REQUEST_QUEUE_FULL);
     } else {

@@ -167,18 +167,19 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
   if (servers.find(aliasID) != servers.end()) {
     // Found it. We may use servers[aliasID] now without allocating a new map slot
 
-    // TCP servers have a target host/port that needs to be set in the client
-    if (servers[aliasID]->serverType == TCP_SERVER) {
-      reinterpret_cast<ModbusClientTCP *>(servers[aliasID]->client)->setTarget(servers[aliasID]->host, servers[aliasID]->port);
-    }
-
-    // Schedule request
     // Set real target server ID
     msg.setServerID(servers[aliasID]->serverID);
 
     // Issue the request
     LOG_D("Request (%02X/%02X) sent\n", servers[aliasID]->serverID, functionCode);
-    response = servers[aliasID]->client->syncRequestM(msg, (uint32_t)millis());
+    // TCP servers have a target host/port that needs to be set in the client
+    if (servers[aliasID]->serverType == TCP_SERVER) {
+      reinterpret_cast<ModbusClientTCP *>(servers[aliasID]->client)->syncRequestMT(msg, (uint32_t)millis(), servers[aliasID]->host, servers[aliasID]->port);
+    } else {
+      response = servers[aliasID]->client->syncRequestM(msg, (uint32_t)millis());
+    }
+
+    // Re-set the requested server ID
     response.setServerID(aliasID);
   } else {
     // If we get here, something has gone wrong internally. We send back an error response anyway.

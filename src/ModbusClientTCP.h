@@ -142,6 +142,9 @@ protected:
   // Base addRequest and syncRequest must be present
   Error addRequestM(ModbusMessage msg, uint32_t token);
   ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
+  // TCP-specific addition "...MT()" including adhoc target - used by bridge 
+  Error addRequestMT(ModbusMessage msg, uint32_t token, IPAddress targetHost, uint16_t targetPort);
+  ModbusMessage syncRequestMT(ModbusMessage msg, uint32_t token, IPAddress targetHost, uint16_t targetPort);
 
   // addToQueue: send freshly created request to queue
   bool addToQueue(uint32_t token, ModbusMessage request, TargetHost target, bool syncReq = false);
@@ -169,6 +172,9 @@ protected:
   uint32_t MT_defaultTimeout;     // Standard timeout value taken if no dedicated was set
   uint32_t MT_defaultInterval;    // Standard interval value taken if no dedicated was set
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
+
+  // Let any ModbusBridge class use protected members
+  template<typename SERVERCLASS> friend class ModbusBridge;
 };
 
 #endif  // HAS_FREERTOS
