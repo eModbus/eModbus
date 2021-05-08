@@ -12,9 +12,16 @@
 // Modbus RTU client include
 #include "ModbusClientRTU.h"
 
-char ssid[] = "xxx";                     // SSID and ...
-char pass[] = "xxx";                     // password for the WiFi network used
-uint16_t port = 502;                      // port of modbus server
+#ifndef MY_SSID
+#define MY_SSID "WiFi network ID"
+#endif
+#ifndef MY_PASS
+#define MY_PASS "WiFi network password"
+#endif
+
+char ssid[] = MY_SSID;                     // SSID and ...
+char pass[] = MY_PASS;                     // password for the WiFi network used
+uint16_t port = 502;                       // port of modbus server
 
 // Create a ModbusRTU client instance
 ModbusClientRTU MB(Serial2);
@@ -45,14 +52,13 @@ void setup() {
 
 // Set RTU Modbus message timeout to 2000ms
   MB.setTimeout(2000);
-// Start ModbusRTU background task
-  MB.begin();
+// Start ModbusRTU background task on core 1
+  MB.begin(1);
 
 // Define and start WiFi bridge
 // ServerID 4: Server with remote serverID 1, accessed through RTU client MB
 //             All FCs accepted, with the exception of FC 06
   MBbridge.attachServer(4, 1, ANY_FUNCTION_CODE, &MB);
-  MBbridge.denyFunctionCode(4, WRITE_HOLD_REGISTER);
 
 // ServerID 5: Server with remote serverID 4, accessed through RTU client MB
 //             Only FCs 03 and 04 accepted

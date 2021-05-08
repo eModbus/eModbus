@@ -14,8 +14,15 @@
 #include "ModbusClientTCP.h"
 
 WiFiClient theClient;                          // Set up a client
-char ssid[] = "...........";                   // SSID and ...
-char pass[] = "...........";                   // password for the WiFi network used
+#ifndef MY_SSID
+#define MY_SSID "WiFi network ID"
+#endif
+#ifndef MY_PASS
+#define MY_PASS "WiFi network password"
+#endif
+
+char ssid[] = MY_SSID;                     // SSID and ...
+char pass[] = MY_PASS;                     // password for the WiFi network used
 
 // Create a ModbusTCP client instance
 ModbusClientTCP MB(theClient);

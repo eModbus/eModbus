@@ -13,8 +13,15 @@
 // Include the header for the ModbusClient TCP style
 #include <ModbusClientTCPasync.h>
 
-char ssid[] = "ssid";                     // SSID and ...
-char pass[] = "pass";                     // password for the WiFi network used
+#ifndef MY_SSID
+#define MY_SSID "WiFi network ID"
+#endif
+#ifndef MY_PASS
+#define MY_PASS "WiFi network password"
+#endif
+
+char ssid[] = MY_SSID;                     // SSID and ...
+char pass[] = MY_PASS;                     // password for the WiFi network used
 IPAddress ip = {192, 168, 0, 1};          // IP address of modbus server
 uint16_t port = 502;                      // port of modbus server
 
