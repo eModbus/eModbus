@@ -184,6 +184,8 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
 
   // Index into buffer
   register uint16_t bufferPtr = 0;
+  // Byte read
+  register int b; 
 
   // State machine states
   enum STATES : uint8_t { WAIT_INTERVAL = 0, WAIT_DATA, IN_PACKET, DATA_READ, FINISHED };
@@ -220,25 +222,19 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       break;
     // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
     case IN_PACKET:
-      // Data waiting and space left in buffer?
-      while (serial.available()) {
-        // Yes. Catch the byte
-        // Due to a latent bug in esp32-hal-uart.c of the arduino-esp32 core,
-        // available() may return a 1 although there is no byte in the buffer yet.
-        // So we have to attempt a read() and discard the result, if it is < 0.
-        int b = serial.read();
-        if (b >= 0) {
-          buffer[bufferPtr++] = b;
-          // Buffer full?
-          if (bufferPtr >= bufferBlocks * BUFBLOCKSIZE) {
-            // Yes. Extend it by another block
-            bufferBlocks++;
-            uint8_t *temp = new uint8_t[bufferBlocks * BUFBLOCKSIZE];
-            memcpy(temp, buffer, (bufferBlocks - 1) * BUFBLOCKSIZE);
-            delete[] buffer;
-            buffer = temp;
-          }
+      b = serial.read();
+      while (b >= 0) {
+        buffer[bufferPtr++] = b;
+        // Buffer full?
+        if (bufferPtr >= bufferBlocks * BUFBLOCKSIZE) {
+          // Yes. Extend it by another block
+          bufferBlocks++;
+          uint8_t *temp = new uint8_t[bufferBlocks * BUFBLOCKSIZE];
+          memcpy(temp, buffer, (bufferBlocks - 1) * BUFBLOCKSIZE);
+          delete[] buffer;
+          buffer = temp;
         }
+        b = serial.read();
         // Rewind timer
         lastMicros = micros();
       }

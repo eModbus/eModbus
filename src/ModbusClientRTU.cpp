@@ -65,7 +65,7 @@ ModbusClientRTU::~ModbusClientRTU() {
 }
 
 // begin: start worker task
-void ModbusClientRTU::begin(int coreID) {
+void ModbusClientRTU::begin(int coreID, uint8_t factor) {
   // Only start worker if HardwareSerial has been initialized!
   if (MR_serial.baudRate()) {
     // Pull down RTS toggle, if necessary
@@ -73,6 +73,9 @@ void ModbusClientRTU::begin(int coreID) {
 
     // silent interval is at least 3.5x character time
     MR_interval = 35000000UL / MR_serial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
+    if (factor) {
+      MR_interval *= factor;
+    }
 
     // Create unique task name
     char taskName[12];
