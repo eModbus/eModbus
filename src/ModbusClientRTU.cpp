@@ -49,23 +49,12 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, RTScallback rts, uint16
 
 // Destructor: clean up queue, task etc.
 ModbusClientRTU::~ModbusClientRTU() {
-  // Clean up queue
-  {
-    // Safely lock access
-    LOCK_GUARD(lockGuard, qLock);
-    // Get all queue entries one by one
-    while (!requests.empty()) {
-      // Remove front entry
-      requests.pop();
-    }
-  }
-  // Kill task
-  vTaskDelete(worker);
-  LOG_D("Worker task %d killed.\n", (uint32_t)worker);
+  // Kill worker task and clean up request queue
+  end();
 }
 
 // begin: start worker task
-void ModbusClientRTU::begin(int coreID, uint8_t factor) {
+void ModbusClientRTU::begin(int coreID, uint32_t interval) {
   // Only start worker if HardwareSerial has been initialized!
   if (MR_serial.baudRate()) {
     // Pull down RTS toggle, if necessary
@@ -73,8 +62,8 @@ void ModbusClientRTU::begin(int coreID, uint8_t factor) {
 
     // silent interval is at least 3.5x character time
     MR_interval = 35000000UL / MR_serial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
-    if (factor) {
-      MR_interval *= factor;
+    if (interval > MR_interval) {
+      MR_interval = interval;
     }
 
     // Create unique task name
@@ -86,6 +75,25 @@ void ModbusClientRTU::begin(int coreID, uint8_t factor) {
     LOG_D("Worker task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
   } else {
     LOG_E("Worker task could not be started! HardwareSerial not initialized?\n");
+  }
+}
+
+// end: stop worker task
+void ModbusClientRTU::end() {
+  if (worker) {
+    // Clean up queue
+    {
+      // Safely lock access
+      LOCK_GUARD(lockGuard, qLock);
+      // Get all queue entries one by one
+      while (!requests.empty()) {
+        // Remove front entry
+        requests.pop();
+      }
+    }
+    // Kill task
+    vTaskDelete(worker);
+    LOG_D("Worker task %d killed.\n", (uint32_t)worker);
   }
 }
 
