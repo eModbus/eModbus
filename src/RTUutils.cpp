@@ -238,6 +238,9 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
         // Rewind timer
         lastMicros = micros();
       }
+      if (interval > 1000) {
+        delay(1);
+      }
       // Gap of at least _interval micro seconds passed without data?
       if (micros() - lastMicros >= interval) {
         state = DATA_READ;
