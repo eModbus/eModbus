@@ -523,7 +523,9 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
     case 0x0b:
     case 0x0c:
     case 0x0f:
-    case 0x10:
+    case 0x10: //this FU Code needs to be able to send 2 words back as succesfull confirmation
+      if (p2 == 0) returnCode = PARAMETER_LIMIT_ERROR;
+      break;
     case 0x11:
     case 0x14:
     case 0x15:
