@@ -139,11 +139,17 @@ Error ModbusMessage::getError() {
 // Modbus data manipulation
 void    ModbusMessage::setServerID(uint8_t serverID) {
   // We accept here that [0] may allocate a byte!
+  if (MM_data.empty()) {
+    MM_data.reserve(3);  // At least an error message should fit
+  }
   MM_data[0] = serverID;
 }
 
 void    ModbusMessage::setFunctionCode(uint8_t FC) {
   // We accept here that [0], [1] may allocate bytes!
+  if (MM_data.empty()) {
+    MM_data.reserve(3);  // At least an error message should fit
+  }
   // No serverID set yet? use a 0 to initialize it to an error-generating value
   if (MM_data.size() < 2) MM_data[0] = 0; // intentional invalid server ID!
   MM_data[1] = FC;
