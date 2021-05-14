@@ -1098,7 +1098,8 @@ void setup()
     RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
     RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=41 for serverID=2
 
-    RTUserver.start();
+    // Have the RTU server run on core 1 with a grossly different interval time!
+    RTUserver.start(1);
 
     ExpectedToggles = 0;
 
