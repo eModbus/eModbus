@@ -101,6 +101,20 @@ void RTUutils::addCRC(ModbusMessage& raw) {
   raw.push_back((crc16 >> 8) & 0xFF);
 }
 
+// calculateInterval: determine the minimal gap time between messages
+uint32_t RTUutils::calculateInterval(HardwareSerial& s, uint32_t overwrite) {
+  uint32_t interval = 0;
+
+  // silent interval is at least 3.5x character time
+  interval = 35000000UL / s.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
+  if (interval < 1750) interval = 1750;       // lower limit according to Modbus RTU standard
+  // User overwrite?
+  if (overwrite > interval) {
+    interval = overwrite;
+  }
+  return interval;
+}
+
 // UARTinit: modify the UART FIFO copy trigger threshold 
 // This is normally set to 112 by default, resulting in short messages not being 
 // recognized fast enough for higher Modbus bus speeds

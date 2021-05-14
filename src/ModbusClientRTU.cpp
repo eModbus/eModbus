@@ -60,13 +60,8 @@ void ModbusClientRTU::begin(int coreID, uint32_t interval) {
     // Pull down RTS toggle, if necessary
     MTRSrts(LOW);
 
-    // silent interval is at least 3.5x character time
-    MR_interval = 35000000UL / MR_serial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
-    if (MR_interval < 1750) MR_interval = 1750;       // lower limit according to Modbus RTU standard
-    // User overwrite?
-    if (interval > MR_interval) {
-      MR_interval = interval;
-    }
+    // Set minimum interval time
+    MR_interval = RTUutils::calculateInterval(MR_serial, interval);
 
     // Create unique task name
     char taskName[12];

@@ -46,6 +46,9 @@ public:
 // addCRC: extend a RTUMessage by a valid CRC
   static void addCRC(ModbusMessage& raw);
 
+// calculateInterval: determine the minimal gap time between messages
+  static uint32_t calculateInterval(HardwareSerial& s, uint32_t overwrite);
+
 // RTSauto: dummy callback for auto half duplex RS485 boards
   inline static void RTSauto(bool level) { return; } // NOLINT
 

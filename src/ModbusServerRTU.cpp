@@ -70,14 +70,8 @@ bool ModbusServerRTU::start(int coreID, uint32_t interval) {
 
   // start only if serial interface is initialized!
   if (MSRserial.baudRate()) {
-    // silent interval is at least 3.5x character time
-    // Has to be precise for a server:
-    MSRinterval = 35000000UL / MSRserial.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
-    if (MSRinterval < 1750) MSRinterval = 1750;       // lower limit according to Modbus RTU standard
-    // User overwrite?
-    if (interval > MSRinterval) {
-      MSRinterval = interval;
-    }
+    // Set minimum interval time
+    MSRinterval = RTUutils::calculateInterval(MSRserial, interval);
 
     // Create unique task name
     char taskName[12];
