@@ -150,7 +150,7 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
   while (serial.available()) serial.read();
 
   // Respect interval
-  while (micros() - lastMicros < interval) delayMicroseconds(1);
+  if (micros() - lastMicros < interval) delayMicroseconds(interval - (micros() - lastMicros));
 
   // Toggle rtsPin, if necessary
   rts(HIGH);
@@ -186,32 +186,22 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
   register uint16_t bufferPtr = 0;
   // Byte read
   register int b; 
+  // Flag for successful read cycle
+  bool hadBytes = false;
 
   // State machine states
-  enum STATES : uint8_t { WAIT_INTERVAL = 0, WAIT_DATA, IN_PACKET, DATA_READ, FINISHED };
-  register STATES state = WAIT_INTERVAL;
+  enum STATES : uint8_t { WAIT_DATA = 0, IN_PACKET, DATA_READ, FINISHED };
+  register STATES state = WAIT_DATA;
 
   // Timeout tracker
   uint32_t TimeOut = millis();
 
   while (state != FINISHED) {
     switch (state) {
-    // WAIT_INTERVAL: spend the remainder of the bus quiet time waiting
-    case WAIT_INTERVAL:
-      // Time passed?
-      if (micros() - lastMicros >= interval) {
-        // Yes, proceed to reading data
-        state = WAIT_DATA;
-      } else {
-        // No, wait a little longer
-        delayMicroseconds(1);
-      }
-      break;
     // WAIT_DATA: await first data byte, but watch timeout
     case WAIT_DATA:
       if (serial.available()) {
         state = IN_PACKET;
-        lastMicros = micros();
       } else {
         if (millis() - TimeOut >= timeout) {
           rv.push_back(TIMEOUT);
@@ -222,6 +212,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       break;
     // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
     case IN_PACKET:
+      hadBytes = false;
       b = serial.read();
       while (b >= 0) {
         buffer[bufferPtr++] = b;
@@ -234,15 +225,16 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
           delete[] buffer;
           buffer = temp;
         }
+        hadBytes = true;
         b = serial.read();
-        // Rewind timer
+      }
+      // Did we read some?
+      if (hadBytes) {
+        // Yes, take another turn
+        delayMicroseconds(interval);
+      } else {
+        // No, start new interval and go processing data
         lastMicros = micros();
-      }
-      if (interval > 1000) {
-        delay(1);
-      }
-      // Gap of at least _interval micro seconds passed without data?
-      if (micros() - lastMicros >= interval) {
         state = DATA_READ;
       }
       break;
