@@ -40,6 +40,9 @@ void RTStest(bool level) {
   else       cntRTSlow++;
 }
 
+// Baud rate to be used for RTU components
+const uint32_t BaudRate(115200);
+
 // Test prerequisites
 TCPstub stub;
 ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance for stub use.
@@ -149,6 +152,21 @@ ModbusMessage FCany(ModbusMessage request) {
 
   response.add(request.getServerID(), request.getFunctionCode());
   response.add(resp, 6);
+  return response;
+}
+
+// Worker function for large message tests
+ModbusMessage FC44(ModbusMessage request) {
+  ModbusMessage response;
+  uint16_t offs = 2;
+  uint16_t value = 0;
+  uint16_t correctValues = 0;
+
+  for (uint16_t i = 0; i < (request.size() - 2) / 2; ++i) {
+    offs = request.get(offs, value);
+    if (value == i + 1) correctValues++;
+  }
+  response.add(request.getServerID(), request.getFunctionCode(), correctValues);
   return response;
 }
 
@@ -1037,8 +1055,8 @@ void setup()
   printPassed = false;
 
   // Set up Serial1 and Serial2
-  Serial1.begin(19200, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
-  Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
+  Serial1.begin(BaudRate, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
+  Serial2.begin(BaudRate, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
 
 // CHeck if connections are made
   char chkSerial[64];
@@ -1094,9 +1112,10 @@ void setup()
     RTUserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
     RTUserver.registerWorker(1, READ_INPUT_REGISTER, &FC03);     // FC=04 for serverID=1
     RTUserver.registerWorker(1, WRITE_HOLD_REGISTER, &FC06);     // FC=06 for serverID=1
+    RTUserver.registerWorker(1, USER_DEFINED_44, &FC44);         // FC=44 for serverID=1
     RTUserver.registerWorker(2, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=2
     RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
-    RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=41 for serverID=2
+    RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=any for serverID=2
 
     // Have the RTU server run on core 1 with a grossly different interval time!
     RTUserver.start(1);
@@ -1298,6 +1317,54 @@ void setup()
     };
     testCasesByToken[tc->token] = tc;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 45, 1);
+    if (e != SUCCESS) {
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
+    }
+
+    // #10: Large message
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Large message",
+      .transactionID = 0,
+      .token = Token++,
+      .response = empty,
+      .expected = makeVector("01 44 00 7D"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    ModbusMessage large;
+    large.add((uint8_t)1, USER_DEFINED_44);
+    for (uint16_t i = 1; i < 126; ++i) {
+      large.add(i);
+    }
+    e = RTUclient.addRequest(large, tc->token);
+    if (e != SUCCESS) {
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
+    }
+
+    // #11: Oversize message
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Oversize message",
+      .transactionID = 0,
+      .token = Token++,
+      .response = empty,
+      .expected = makeVector("01 44 00 C7"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    for (uint16_t i = 126; i < 200; ++i) {
+      large.add(i);
+    }
+    e = RTUclient.addRequest(large, tc->token);
     if (e != SUCCESS) {
       ModbusMessage r;
       r.add(e);
