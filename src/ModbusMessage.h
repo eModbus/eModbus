@@ -155,6 +155,15 @@ template <typename T> uint16_t get(uint16_t index, T& retval) {
   return index;
 }
 
+// Template function to extend get(index, A) to get(index, A, B, C, ...)
+template <class T, class... Args>
+typename std::enable_if<!std::is_pointer<T>::value, uint16_t>::type
+get(uint16_t index, T& v, Args&&... args) {
+  uint16_t pos = get(index, v);
+  return get(pos, std::forward<Args>(args)...);
+}
+
+
 // add() variants for float and double values
 uint16_t add(float v, int swapRules = 0);
 uint16_t add(double v, int swapRules = 0);
