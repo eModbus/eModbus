@@ -191,9 +191,8 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
 // receive: get (any) message from Serial, taking care of timeout and interval
 ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
-  const uint16_t BUFBLOCKSIZE(256);
+  const uint16_t BUFBLOCKSIZE(512);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
-  uint8_t bufferBlocks = 1;
   ModbusMessage rv;
 
   // Index into buffer
@@ -202,6 +201,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
   register int b; 
   // Flag for successful read cycle
   bool hadBytes = false;
+  // Next buffer limit
 
   // State machine states
   enum STATES : uint8_t { WAIT_DATA = 0, IN_PACKET, DATA_READ, FINISHED };
@@ -231,13 +231,10 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       while (b >= 0) {
         buffer[bufferPtr++] = b;
         // Buffer full?
-        if (bufferPtr >= bufferBlocks * BUFBLOCKSIZE) {
-          // Yes. Extend it by another block
-          bufferBlocks++;
-          uint8_t *temp = new uint8_t[bufferBlocks * BUFBLOCKSIZE];
-          memcpy(temp, buffer, (bufferBlocks - 1) * BUFBLOCKSIZE);
-          delete[] buffer;
-          buffer = temp;
+        if (bufferPtr >= BUFBLOCKSIZE) {
+          // Yes. Something fishy here - bail out!
+          // Most probably we will run into an error with this data, but anyway...
+          break;
         }
         hadBytes = true;
         b = serial.read();
@@ -245,7 +242,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       // Did we read some?
       if (hadBytes) {
         // Yes, take another turn
-        delayMicroseconds(interval);
+        delay(1);
       } else {
         // No, start new interval and go processing data
         lastMicros = micros();
