@@ -210,12 +210,16 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
   // Timeout tracker
   uint32_t TimeOut = millis();
 
+  // interval tracker 
+  uint32_t intervalEnd = micros();
+
   while (state != FINISHED) {
     switch (state) {
     // WAIT_DATA: await first data byte, but watch timeout
     case WAIT_DATA:
       if (serial.available()) {
         state = IN_PACKET;
+        intervalEnd = micros();
       } else {
         if (millis() - TimeOut >= timeout) {
           rv.push_back(TIMEOUT);
@@ -242,11 +246,16 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       // Did we read some?
       if (hadBytes) {
         // Yes, take another turn
-        delay(1);
+        intervalEnd = micros();
+        taskYIELD();
+        // delay(1);
       } else {
-        // No, start new interval and go processing data
+        // No. Has a complete interval passed without data?
         lastMicros = micros();
-        state = DATA_READ;
+        if (lastMicros - intervalEnd >= interval) {
+          // Yes, go processing data
+          state = DATA_READ;
+        }
       }
       break;
     // DATA_READ: successfully gathered some data. Prepare return object.
