@@ -12,41 +12,6 @@
 using Modbus::Error;
 using std::vector;
 
-// Service method to fill a given byte array with Modbus MSB-first values. Returns number of bytes written.
-template <typename T> uint16_t addValue(uint8_t *target, uint16_t targetLength, T v) {
-  uint16_t sz = sizeof(v);    // Size of value to be added
-  uint16_t index = 0;         // Byte pointer in target
-
-  // Will it fit?
-  if (target && sz <= targetLength) {
-    // Yes. Copy it MSB first
-    while (sz) {
-      sz--;
-      target[index++] = (v >> (sz << 3)) & 0xFF;
-    }
-  }
-  return index;
-}
-
-// Service method to read a MSB-first value
-template <typename T> uint16_t getValue(uint8_t *target, uint16_t targetLength, T& retval) {
-  uint16_t sz = sizeof(retval);    // Size of value to be read
-  uint16_t index = 0;              // Byte pointer in target
-
-  retval = 0;                      // return value
-
-  // Will it fit?
-  if (target && sz <= targetLength) {
-    // Yes. Copy it MSB first
-    while (sz) {
-      sz--;
-      retval <<= 8;
-      retval |= target[index++];
-    }
-  }
-  return index;
-}
-
 class ModbusMessage {
 public:
   // Default empty message Constructor - optionally takes expected size of MM_data
@@ -163,6 +128,8 @@ get(uint16_t index, T& v, Args&&... args) {
   return get(pos, std::forward<Args>(args)...);
 }
 
+// add() variant for vectors of uint8_t
+uint16_t add(vector<uint8_t> v);
 
 // add() variants for float and double values
 uint16_t add(float v, int swapRules = 0);

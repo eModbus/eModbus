@@ -304,6 +304,14 @@ double ModbusMessage::swapDouble(double& f, int swapRule) {
   return interim;
 }
 
+// add() variant for a vector of uint8_t
+uint16_t ModbusMessage::add(vector<uint8_t> v) {
+  for (auto& b: v) {
+    MM_data.push_back(b);
+  }
+  return MM_data.size();
+}
+
 // add() variants for float and double values
 // values will be added in IEEE754 byte sequence (MSB first)
 uint16_t ModbusMessage::add(float v, int swapRule) {
