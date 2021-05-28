@@ -1806,12 +1806,17 @@ void setup()
 // Create a ModbusMessage with a slice in
   coils4 = "11100010100101001";
   ModbusMessage cm;
-  cm.add((uint8_t)1, WRITE_MULT_COILS, (uint16_t)0, coils4.coils(), coils4.size(), coils4.data());
-  testOutput("ModbusMessage with coils", LNO(__LINE__), makeVector("01 0F 00 00 00 11 03 47 29 01"), cm);
+
+  // #1: manually set all parameters
+  cm.add((uint8_t)1, WRITE_MULT_COILS, (uint16_t)0, coils4.coils(), coils4.size(), coils4.vData());
+  testOutput("ModbusMessage with coils #1", LNO(__LINE__), makeVector("01 0F 00 00 00 11 03 47 29 01"), cm);
+
+  // #2: use setMessage()
+  cm.setMessage(1, WRITE_MULT_COILS, 0, coils4.coils(), coils4.size(), coils4.data());
+  testOutput("ModbusMessage with coils #2", LNO(__LINE__), makeVector("01 0F 00 00 00 11 03 47 29 01"), cm);
 
   // Print summary.
   Serial.printf("----->    CoilData tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
-
 
 /*
   // ******************************************************************************

@@ -72,15 +72,12 @@ public:
   // get size in coils
   inline const uint16_t coils() const { return CDsize; }
 
-  // get size in bytes
-  inline const uint8_t size() const { return CDbyteSize; }
-
   // get data as a vector<uint8_t>
-  vector<uint8_t> const data();
+  vector<uint8_t> const vData();
 
   // Raw access to coil data buffer
-  inline const uint8_t *bufferData() const { return CDbuffer; };
-  inline const uint8_t bufferSize() const { return CDbyteSize; };
+  inline uint8_t *data() const { return CDbuffer; };
+  inline uint8_t size() const { return CDbyteSize; };
 
 #if !ISLINUX
   // Helper function to dump out coils in logical order

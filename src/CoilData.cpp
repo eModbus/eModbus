@@ -133,7 +133,7 @@ CoilData::operator vector<uint8_t> const () {
 }
 
 // Get data as vector<uint8_t>
-vector<uint8_t> const CoilData::data() {
+vector<uint8_t> const CoilData::vData() {
   return slice();
 }
 
