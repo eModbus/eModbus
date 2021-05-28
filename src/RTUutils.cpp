@@ -247,8 +247,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       if (hadBytes) {
         // Yes, take another turn
         intervalEnd = micros();
-        taskYIELD();
-        // delay(1);
+        delay(1);
       } else {
         // No. Has a complete interval passed without data?
         lastMicros = micros();
