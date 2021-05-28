@@ -111,7 +111,8 @@ ModbusMessage FC06(ModbusMessage request) {
   ModbusMessage response;
 
   // Get addr and value from data array. Values are MSB-first, getValue() will convert to binary
-  request.get(2, addr, value);
+  request.get(2, addr);
+  request.get(4, value);
 
   // address valid?
   if (!addr || addr > 32) {
@@ -1814,6 +1815,15 @@ void setup()
   // #2: use setMessage()
   cm.setMessage(1, WRITE_MULT_COILS, 0, coils4.coils(), coils4.size(), coils4.data());
   testOutput("ModbusMessage with coils #2", LNO(__LINE__), makeVector("01 0F 00 00 00 11 03 47 29 01"), cm);
+  
+  // Read back coil set from message
+  vector<uint8_t> gc;
+  cm.get(7, gc, coils4.size());
+  testOutput("Read coils from message", LNO(__LINE__), (ModbusMessage)coils4, (ModbusMessage)gc);
+  
+  // Use read set to modify coil set
+  coils.set(0, 17, gc);
+  testOutput("Set coil set from message data", LNO(__LINE__), makeVector("47 29 B5 F3 16"), (ModbusMessage)coils);
 
   // Print summary.
   Serial.printf("----->    CoilData tests: %4d, passed: %4d\n", testsExecuted, testsPassed);

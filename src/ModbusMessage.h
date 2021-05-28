@@ -102,30 +102,18 @@ public:
       return add(args...);
   }
 
-// get() - read a MSB-first value starting at byte index. Returns updated index
-template <typename T> uint16_t get(uint16_t index, T& retval) {
-  uint16_t sz = sizeof(retval);    // Size of value to be read
+// get() - read a byte array of a given size into a vector<uint8_t>. Returns updated index
+uint16_t get(uint16_t index, vector<uint8_t>& v, uint8_t count);
 
-  retval = 0;                      // return value
+// get() - recursion stopper for template function below
+inline uint16_t get(uint16_t index) { return index; }
 
-  // Will it fit?
-  if (index <= MM_data.size() - sz) {
-    // Yes. Copy it MSB first
-    while (sz) {
-      sz--;
-      retval <<= 8;
-      retval |= MM_data[index++];
-    }
-  }
-  return index;
-}
-
-// Template function to extend get(index, A) to get(index, A, B, C, ...)
+// Template function to extend getOne(index, A&) to get(index, A&, B&, C&, ...)
 template <class T, class... Args>
 typename std::enable_if<!std::is_pointer<T>::value, uint16_t>::type
-get(uint16_t index, T& v, Args&&... args) {
-  uint16_t pos = get(index, v);
-  return get(pos, std::forward<Args>(args)...);
+get(uint16_t index, T& v, Args&... args) {
+  uint16_t pos = getOne(index, v);
+  return get(pos, args...);
 }
 
 // add() variant for vectors of uint8_t
@@ -203,6 +191,25 @@ protected:
 
   static float swapFloat(float& f, int swapRule);
   static double swapDouble(double& f, int swapRule);
+
+  // getOne() - read a MSB-first value starting at byte index. Returns updated index
+  template <typename T> uint16_t getOne(uint16_t index, T& retval) {
+    uint16_t sz = sizeof(retval);    // Size of value to be read
+
+    retval = 0;                      // return value
+
+    // Will it fit?
+    if (index <= MM_data.size() - sz) {
+      // Yes. Copy it MSB first
+      while (sz) {
+        sz--;
+        retval <<= 8;
+        retval |= MM_data[index++];
+      }
+    }
+    return index;
+  }
+
 };
 
 #endif

@@ -424,6 +424,17 @@ uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) {
   return index;
 }
 
+// get() - read a byte array of a given size into a vector<uint8_t>. Returns updated index
+uint16_t ModbusMessage::get(uint16_t index, vector<uint8_t>& v, uint8_t count) {
+  // Clean target vector
+  v.clear();
+  // Loop until required count is complete or the source is exhausted
+  while (index < MM_data.size() && count--) {
+    v.push_back(MM_data[index++]);
+  }
+  return index;
+}
+
 // Data validation methods for the different factory calls
 // 0. serverID and function code - used by all of the below
 Error ModbusMessage::checkServerFC(uint8_t serverID, uint8_t functionCode) {
