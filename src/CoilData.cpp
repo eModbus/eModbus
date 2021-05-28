@@ -35,7 +35,14 @@ CoilData::CoilData(const char *initVector) :
   CDsize(0),
   CDbyteSize(0), 
   CDbuffer(nullptr) {
-  set(initVector);
+  // Init with bit image array. Was it successful?
+  if (!setVector(initVector)) {
+    // No. We handle this as if the vector would have been "0"
+    CDsize = 1;
+    CDbyteSize = 1;
+    CDbuffer = new uint8_t[1];
+    *CDbuffer = 0;
+  }
 }
 
 // Destructor: take care of cleaning up
@@ -114,12 +121,19 @@ bool CoilData::operator!=(const CoilData& m) {
 }
 
 // Assignment of a bit image char array to re-init
-bool CoilData::operator=(const char *initVector) {
-  return set(initVector);
+CoilData& CoilData::operator=(const char *initVector) {
+  // setVector() may be unsuccessful - then data is unchanged!
+  setVector(initVector);
+  return *this;
 }
 
 // If used as vector<uint8_t>, return a complete slice
 CoilData::operator vector<uint8_t> const () {
+  return slice();
+}
+
+// Get data as vector<uint8_t>
+vector<uint8_t> const CoilData::data() {
   return slice();
 }
 
@@ -242,7 +256,7 @@ bool CoilData::set(uint16_t start, uint16_t length, uint8_t *newValue) {
 }
 
 // Init all coils by a readable bit image array
-bool CoilData::set(const char *initVector) {
+bool CoilData::setVector(const char *initVector) {
   uint16_t length = 0;           // resulting bit pattern length
   const char *cp = initVector;   // pointer to source array
   bool skipFlag = false;         // Signal next character irrelevant
@@ -317,6 +331,7 @@ bool CoilData::set(const char *initVector) {
       cp++;
     }
   } else { 
+    // length was unsatisfying...
     return false;
   }
   return true;

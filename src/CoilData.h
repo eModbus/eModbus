@@ -7,8 +7,6 @@
 #define _COILDATA_H
 
 #include <vector>
-#include <stdint.h>
-#include <stddef.h>
 #include <cstdint>
 #include "options.h"
 
@@ -46,7 +44,7 @@ public:
   bool operator!=(const CoilData& m);
 
   // Assignment of a bit image char array to re-init
-  bool operator=(const char *initVector);
+  CoilData& operator=(const char *initVector);
 
   // If used as vector<uint8_t>, return a complete slice
   operator vector<uint8_t> const ();
@@ -67,18 +65,22 @@ public:
   bool set(uint16_t index, uint16_t length, vector<uint8_t> newValue);
   // set #3: alter a group of coils, overwriting it by the bits from unit8_t buffer newValue
   bool set(uint16_t index, uint16_t length, uint8_t *newValue);
-  // set #4: overwrite all contents with a bit image char array
-  bool set(const char *initVector);
 
   // (Re-)init complete coil set
   void init(bool value = false);
 
   // get size in coils
-  inline const uint16_t size() const { return CDsize; }
+  inline const uint16_t coils() const { return CDsize; }
+
+  // get size in bytes
+  inline const uint8_t size() const { return CDbyteSize; }
+
+  // get data as a vector<uint8_t>
+  vector<uint8_t> const data();
 
   // Raw access to coil data buffer
-  const uint8_t *bufferData() const { return CDbuffer; };
-  const uint16_t bufferSize() const { return CDbyteSize; };
+  inline const uint8_t *bufferData() const { return CDbuffer; };
+  inline const uint8_t bufferSize() const { return CDbyteSize; };
 
 #if !ISLINUX
   // Helper function to dump out coils in logical order
@@ -93,6 +95,8 @@ protected:
   inline const uint8_t bitIndex(uint16_t index) const { return index & 0x07; }
   // Calculate reversed bit sequence for a byte (taken from http://graphics.stanford.edu/~seander/bithacks.html#ReverseByteWith32Bits)
   inline uint8_t reverseBits(uint8_t b) { return ((b * 0x0802LU & 0x22110LU) | (b * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16; }
+  // (Re-)init with bit image vector
+  bool setVector(const char *initVector);
 
   uint16_t CDsize;         // Size of the CoilData store in bits
   uint8_t  CDbyteSize;     // Size in bytes

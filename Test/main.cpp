@@ -1800,8 +1800,14 @@ void setup()
 // Changing coils by coils ;)
   coils4 = "000000";
   coils2.init(true);
-  coils2.set(5, coils4.size(), coils4.slice());
+  coils2.set(5, coils4.coils(), coils4);
   testOutput("Set with another coils set", LNO(__LINE__), makeVector("1F F8 FF FF 1F"), (ModbusMessage)coils2);
+
+// Create a ModbusMessage with a slice in
+  coils4 = "11100010100101001";
+  ModbusMessage cm;
+  cm.add((uint8_t)1, WRITE_MULT_COILS, (uint16_t)0, coils4.coils(), coils4.size(), coils4.data());
+  testOutput("ModbusMessage with coils", LNO(__LINE__), makeVector("01 0F 00 00 00 11 03 47 29 01"), cm);
 
   // Print summary.
   Serial.printf("----->    CoilData tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
