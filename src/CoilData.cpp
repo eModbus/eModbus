@@ -216,7 +216,10 @@ bool CoilData::set(uint16_t index, bool value) {
 
 // set #2: alter a group of coils, overwriting it by the bits from vector newValue
 bool CoilData::set(uint16_t start, uint16_t length, vector<uint8_t> newValue) {
-  return set(start, length, newValue.data());
+  if (newValue.size() >= (length >> 3) + 1) {
+    return set(start, length, newValue.data());
+  }
+  return false;
 }
 
 // set #3: alter a group of coils, overwriting it by the bits from uint8_t buffer newValue
