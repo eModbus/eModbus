@@ -5,11 +5,9 @@
 
 #include "CoilData.h"
 #undef LOCAL_LOG_LEVEL
-#define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
-
-// Constructor: mandatory size in bits, optional initial value for all bits
+// Constructor: optional size in bits, optional initial value for all bits
 // Maximum size is 2000 coils (=250 bytes)
 CoilData::CoilData(uint16_t size, bool initValue) :
   CDsize(0),
@@ -17,17 +15,18 @@ CoilData::CoilData(uint16_t size, bool initValue) :
   CDbuffer(nullptr) {
   // Limit the size to 2000 (Modbus rules)
   if (size > 2000) size = 2000;
-  // At least the size shall be 1
-  if (size == 0) size = 1;
-  // Calculate number of bytes needed
-  CDbyteSize = byteIndex(size) + 1;
-  // Allocate and init buffer
-  CDbuffer = new uint8_t[CDbyteSize];
-  memset(CDbuffer, initValue ? 0xFF : 0, CDbyteSize);
-  if (initValue && (size % 8)) {
-    CDbuffer[CDbyteSize - 1] &= ~CDfilter[8 - (size % 8)];
+  // Do we have a size?
+  if (size) {
+    // Calculate number of bytes needed
+    CDbyteSize = byteIndex(size - 1) + 1;
+    // Allocate and init buffer
+    CDbuffer = new uint8_t[CDbyteSize];
+    memset(CDbuffer, initValue ? 0xFF : 0, CDbyteSize);
+    if (initValue) {
+      CDbuffer[CDbyteSize - 1] &= CDfilter[bitIndex(size - 1)];
+    }
+    CDsize = size;
   }
-  CDsize = size;
 }
 
 // Alternate constructor, taking a "1101..." bit image char array to init
@@ -35,14 +34,8 @@ CoilData::CoilData(const char *initVector) :
   CDsize(0),
   CDbyteSize(0), 
   CDbuffer(nullptr) {
-  // Init with bit image array. Was it successful?
-  if (!setVector(initVector)) {
-    // No. We handle this as if the vector would have been "0"
-    CDsize = 1;
-    CDbyteSize = 1;
-    CDbuffer = new uint8_t[1];
-    *CDbuffer = 0;
-  }
+  // Init with bit image array. 
+  setVector(initVector);
 }
 
 // Destructor: take care of cleaning up
@@ -58,20 +51,35 @@ CoilData& CoilData::operator=(const CoilData& m) {
   if (CDbuffer) {
     delete CDbuffer;
   }
-  // Allocate new buffer and copy data
-  CDbuffer = new uint8_t[m.CDbyteSize];
-  memcpy(CDbuffer, m.CDbuffer, m.CDbyteSize);
-  CDsize = m.CDsize;
-  CDbyteSize = m.CDbyteSize;
+  // Are coils in source?
+  if (m.CDsize > 0) {
+    // Yes. Allocate new buffer and copy data
+    CDbuffer = new uint8_t[m.CDbyteSize];
+    memcpy(CDbuffer, m.CDbuffer, m.CDbyteSize);
+    CDsize = m.CDsize;
+    CDbyteSize = m.CDbyteSize;
+  } else {
+    // No, leave buffer empty
+    CDsize = 0;
+    CDbyteSize = 0;
+    CDbuffer = nullptr;
+  }
   return *this;
 }
 
 // Copy constructor
-CoilData::CoilData(const CoilData& m) {
-  CDbuffer = new uint8_t[m.CDbyteSize];
-  memcpy(CDbuffer, m.CDbuffer, m.CDbyteSize);
-  CDsize = m.CDsize;
-  CDbyteSize = m.CDbyteSize;
+CoilData::CoilData(const CoilData& m) :
+  CDsize(0),
+  CDbyteSize(0), 
+  CDbuffer(nullptr) {
+  // Has the source coils at all?
+  if (m.CDsize > 0) {
+    // Yes. Allocate new buffer and copy data
+    CDbuffer = new uint8_t[m.CDbyteSize];
+    memcpy(CDbuffer, m.CDbuffer, m.CDbyteSize);
+    CDsize = m.CDsize;
+    CDbyteSize = m.CDbyteSize;
+  }
 }
 
 #ifndef NO_MOVE
@@ -93,14 +101,22 @@ CoilData& CoilData::operator=(CoilData&& m) {
   if (CDbuffer) {
     delete CDbuffer;
   }
-  // Copy over all data
-  CDbuffer = m.CDbuffer;
-  CDsize = m.CDsize;
-  CDbyteSize = m.CDbyteSize;
-  // Then clear source
-  m.CDbuffer = nullptr;
-  m.CDsize = 0;
-  m.CDbyteSize = 0;
+  // Are there coils in the source at all?
+  if (m.CDsize > 0) {
+    // Yes. Copy over all data
+    CDbuffer = m.CDbuffer;
+    CDsize = m.CDsize;
+    CDbyteSize = m.CDbyteSize;
+    // Then clear source
+    m.CDbuffer = nullptr;
+    m.CDsize = 0;
+    m.CDbyteSize = 0;
+  } else {
+    // No, leave object empty.
+    CDbuffer = nullptr;
+    CDsize = 0;
+    CDbyteSize = 0;
+  }
   return *this;
 }
 #endif
@@ -112,79 +128,66 @@ bool CoilData::operator==(const CoilData& m) {
   // Different sizes are never equal
   if (CDsize != m.CDsize) return false;
   // Compare the data
-  if (memcmp(CDbuffer, m.CDbuffer, CDbyteSize)) return false;
+  if (CDsize > 0 && memcmp(CDbuffer, m.CDbuffer, CDbyteSize)) return false;
   return true;
 }
 
+// Inequality: invert the result of the equality comparison
 bool CoilData::operator!=(const CoilData& m) {
   return !(*this == m);
 }
 
 // Assignment of a bit image char array to re-init
 CoilData& CoilData::operator=(const char *initVector) {
-  // setVector() may be unsuccessful - then data is unchanged!
+  // setVector() may be unsuccessful - then data is deleted!
   setVector(initVector);
   return *this;
 }
 
 // If used as vector<uint8_t>, return a complete slice
 CoilData::operator vector<uint8_t> const () {
-  return slice();
-}
-
-// Get data as vector<uint8_t>
-vector<uint8_t> const CoilData::vData() {
-  return slice();
-}
-
-// slice: return a byte vector with coils shifted leftmost
-// will return empty vector if illegal parameters are detected
-vector<uint8_t> CoilData::slice(uint16_t start, uint16_t length) {
+  // Create new vector to return
   vector<uint8_t> retval;
+  if (CDsize > 0) {
+    // Copy over all buffer content
+      retval.assign(CDbuffer, CDbuffer + CDbyteSize);
+  }
+  // return the copy (or an empty vector)
+  return retval;
+}
+
+// slice: return a CoilData object with coils shifted leftmost
+// will return empty object if illegal parameters are detected
+CoilData CoilData::slice(uint16_t start, uint16_t length) {
+  CoilData retval;
+
+  // Any slice of an empty coilset is an empty coilset ;)
+  if (CDsize == 0) return retval;
+
+  // If start is beyond the available coils, return empty slice
+  if (start > CDsize) return retval;
 
   // length default is all up to the end
   if (length == 0) length = CDsize - start;
 
   // Does the requested slice fit in the buffer?
   if ((start + length) <= CDsize) {
-    // Yes, it does. Prepare return vector.
-    uint8_t retbytes = byteIndex(length - 1) + 1;
-    retval.reserve(retbytes);
-
-    uint8_t work = 0;           // Byte to collect bits for the result
-    uint8_t bitPtr = 0;         // bit pointer within "work"
+    // Yes, it does. Extend return object
+    retval = CoilData(length);
 
   // Loop over all requested bits
     for (uint16_t i = start; i < start + length; ++i) {
-      // Is bit set?
       if (CDbuffer[byteIndex(i)] & (1 << bitIndex(i))) {
-        // Yes, add a 1 bit to the result
-        work |= (1 << bitPtr);
+        retval.set(i - start, true);
       }
-      // Proceed to next bit
-      bitPtr++;
-      // work filled completely?
-      if (bitPtr >= 8) {
-        // Yes. Move it to the result
-        retval.push_back(work);
-        // Re-init work  and pointer
-        bitPtr = 0;
-        work = 0;
-      }
-    }
-    // Are there leftovers?
-    if (bitPtr) {
-      // Yes. Move these to the result.
-      retval.push_back(work);
     }
   }
   return retval;
 }
 
-// Single coil get/set functions are using the unreversed bytes. 
 // operator[]: return value of a single coil
 bool CoilData::operator[](uint16_t index) const {
-  if (index && index < CDsize) {
+  if (index < CDsize) {
     return (CDbuffer[byteIndex(index)] & (1 << bitIndex(index))) ? true : false;
   }
   // Wrong parameter -> always return false
@@ -197,7 +200,7 @@ bool CoilData::operator[](uint16_t index) const {
 // set #1: alter one single coil
 bool CoilData::set(uint16_t index, bool value) {
   // Within coils?
-  if (index && index < CDsize) {
+  if (index < CDsize) {
     // Yes. Determine affected byte and bit therein
     uint16_t by = byteIndex(index);
     uint8_t mask = 1 << bitIndex(index);
@@ -216,13 +219,18 @@ bool CoilData::set(uint16_t index, bool value) {
 
 // set #2: alter a group of coils, overwriting it by the bits from vector newValue
 bool CoilData::set(uint16_t start, uint16_t length, vector<uint8_t> newValue) {
+  // Does the vector contain enough data for the specified size?
   if (newValue.size() >= (length >> 3) + 1) {
+    // Yes, we safely may call set #3 with it
     return set(start, length, newValue.data());
   }
   return false;
 }
 
 // set #3: alter a group of coils, overwriting it by the bits from uint8_t buffer newValue
+// **** Watch out! ****
+// This may be a potential risk if newValue is pointing to an array shorter than required. 
+// Then heap data behind the array may be used to set coils!
 bool CoilData::set(uint16_t start, uint16_t length, uint8_t *newValue) {
   // Does the requested slice fit in the buffer?
   if (length && (start + length) <= CDsize) {
@@ -258,6 +266,138 @@ bool CoilData::set(uint16_t start, uint16_t length, uint8_t *newValue) {
   return false;
 }
 
+// set #4: alter a group of coils, overwriting it by the coils in another CoilData object
+// Setting stops when either target storage or source coils are exhausted
+bool CoilData::set(uint16_t index, const CoilData& c) {
+  // if source object is empty, return false
+  if (c.empty()) return false;
+
+  // If target is empty, or index is beyond coils, return false
+  if (CDsize == 0 || index >= CDsize) return false;
+
+  // Take the minimum of remaining coils after index and the length of c
+  uint16_t length = CDsize - index;
+  if (c.coils() < length) length = c.coils();
+
+  // Loop over all coils to be copied
+  for (uint16_t i = index; i < index + length; ++i) {
+    set(i, c[i - index]);
+  }
+  return true;
+}
+
+// set #5: alter a group of coils, overwriting it by a bit image array
+// Setting stops when either target storage or source bits are exhausted
+bool CoilData::set(uint16_t index, const char *initVector) {
+  // if target is empty or index is beyond coils, return false
+  if (CDsize == 0 || index >= CDsize) return false;
+
+  // We do a single pass on the bit image array, until it ends or the target is exhausted
+  const char *cp = initVector;   // pointer to source array
+  bool skipFlag = false;         // Signal next character irrelevant
+
+  while (*cp && index < CDsize) {
+    switch (*cp) {
+    case '1':  // A valid 1 bit
+    case '0':  // A valid 0 bit
+      // Shall we ignore it?
+      if (skipFlag) {
+        // Yes. just reset the ignore flag
+        skipFlag = false;
+      } else {
+        // No, we can set it. First stamp out the existing bit
+        CDbuffer[byteIndex(index)] &= ~(1 << bitIndex(index));
+        // Do we have a 1 bit here?
+        if (*cp == '1') {
+          // Yes. set it in coil storage
+          CDbuffer[byteIndex(index)] |= (1 << bitIndex(index));
+        }
+        index++;
+      }
+      break;
+    case '_':  // Skip next
+      skipFlag = true;
+      break;
+    default:  // anything else
+      skipFlag = false;
+      break;
+    }
+    cp++;
+  }
+  return true;
+}
+
+// Comparison against bit image array
+bool CoilData::operator==(const char *initVector) {
+  const char *cp = initVector;   // pointer to source array
+  bool skipFlag = false;         // Signal next character irrelevant
+  uint16_t index = 0;
+
+  // We do a single pass on the bit image array, until it ends or the target is exhausted
+  while (*cp && index < CDsize) {
+    switch (*cp) {
+    case '1':  // A valid 1 bit
+    case '0':  // A valid 0 bit
+      // Shall we ignore it?
+      if (skipFlag) {
+        // Yes. just reset the ignore flag
+        skipFlag = false;
+      } else {
+        // No, we can compare it
+        uint8_t value = CDbuffer[byteIndex(index)] & (1 << bitIndex(index));
+        // Do we have a 1 bit here?
+        if (*cp == '1') {
+          // Yes. Is the source different? Then we can stop
+          if (value == 0) return false;
+        } else {
+          // No, it is a 0. Different?
+          if (value) return false;
+        }
+        index++;
+      }
+      break;
+    case '_':  // Skip next
+      skipFlag = true;
+      break;
+    default:  // anything else
+      skipFlag = false;
+      break;
+    }
+    cp++;
+  }
+  // So far everything was equal, but we may have more bits in the image array!
+  if (*cp) {
+    // There is more. Check for more valid bits
+    while (*cp) {
+      switch (*cp) {
+      case '1':  // A valid 1 bit
+      case '0':  // A valid 0 bit
+        // Shall we ignore it?
+        if (skipFlag) {
+          // Yes. just reset the ignore flag
+          skipFlag = false;
+        } else {
+          // No, a valid bit that exceeds the target coils count
+          return false;
+        }
+        break;
+      case '_':  // Skip next
+        skipFlag = true;
+        break;
+      default:  // anything else
+        skipFlag = false;
+        break;
+      }
+      cp++;
+    }
+  }
+  return true;
+}
+
+bool CoilData::operator!=(const char *initVector) {
+  return !(*this == initVector);
+}
+
 // Init all coils by a readable bit image array
 bool CoilData::setVector(const char *initVector) {
   uint16_t length = 0;           // resulting bit pattern length
@@ -288,15 +428,18 @@ bool CoilData::setVector(const char *initVector) {
     cp++;
   }
 
+  // If there are coils already, trash them.
+  if (CDbuffer) {
+    delete CDbuffer;
+  }
+  CDsize = 0;
+  CDbyteSize = 0;
+
   // Did we count a manageable number?
   if (length && length <= 2000) {
     // Yes. Init the coils
     CDsize = length;
     CDbyteSize = byteIndex(length - 1) + 1;
-    // If there are coils already, trash them.
-    if (CDbuffer) {
-      delete CDbuffer;
-    }
     // Allocate new coil storage
     CDbuffer = new uint8_t[CDbyteSize];
     memset(CDbuffer, 0, CDbyteSize);
@@ -333,18 +476,43 @@ bool CoilData::setVector(const char *initVector) {
       }
       cp++;
     }
-  } else { 
-    // length was unsatisfying...
-    return false;
+    // We had content, so return true
+    return true;
   }
-  return true;
+  // No valid bits found, return false 
+  return false;
 }
 
 // init: set all coils to 1 or 0 (default)
 void CoilData::init(bool value) {
-  memset(CDbuffer, value ? 0xFF : 0, CDbyteSize);
-  // Stamp out overhang bits
-  CDbuffer[CDbyteSize - 1] &= ~CDfilter[8 - (CDsize % 8)];
+  if (CDsize > 0) {
+    memset(CDbuffer, value ? 0xFF : 0, CDbyteSize);
+    // Stamp out overhang bits
+    CDbuffer[CDbyteSize - 1] &= CDfilter[bitIndex(CDsize - 1)];
+  }
+}
+
+// Return number of coils set to 1 (or not)
+// Uses Brian Kernighan's algorithm!
+uint16_t CoilData::coilsSetON() const {
+  uint16_t count = 0;
+
+  // Do we have coils at all?
+  if (CDbyteSize) {
+    // Yes. Loop over all bytes summing up the '1' bits
+    for (uint8_t i = 0; i < CDbyteSize; ++i) {
+      uint8_t by = CDbuffer[i];
+      while (by) {
+        by &= by - 1; // this clears the LSB-most set bit
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+uint16_t CoilData::coilsSetOFF() const {
+  return CDsize - coilsSetON();
 }
 
 #if !IS_LINUX
