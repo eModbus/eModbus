@@ -33,6 +33,9 @@ const uint16_t PORT(502);
 // Set up a coil storage with 35 coils, all initialized to 0
 CoilData myCoils(35);
 
+// Just for fun we will set up a trigger whenever a coils was written
+bool coilTrigger = false;
+
 // Some functions to be called when function codes 0x01, 0x05 or 0x15 are requested
 // FC01: act on 0x01 requests - READ_COIL
 ModbusMessage FC01(ModbusMessage request) {
@@ -72,6 +75,8 @@ ModbusMessage FC05(ModbusMessage request) {
       if (myCoils.set(start, state)) {
         // All fine, coil was set.
         response = ECHO_RESPONSE;
+        // Pull the trigger
+        coilTrigger = true;
       } else {
         // Setting the coil failed
         response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
@@ -109,6 +114,8 @@ ModbusMessage FC0F(ModbusMessage request) {
       if (myCoils.set(start, numCoils, coilset)) {
         // All fine, return shortened echo response, like the standard says
         response.add(request.getServerID(), request.getFunctionCode(), start, numCoils);
+        // Pull trigger
+        coilTrigger = true;
       } else {
         // Oops! Setting the coils seems to have failed
         response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
@@ -180,7 +187,7 @@ void setup() {
     // We nonchalantly are ignoring here potential errors in byte count etc.
     // and directly read the expected bytes for 12 coils!
     cd.set(0, 12, (uint8_t *)resp.data() + 3);
-    // Print coil set to see the result. cd is 20 coils wide, so only the leftmost 12 matter here
+    // Print coil set to see the result.
     cd.print("Received                          : ", Serial);
   } else {
     ModbusError me(err);
@@ -223,6 +230,18 @@ void setup() {
   // Block of coils set: 0001 0111 1000 0110 0000 0110 1001 0110 010    
 }
 
-// loop() - nothing done here today!
+// loop() - watch for the trigger
 void loop() {
+  static bool lastValue = false;
+  // Trigger pulled?
+  if (coilTrigger) {
+    // Yes. Was it ours?
+    if (myCoils[17] != lastValue) {
+      // Yes. Print out information
+      myCoils.print("Coil 17 changed   : ", Serial);
+      lastValue = myCoils[17];
+    }
+    // Rearm trigger
+    coilTrigger = false;
+  }
 }
