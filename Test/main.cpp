@@ -1729,37 +1729,50 @@ void setup()
   coils.set(35, false);
 
 // Take a slice out of the middle
-  testOutput("Plain vanilla slice", LNO(__LINE__), makeVector("5F D7 0E"), (ModbusMessage)coils.slice(6, 22));
+// Note: we have an intermediate vector<uint8_t> here, as the 2-step conversion from CoilData to ModbusMessage is ambiguous!
+  vector<uint8_t> coilset;
+  coilset = coils.slice(6, 22);
+  testOutput("Plain vanilla slice", LNO(__LINE__), makeVector("5F D7 0E"), (ModbusMessage)coilset);
 
 // Take a slice from the lowest coil on
-  testOutput("Leftmost slice", LNO(__LINE__), makeVector("0B"), (ModbusMessage)coils.slice(0,4));
+  coilset = coils.slice(0, 4);
+  testOutput("Leftmost slice", LNO(__LINE__), makeVector("0B"), (ModbusMessage)coilset);
 
 // Take a 1-coil slice
-  testOutput("Single coil slice", LNO(__LINE__), makeVector("01"), (ModbusMessage)coils.slice(1, 1));
+  coilset = coils.slice(1, 1);
+  testOutput("Single coil slice", LNO(__LINE__), makeVector("01"), (ModbusMessage)coilset);
 
 // Take a slice up to the highest coil
-  testOutput("Rightmost slice", LNO(__LINE__), makeVector("5B"), (ModbusMessage)coils.slice(30, 7));
+  coilset = coils.slice(30, 7);
+  testOutput("Rightmost slice", LNO(__LINE__), makeVector("5B"), (ModbusMessage)coilset);
 
 // Attempt to take a slice off defined coils
-  testOutput("Invalid slice", LNO(__LINE__), makeVector(""), (ModbusMessage)coils.slice(1, 45));
+  coilset = coils.slice(1, 45);
+  testOutput("Invalid slice", LNO(__LINE__), makeVector(""), (ModbusMessage)coilset);
 
 // Take a complete slice, making use of the defaults
-  testOutput("Complete slice", LNO(__LINE__), makeVector("FB D7 B5 F3 16"), (ModbusMessage)coils.slice());
+  coilset = coils.slice();
+  testOutput("Complete slice", LNO(__LINE__), makeVector("FB D7 B5 F3 16"), (ModbusMessage)coilset);
 
 // Create a new coil set by copy constructor
+  vector<uint8_t> coilset2;
   CoilData coils2(coils);
-  testOutput("Copy constructor", LNO(__LINE__), (ModbusMessage)coils, (ModbusMessage)coils2);
+  coilset = coils;
+  coilset2 = coils2;
+  testOutput("Copy constructor", LNO(__LINE__), (ModbusMessage)coilset, (ModbusMessage)coilset2);
 
 // Create a third set with smaller size
   CoilData coils3(16);
 
 // Set a single coil
   coils3.set(12, true);
-  testOutput("set single coil", LNO(__LINE__), makeVector("00 10"), (ModbusMessage)coils3);
+  coilset = coils3;
+  testOutput("set single coil", LNO(__LINE__), makeVector("00 10"), (ModbusMessage)coilset);
 
 // Re-init all coils to 1
   coils3.init(true);
-  testOutput("Init coils", LNO(__LINE__), makeVector("FF FF"), (ModbusMessage)coils3);
+  coilset = coils3;
+  testOutput("Init coils", LNO(__LINE__), makeVector("FF FF"), (ModbusMessage)coilset);
 
 // Define a slice for writing coils. 9 coils to be written!
   vector<uint8_t> cd = { 0xAA, 0x00 };
@@ -1769,47 +1782,69 @@ void setup()
 
 // Do a slice set from leftmost coil on
   coils3.set(0, 9, cd);
-  testOutput("Set from 0", LNO(__LINE__), makeVector("AA FE"), (ModbusMessage)coils3);
+  coilset = coils3;
+  testOutput("Set from 0", LNO(__LINE__), makeVector("AA FE"), (ModbusMessage)coilset);
 
 // Init and do another in the middle
   coils3.init(true);
   coils3.set(4, 9, cd);
-  testOutput("Set from 4", LNO(__LINE__), makeVector("AF EA"), (ModbusMessage)coils3);
+  coilset = coils3;
+  testOutput("Set from 4", LNO(__LINE__), makeVector("AF EA"), (ModbusMessage)coilset);
 
 // Init and do a third set up to the end of coils
   coils3.init(true);
   coils3.set(7, 9, cd);
-  testOutput("Set from 7", LNO(__LINE__), makeVector("7F 55"), (ModbusMessage)coils3);
+  coilset = coils3;
+  testOutput("Set from 7", LNO(__LINE__), makeVector("7F 55"), (ModbusMessage)coilset);
 
 // Attempt to set invalid coil addresses
   coils3.init(true);
   coils3.set(10, 9, cd);
-  testOutput("Invalid set", LNO(__LINE__), makeVector("FF FF"), (ModbusMessage)coils3);
+  coilset = coils3;
+  testOutput("Invalid set", LNO(__LINE__), makeVector("FF FF"), (ModbusMessage)coilset);
 
 // Assign a larger set to the smaller. 
   coils3 = coils2;
-  testOutput("Assignment", LNO(__LINE__), (ModbusMessage)coils2, (ModbusMessage)coils3);
+  coilset2 = coils2;
+  coilset = coils3;
+  testOutput("Assignment", LNO(__LINE__), (ModbusMessage)coilset2, (ModbusMessage)coilset);
 
 // Coils #4 with bit image array constructor
   CoilData coils4("1111 4 zeroes 0000 Escaped_1 4 Ones 1111 _0010101");
-  testOutput("Image constructor", LNO(__LINE__), makeVector("0F AF 02"), (ModbusMessage)coils4);
+  coilset = coils4;
+  testOutput("Image constructor", LNO(__LINE__), makeVector("0F AF 02"), (ModbusMessage)coilset);
 
 // Assignment of bit image array
   coils4 = "111 000 1010 0101 001";
-  testOutput("Image assignment", LNO(__LINE__), makeVector("47 29 01"), (ModbusMessage)coils4);
+  coilset = coils4;
+  testOutput("Image assignment", LNO(__LINE__), makeVector("47 29 01"), (ModbusMessage)coilset);
+
+// Change partly with a bit image array
+  coils4 = "111 000 1010 0101 001";
+  coils4.set(8, "111000111");
+  coilset = coils4;
+  testOutput("Image set (fitting)", LNO(__LINE__), makeVector("47 C7 01"), (ModbusMessage)coilset);
+
+// Change partly with a bit image array too long to fit
+  coils4 = "111 000 1010 0101 001";
+  coils4.set(8, "1111111111111111");
+  coilset = coils4;
+  testOutput("Image set (not fitting)", LNO(__LINE__), makeVector("47 FF 01"), (ModbusMessage)coilset);
 
 // Changing coils by coils ;)
   coils4 = "000000";
   coils2.init(true);
   coils2.set(5, coils4.coils(), coils4);
-  testOutput("Set with another coils set", LNO(__LINE__), makeVector("1F F8 FF FF 1F"), (ModbusMessage)coils2);
+  coilset = coils2;
+  testOutput("Set with another coils set", LNO(__LINE__), makeVector("1F F8 FF FF 1F"), (ModbusMessage)coilset);
 
 // Create a ModbusMessage with a slice in
   coils4 = "11100010100101001";
   ModbusMessage cm;
 
   // #1: manually set all parameters
-  cm.add((uint8_t)1, WRITE_MULT_COILS, (uint16_t)0, coils4.coils(), coils4.size(), coils4.vData());
+  cm.add((uint8_t)1, WRITE_MULT_COILS, (uint16_t)0, coils4.coils(), coils4.size());
+  cm.add(coils4.data(), coils4.size());
   testOutput("ModbusMessage with coils #1", LNO(__LINE__), makeVector("01 0F 00 00 00 11 03 47 29 01"), cm);
 
   // #2: use setMessage()
@@ -1819,11 +1854,44 @@ void setup()
   // Read back coil set from message
   vector<uint8_t> gc;
   cm.get(7, gc, coils4.size());
-  testOutput("Read coils from message", LNO(__LINE__), (ModbusMessage)coils4, (ModbusMessage)gc);
+  coilset = coils4;
+  testOutput("Read coils from message", LNO(__LINE__), (ModbusMessage)coilset, (ModbusMessage)gc);
   
   // Use read set to modify coil set
   coils.set(0, 17, gc);
-  testOutput("Set coil set from message data", LNO(__LINE__), makeVector("47 29 B5 F3 16"), (ModbusMessage)coils);
+  coilset = coils;
+  testOutput("Set coil set from message data", LNO(__LINE__), makeVector("47 29 B5 F3 16"), (ModbusMessage)coilset);
+
+  // Some comparison tests
+  testsExecuted++;
+  uint8_t okay = 0;
+  coils4 = "1101010111";
+  if (coils4 == "1101010111 plus some garbage trailing") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE__) "Compare #1 failed\n");
+  }
+  if (coils4 != "110101 1 0111") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE_) "Compare #2 failed\n");
+  }
+  if (coils4 == "1101010111_1") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE__) "Compare #3 failed\n");
+  }
+  if (coils4 != "11010101111") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE__) "Compare #4 failed\n");
+  }
+  if (coils4.slice(0, 3) == "110") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE__) "Compare #5 failed\n");
+  }
+  if (okay == 5) testsPassed++;
 
   // Print summary.
   Serial.printf("----->    CoilData tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
