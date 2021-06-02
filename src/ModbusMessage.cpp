@@ -86,7 +86,7 @@ uint8_t  ModbusMessage::operator[](uint16_t index) const {
   if (index < MM_data.size()) {
     return MM_data[index];
   }
-  LOG_W("Index %d out of bounds (>=%ld).\n", index, MM_data.size());
+  LOG_W("Index %d out of bounds (>=%d).\n", index, MM_data.size());
   return 0;
 }
 // Resize internal MM_data
@@ -139,11 +139,17 @@ Error ModbusMessage::getError() {
 // Modbus data manipulation
 void    ModbusMessage::setServerID(uint8_t serverID) {
   // We accept here that [0] may allocate a byte!
+  if (MM_data.empty()) {
+    MM_data.reserve(3);  // At least an error message should fit
+  }
   MM_data[0] = serverID;
 }
 
 void    ModbusMessage::setFunctionCode(uint8_t FC) {
   // We accept here that [0], [1] may allocate bytes!
+  if (MM_data.empty()) {
+    MM_data.reserve(3);  // At least an error message should fit
+  }
   // No serverID set yet? use a 0 to initialize it to an error-generating value
   if (MM_data.size() < 2) MM_data[0] = 0; // intentional invalid server ID!
   MM_data[1] = FC;
@@ -298,6 +304,14 @@ double ModbusMessage::swapDouble(double& f, int swapRule) {
   return interim;
 }
 
+// add() variant for a vector of uint8_t
+uint16_t ModbusMessage::add(vector<uint8_t> v) {
+  for (auto& b: v) {
+    MM_data.push_back(b);
+  }
+  return MM_data.size();
+}
+
 // add() variants for float and double values
 // values will be added in IEEE754 byte sequence (MSB first)
 uint16_t ModbusMessage::add(float v, int swapRule) {
@@ -407,6 +421,17 @@ uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) {
     }
   }
 
+  return index;
+}
+
+// get() - read a byte array of a given size into a vector<uint8_t>. Returns updated index
+uint16_t ModbusMessage::get(uint16_t index, vector<uint8_t>& v, uint8_t count) {
+  // Clean target vector
+  v.clear();
+  // Loop until required count is complete or the source is exhausted
+  while (index < MM_data.size() && count--) {
+    v.push_back(MM_data[index++]);
+  }
   return index;
 }
 

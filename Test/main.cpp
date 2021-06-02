@@ -14,6 +14,7 @@
 #include "Logging.h"
 
 #include "TCPstub.h"
+#include "CoilData.h"
 
 #define STRINGIFY(x) #x
 #define LNO(x) "line " STRINGIFY(x) " "
@@ -39,6 +40,9 @@ void RTStest(bool level) {
   if (level) cntRTShigh++;
   else       cntRTSlow++;
 }
+
+// Baud rate to be used for RTU components
+const uint32_t BaudRate(115200);
 
 // Test prerequisites
 TCPstub stub;
@@ -68,8 +72,7 @@ ModbusMessage FC03(ModbusMessage request) {
   ModbusMessage response;
 
   // Get addr and words from data array. Values are MSB-first, get() will convert to binary
-  request.get(2, addr);
-  request.get(4, wrds);
+  request.get(2, addr, wrds);
 
   // address valid?
   if (!addr || addr > 32) {
@@ -149,6 +152,21 @@ ModbusMessage FCany(ModbusMessage request) {
 
   response.add(request.getServerID(), request.getFunctionCode());
   response.add(resp, 6);
+  return response;
+}
+
+// Worker function for large message tests
+ModbusMessage FC44(ModbusMessage request) {
+  ModbusMessage response;
+  uint16_t offs = 2;
+  uint16_t value = 0;
+  uint16_t correctValues = 0;
+
+  for (uint16_t i = 0; i < (request.size() - 2) / 2; ++i) {
+    offs = request.get(offs, value);
+    if (value == i + 1) correctValues++;
+  }
+  response.add(request.getServerID(), request.getFunctionCode(), correctValues);
   return response;
 }
 
@@ -1037,8 +1055,8 @@ void setup()
   printPassed = false;
 
   // Set up Serial1 and Serial2
-  Serial1.begin(19200, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
-  Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
+  Serial1.begin(BaudRate, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
+  Serial2.begin(BaudRate, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
 
 // CHeck if connections are made
   char chkSerial[64];
@@ -1094,11 +1112,13 @@ void setup()
     RTUserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
     RTUserver.registerWorker(1, READ_INPUT_REGISTER, &FC03);     // FC=04 for serverID=1
     RTUserver.registerWorker(1, WRITE_HOLD_REGISTER, &FC06);     // FC=06 for serverID=1
+    RTUserver.registerWorker(1, USER_DEFINED_44, &FC44);         // FC=44 for serverID=1
     RTUserver.registerWorker(2, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=2
     RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
-    RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=41 for serverID=2
+    RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=any for serverID=2
 
-    RTUserver.start();
+    // Have the RTU server run on core 1 with a grossly different interval time!
+    RTUserver.start(1);
 
     ExpectedToggles = 0;
 
@@ -1297,6 +1317,54 @@ void setup()
     };
     testCasesByToken[tc->token] = tc;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 45, 1);
+    if (e != SUCCESS) {
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
+    }
+
+    // #10: Large message
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Large message",
+      .transactionID = 0,
+      .token = Token++,
+      .response = empty,
+      .expected = makeVector("01 44 00 7D"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    ModbusMessage large;
+    large.add((uint8_t)1, USER_DEFINED_44);
+    for (uint16_t i = 1; i < 126; ++i) {
+      large.add(i);
+    }
+    e = RTUclient.addRequest(large, tc->token);
+    if (e != SUCCESS) {
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
+    }
+
+    // #11: Oversize message
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Oversize message",
+      .transactionID = 0,
+      .token = Token++,
+      .response = empty,
+      .expected = makeVector("01 44 00 C7"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    for (uint16_t i = 126; i < 200; ++i) {
+      large.add(i);
+    }
+    e = RTUclient.addRequest(large, tc->token);
     if (e != SUCCESS) {
       ModbusMessage r;
       r.add(e);
@@ -1637,7 +1705,198 @@ void setup()
   // Print summary.
   Serial.printf("----->    Bridge tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
+// ******************************************************************************
+// CoilData type tests
+// ******************************************************************************
 
+  testsExecuted = 0;
+  testsPassed = 0;
+  MBUlogLvl = LOG_LEVEL_WARNING;
+
+// Prepare test coil data with all coils set to 1
+  CoilData coils(37, true);
+
+// Switch off some coils
+  coils.set(2, false);
+  coils.set(11, false);
+  coils.set(13, false);
+  coils.set(17, false);
+  coils.set(22, false);
+  coils.set(26, false);
+  coils.set(27, false);
+  coils.set(19, false);
+  coils.set(32, false);
+  coils.set(35, false);
+
+// Take a slice out of the middle
+// Note: we have an intermediate vector<uint8_t> here, as the 2-step conversion from CoilData to ModbusMessage is ambiguous!
+  vector<uint8_t> coilset;
+  coilset = coils.slice(6, 22);
+  testOutput("Plain vanilla slice", LNO(__LINE__), makeVector("5F D7 0E"), (ModbusMessage)coilset);
+
+// Take a slice from the lowest coil on
+  coilset = coils.slice(0, 4);
+  testOutput("Leftmost slice", LNO(__LINE__), makeVector("0B"), (ModbusMessage)coilset);
+
+// Take a 1-coil slice
+  coilset = coils.slice(1, 1);
+  testOutput("Single coil slice", LNO(__LINE__), makeVector("01"), (ModbusMessage)coilset);
+
+// Take a slice up to the highest coil
+  coilset = coils.slice(30, 7);
+  testOutput("Rightmost slice", LNO(__LINE__), makeVector("5B"), (ModbusMessage)coilset);
+
+// Attempt to take a slice off defined coils
+  coilset = coils.slice(1, 45);
+  testOutput("Invalid slice", LNO(__LINE__), makeVector(""), (ModbusMessage)coilset);
+
+// Take a complete slice, making use of the defaults
+  coilset = coils.slice();
+  testOutput("Complete slice", LNO(__LINE__), makeVector("FB D7 B5 F3 16"), (ModbusMessage)coilset);
+
+// Create a new coil set by copy constructor
+  vector<uint8_t> coilset2;
+  CoilData coils2(coils);
+  coilset = coils;
+  coilset2 = coils2;
+  testOutput("Copy constructor", LNO(__LINE__), (ModbusMessage)coilset, (ModbusMessage)coilset2);
+
+// Create a third set with smaller size
+  CoilData coils3(16);
+
+// Set a single coil
+  coils3.set(12, true);
+  coilset = coils3;
+  testOutput("set single coil", LNO(__LINE__), makeVector("00 10"), (ModbusMessage)coilset);
+
+// Re-init all coils to 1
+  coils3.init(true);
+  coilset = coils3;
+  testOutput("Init coils", LNO(__LINE__), makeVector("FF FF"), (ModbusMessage)coilset);
+
+// Define a slice for writing coils. 9 coils to be written!
+  vector<uint8_t> cd = { 0xAA, 0x00 };
+
+// Re-init coils again
+  coils3.init(true);
+
+// Do a slice set from leftmost coil on
+  coils3.set(0, 9, cd);
+  coilset = coils3;
+  testOutput("Set from 0", LNO(__LINE__), makeVector("AA FE"), (ModbusMessage)coilset);
+
+// Init and do another in the middle
+  coils3.init(true);
+  coils3.set(4, 9, cd);
+  coilset = coils3;
+  testOutput("Set from 4", LNO(__LINE__), makeVector("AF EA"), (ModbusMessage)coilset);
+
+// Init and do a third set up to the end of coils
+  coils3.init(true);
+  coils3.set(7, 9, cd);
+  coilset = coils3;
+  testOutput("Set from 7", LNO(__LINE__), makeVector("7F 55"), (ModbusMessage)coilset);
+
+// Attempt to set invalid coil addresses
+  coils3.init(true);
+  coils3.set(10, 9, cd);
+  coilset = coils3;
+  testOutput("Invalid set", LNO(__LINE__), makeVector("FF FF"), (ModbusMessage)coilset);
+
+// Assign a larger set to the smaller. 
+  coils3 = coils2;
+  coilset2 = coils2;
+  coilset = coils3;
+  testOutput("Assignment", LNO(__LINE__), (ModbusMessage)coilset2, (ModbusMessage)coilset);
+
+// Coils #4 with bit image array constructor
+  CoilData coils4("1111 4 zeroes 0000 Escaped_1 4 Ones 1111 _0010101");
+  coilset = coils4;
+  testOutput("Image constructor", LNO(__LINE__), makeVector("0F AF 02"), (ModbusMessage)coilset);
+
+// Assignment of bit image array
+  coils4 = "111 000 1010 0101 001";
+  coilset = coils4;
+  testOutput("Image assignment", LNO(__LINE__), makeVector("47 29 01"), (ModbusMessage)coilset);
+
+// Change partly with a bit image array
+  coils4 = "111 000 1010 0101 001";
+  coils4.set(8, "111000111");
+  coilset = coils4;
+  testOutput("Image set (fitting)", LNO(__LINE__), makeVector("47 C7 01"), (ModbusMessage)coilset);
+
+// Change partly with a bit image array too long to fit
+  coils4 = "111 000 1010 0101 001";
+  coils4.set(8, "1111111111111111");
+  coilset = coils4;
+  testOutput("Image set (not fitting)", LNO(__LINE__), makeVector("47 FF 01"), (ModbusMessage)coilset);
+
+// Changing coils by coils ;)
+  coils4 = "000000";
+  coils2.init(true);
+  coils2.set(5, coils4.coils(), coils4);
+  coilset = coils2;
+  testOutput("Set with another coils set", LNO(__LINE__), makeVector("1F F8 FF FF 1F"), (ModbusMessage)coilset);
+
+// Create a ModbusMessage with a slice in
+  coils4 = "11100010100101001";
+  ModbusMessage cm;
+
+  // #1: manually set all parameters
+  cm.add((uint8_t)1, WRITE_MULT_COILS, (uint16_t)0, coils4.coils(), coils4.size());
+  cm.add(coils4.data(), coils4.size());
+  testOutput("ModbusMessage with coils #1", LNO(__LINE__), makeVector("01 0F 00 00 00 11 03 47 29 01"), cm);
+
+  // #2: use setMessage()
+  cm.setMessage(1, WRITE_MULT_COILS, 0, coils4.coils(), coils4.size(), coils4.data());
+  testOutput("ModbusMessage with coils #2", LNO(__LINE__), makeVector("01 0F 00 00 00 11 03 47 29 01"), cm);
+  
+  // Read back coil set from message
+  vector<uint8_t> gc;
+  cm.get(7, gc, coils4.size());
+  coilset = coils4;
+  testOutput("Read coils from message", LNO(__LINE__), (ModbusMessage)coilset, (ModbusMessage)gc);
+  
+  // Use read set to modify coil set
+  coils.set(0, 17, gc);
+  coilset = coils;
+  testOutput("Set coil set from message data", LNO(__LINE__), makeVector("47 29 B5 F3 16"), (ModbusMessage)coilset);
+
+  // Some comparison tests
+  testsExecuted++;
+  uint8_t okay = 0;
+  coils4 = "1101010111";
+  if (coils4 == "1101010111 plus some garbage trailing") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE__) "Compare #1 failed\n");
+  }
+  if (coils4 != "110101 1 0111") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE_) "Compare #2 failed\n");
+  }
+  if (coils4 == "1101010111_1") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE__) "Compare #3 failed\n");
+  }
+  if (coils4 != "11010101111") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE__) "Compare #4 failed\n");
+  }
+  if (coils4.slice(0, 3) == "110") {
+    okay++;
+  } else {
+    Serial.print(LNO(__LINE__) "Compare #5 failed\n");
+  }
+  if (okay == 5) testsPassed++;
+
+  // Print summary.
+  Serial.printf("----->    CoilData tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+/*
   // ******************************************************************************
   // Logging tests
   // ******************************************************************************
@@ -1672,6 +1931,7 @@ void setup()
   Serial.println();
   LOG_V("\nVerbose log message\n");
   HEXDUMP_V("Verbose dump data", (uint8_t *)&words, 10);
+  */
 
   // ======================================================================================
   // Final message

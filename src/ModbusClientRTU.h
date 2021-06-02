@@ -31,7 +31,10 @@ public:
   ~ModbusClientRTU();
 
   // begin: start worker task
-  void begin(int coreID = -1, uint8_t factor = 0);
+  void begin(int coreID = -1, uint32_t interval = 0);
+
+  // end: stop the worker
+  void end();
 
   // Set default timeout value for interface
   void setTimeout(uint32_t TOV);

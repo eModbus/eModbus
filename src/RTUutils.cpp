@@ -101,6 +101,20 @@ void RTUutils::addCRC(ModbusMessage& raw) {
   raw.push_back((crc16 >> 8) & 0xFF);
 }
 
+// calculateInterval: determine the minimal gap time between messages
+uint32_t RTUutils::calculateInterval(HardwareSerial& s, uint32_t overwrite) {
+  uint32_t interval = 0;
+
+  // silent interval is at least 3.5x character time
+  interval = 35000000UL / s.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
+  if (interval < 1750) interval = 1750;       // lower limit according to Modbus RTU standard
+  // User overwrite?
+  if (overwrite > interval) {
+    interval = overwrite;
+  }
+  return interval;
+}
+
 // UARTinit: modify the UART FIFO copy trigger threshold 
 // This is normally set to 112 by default, resulting in short messages not being 
 // recognized fast enough for higher Modbus bus speeds
@@ -150,7 +164,7 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
   while (serial.available()) serial.read();
 
   // Respect interval
-  while (micros() - lastMicros < interval) delayMicroseconds(1);
+  if (micros() - lastMicros < interval) delayMicroseconds(interval - (micros() - lastMicros));
 
   // Toggle rtsPin, if necessary
   rts(HIGH);
@@ -177,41 +191,35 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
 // receive: get (any) message from Serial, taking care of timeout and interval
 ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
-  const uint16_t BUFBLOCKSIZE(256);
+  const uint16_t BUFBLOCKSIZE(512);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
-  uint8_t bufferBlocks = 1;
   ModbusMessage rv;
 
   // Index into buffer
   register uint16_t bufferPtr = 0;
   // Byte read
   register int b; 
+  // Flag for successful read cycle
+  bool hadBytes = false;
+  // Next buffer limit
 
   // State machine states
-  enum STATES : uint8_t { WAIT_INTERVAL = 0, WAIT_DATA, IN_PACKET, DATA_READ, FINISHED };
-  register STATES state = WAIT_INTERVAL;
+  enum STATES : uint8_t { WAIT_DATA = 0, IN_PACKET, DATA_READ, FINISHED };
+  register STATES state = WAIT_DATA;
 
   // Timeout tracker
   uint32_t TimeOut = millis();
 
+  // interval tracker 
+  uint32_t intervalEnd = micros();
+
   while (state != FINISHED) {
     switch (state) {
-    // WAIT_INTERVAL: spend the remainder of the bus quiet time waiting
-    case WAIT_INTERVAL:
-      // Time passed?
-      if (micros() - lastMicros >= interval) {
-        // Yes, proceed to reading data
-        state = WAIT_DATA;
-      } else {
-        // No, wait a little longer
-        delayMicroseconds(1);
-      }
-      break;
     // WAIT_DATA: await first data byte, but watch timeout
     case WAIT_DATA:
       if (serial.available()) {
         state = IN_PACKET;
-        lastMicros = micros();
+        intervalEnd = micros();
       } else {
         if (millis() - TimeOut >= timeout) {
           rv.push_back(TIMEOUT);
@@ -222,25 +230,31 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
       break;
     // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
     case IN_PACKET:
+      hadBytes = false;
       b = serial.read();
       while (b >= 0) {
         buffer[bufferPtr++] = b;
         // Buffer full?
-        if (bufferPtr >= bufferBlocks * BUFBLOCKSIZE) {
-          // Yes. Extend it by another block
-          bufferBlocks++;
-          uint8_t *temp = new uint8_t[bufferBlocks * BUFBLOCKSIZE];
-          memcpy(temp, buffer, (bufferBlocks - 1) * BUFBLOCKSIZE);
-          delete[] buffer;
-          buffer = temp;
+        if (bufferPtr >= BUFBLOCKSIZE) {
+          // Yes. Something fishy here - bail out!
+          // Most probably we will run into an error with this data, but anyway...
+          break;
         }
+        hadBytes = true;
         b = serial.read();
-        // Rewind timer
-        lastMicros = micros();
       }
-      // Gap of at least _interval micro seconds passed without data?
-      if (micros() - lastMicros >= interval) {
-        state = DATA_READ;
+      // Did we read some?
+      if (hadBytes) {
+        // Yes, take another turn
+        intervalEnd = micros();
+        delay(1);
+      } else {
+        // No. Has a complete interval passed without data?
+        lastMicros = micros();
+        if (lastMicros - intervalEnd >= interval) {
+          // Yes, go processing data
+          state = DATA_READ;
+        }
       }
       break;
     // DATA_READ: successfully gathered some data. Prepare return object.

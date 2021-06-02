@@ -12,41 +12,6 @@
 using Modbus::Error;
 using std::vector;
 
-// Service method to fill a given byte array with Modbus MSB-first values. Returns number of bytes written.
-template <typename T> uint16_t addValue(uint8_t *target, uint16_t targetLength, T v) {
-  uint16_t sz = sizeof(v);    // Size of value to be added
-  uint16_t index = 0;         // Byte pointer in target
-
-  // Will it fit?
-  if (target && sz <= targetLength) {
-    // Yes. Copy it MSB first
-    while (sz) {
-      sz--;
-      target[index++] = (v >> (sz << 3)) & 0xFF;
-    }
-  }
-  return index;
-}
-
-// Service method to read a MSB-first value
-template <typename T> uint16_t getValue(uint8_t *target, uint16_t targetLength, T& retval) {
-  uint16_t sz = sizeof(retval);    // Size of value to be read
-  uint16_t index = 0;              // Byte pointer in target
-
-  retval = 0;                      // return value
-
-  // Will it fit?
-  if (target && sz <= targetLength) {
-    // Yes. Copy it MSB first
-    while (sz) {
-      sz--;
-      retval <<= 8;
-      retval |= target[index++];
-    }
-  }
-  return index;
-}
-
 class ModbusMessage {
 public:
   // Default empty message Constructor - optionally takes expected size of MM_data
@@ -137,23 +102,22 @@ public:
       return add(args...);
   }
 
-// get() - read a MSB-first value starting at byte index. Returns updated index
-template <typename T> uint16_t get(uint16_t index, T& retval) {
-  uint16_t sz = sizeof(retval);    // Size of value to be read
+// get() - read a byte array of a given size into a vector<uint8_t>. Returns updated index
+uint16_t get(uint16_t index, vector<uint8_t>& v, uint8_t count);
 
-  retval = 0;                      // return value
+// get() - recursion stopper for template function below
+inline uint16_t get(uint16_t index) { return index; }
 
-  // Will it fit?
-  if (index <= MM_data.size() - sz) {
-    // Yes. Copy it MSB first
-    while (sz) {
-      sz--;
-      retval <<= 8;
-      retval |= MM_data[index++];
-    }
-  }
-  return index;
+// Template function to extend getOne(index, A&) to get(index, A&, B&, C&, ...)
+template <class T, class... Args>
+typename std::enable_if<!std::is_pointer<T>::value, uint16_t>::type
+get(uint16_t index, T& v, Args&... args) {
+  uint16_t pos = getOne(index, v);
+  return get(pos, args...);
 }
+
+// add() variant for vectors of uint8_t
+uint16_t add(vector<uint8_t> v);
 
 // add() variants for float and double values
 uint16_t add(float v, int swapRules = 0);
@@ -227,6 +191,25 @@ protected:
 
   static float swapFloat(float& f, int swapRule);
   static double swapDouble(double& f, int swapRule);
+
+  // getOne() - read a MSB-first value starting at byte index. Returns updated index
+  template <typename T> uint16_t getOne(uint16_t index, T& retval) {
+    uint16_t sz = sizeof(retval);    // Size of value to be read
+
+    retval = 0;                      // return value
+
+    // Will it fit?
+    if (index <= MM_data.size() - sz) {
+      // Yes. Copy it MSB first
+      while (sz) {
+        sz--;
+        retval <<= 8;
+        retval |= MM_data[index++];
+      }
+    }
+    return index;
+  }
+
 };
 
 #endif

@@ -29,7 +29,7 @@ public:
   ~ModbusServerRTU();
 
   // start: create task with RTU server to accept requests
-  bool start(int coreID = -1);
+  bool start(int coreID = -1, uint32_t interval = 0);
 
   // stop: kill server task
   bool stop();

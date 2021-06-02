@@ -70,9 +70,13 @@ protected:
     uint16_t len;               // Length of remainder of TCP packet
 
     inline explicit operator const uint8_t *() {
-      addValue(headRoom, 6, transactionID);
-      addValue(headRoom + 2, 4, protocolID);
-      addValue(headRoom + 4, 2, len);
+      uint8_t *cp = headRoom;
+      *cp++ = (transactionID >> 8) & 0xFF;
+      *cp++ = transactionID  & 0xFF;
+      *cp++ = (protocolID >> 8) & 0xFF;
+      *cp++ = protocolID  & 0xFF;
+      *cp++ = (len >> 8) & 0xFF;
+      *cp++ = len  & 0xFF;
       return headRoom;
     }
 
