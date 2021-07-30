@@ -1275,7 +1275,7 @@ void setup()
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
     }
-    delay(2000);   // #7 results in timeout, so wat a bit.
+    delay(5000);   // #7 results in timeout, so wat a bit.
 
     // #8: NIL_RESPONSE (aka timeout)
     tc = new TestCase { 
@@ -1316,6 +1316,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 45, 1);
     if (e != SUCCESS) {
       ModbusMessage r;
@@ -1336,6 +1337,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     ModbusMessage large;
     large.add((uint8_t)1, USER_DEFINED_44);
     for (uint16_t i = 1; i < 126; ++i) {
@@ -1361,6 +1363,7 @@ void setup()
       .fakeTransactionID = false
     };
     testCasesByToken[tc->token] = tc;
+    ExpectedToggles++;
     for (uint16_t i = 126; i < 200; ++i) {
       large.add(i);
     }
@@ -1370,6 +1373,9 @@ void setup()
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
     }
+
+    // Wait even longer for all requests finishing
+    delay(15000);
 
     // Check RTS toggle
     testsExecuted++;
