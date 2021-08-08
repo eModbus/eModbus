@@ -57,6 +57,15 @@ protected:
     ClientData() : task(nullptr), client(0), timeout(0), parent(nullptr) {}
     ClientData(TaskHandle_t t, CT& c, uint32_t to, ModbusServerTCP<ST, CT> *p) : 
       task(t), client(c), timeout(to), parent(p) {}
+    ~ClientData() {
+      if (client) {
+        client.stop();
+      }
+      if (task != nullptr) {
+        vTaskDelete(task);
+        LOG_D("Killed client task %d\n", (uint32_t)task);
+      }
+    }
     TaskHandle_t task;
     CT client;
     uint32_t timeout;
@@ -97,7 +106,6 @@ template <typename ST, typename CT>
 ModbusServerTCP<ST, CT>::~ModbusServerTCP() {
   for (uint8_t i = 0; i < numClients; ++i) {
     if (clients[i] != nullptr) {
-      if (clients[i]->task != nullptr) vTaskDelete(clients[i]->task);
       delete clients[i];
     }
   }
@@ -165,12 +173,6 @@ template <typename ST, typename CT>
       // Client is alive?
       if (clients[i] != nullptr) {
         // Yes. Close the connection
-        while (clients[i]->client.read() != -1) {}
-        clients[i]->client.stop();
-        delay(50);
-        // Kill the client task
-        vTaskDelete(clients[i]->task);
-        LOG_D("Killed client %d task %d\n", i, (uint32_t)(clients[i]->task));
         delete clients[i];
         clients[i] = nullptr;
       }
