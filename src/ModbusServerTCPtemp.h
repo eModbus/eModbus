@@ -50,6 +50,7 @@ protected:
   TaskHandle_t serverTask;
   uint16_t serverPort;
   uint32_t serverTimeout;
+  bool serverGoDown;
   mutex clientLock;
 
   struct ClientData {
@@ -86,7 +87,8 @@ ModbusServerTCP<ST, CT>::ModbusServerTCP() :
   numClients(0),
   serverTask(nullptr),
   serverPort(502),
-  serverTimeout(20000) {
+  serverTimeout(20000),
+  serverGoDown(false) {
     clients = new ClientData*[numClients]();
    }
 
@@ -100,6 +102,7 @@ ModbusServerTCP<ST, CT>::~ModbusServerTCP() {
     }
   }
   delete[] clients;
+  serverGoDown = true;
 }
 
 // activeClients: return number of clients currently employed
@@ -141,10 +144,11 @@ template <typename ST, typename CT>
     }
     serverPort = port;
     serverTimeout = timeout;
+    serverGoDown = false;
 
     // Create unique task name
-    char taskName[12];
-    snprintf(taskName, 12, "MBserve%04X", port);
+    char taskName[18];
+    snprintf(taskName, 18, "MBserve%04X", port);
 
     // Start task to handle the client
     xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
@@ -161,6 +165,7 @@ template <typename ST, typename CT>
       // Client is alive?
       if (clients[i] != nullptr) {
         // Yes. Close the connection
+        while (clients[i]->client.read() != -1) {}
         clients[i]->client.stop();
         delay(50);
         // Kill the client task
@@ -171,9 +176,12 @@ template <typename ST, typename CT>
       }
     }
     if (serverTask != nullptr) {
-      vTaskDelete(serverTask);
+      // Signal server task to stop
+      serverGoDown = true;
+      delay(5000);
       LOG_D("Killed server task %d\n", (uint32_t)(serverTask));
       serverTask = nullptr;
+      serverGoDown = false;
     }
     return true;
   }
@@ -189,8 +197,8 @@ bool ModbusServerTCP<ST, CT>::accept(CT& client, uint32_t timeout, int coreID) {
       clients[i] = new ClientData(0, client, timeout, this);
 
       // Create unique task name
-      char taskName[12];
-      snprintf(taskName, 12, "MBsrv%02Xclnt", i);
+      char taskName[18];
+      snprintf(taskName, 18, "MBsrv%02Xclnt", i);
 
       // Start task to handle the client
       xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, clients[i], 5, &clients[i]->task, coreID >= 0 ? coreID : NULL);
@@ -205,28 +213,35 @@ bool ModbusServerTCP<ST, CT>::accept(CT& client, uint32_t timeout, int coreID) {
 
 template <typename ST, typename CT>
 void ModbusServerTCP<ST, CT>::serve(ModbusServerTCP<ST, CT> *myself) {
-  // Set up server with given port
-  ST server(myself->serverPort);
+  // need a local scope here to delete the server at termination time
+  if (1) {
+    // Set up server with given port
+    ST server(myself->serverPort);
 
-  // Start it
-  server.begin();
+    // Start it
+    server.begin();
 
-  // Loop until being killed
-  while (true) {
-    // Do we have clients left to use?
-    if (myself->clientAvailable()) {
-      // Yes. accept one, when it connects
-      CT ec = server.accept();
-      // Did we get a connection?
-      if (ec) {
-        // Yes. Forward it to the Modbus server
-        myself->accept(ec, myself->serverTimeout, 0);
-        LOG_D("Accepted connection - %d clients running\n", myself->activeClients());
+    // Loop until being killed
+    while (!myself->serverGoDown) {
+      // Do we have clients left to use?
+      if (myself->clientAvailable()) {
+        // Yes. accept one, when it connects
+        CT ec = server.accept();
+        // Did we get a connection?
+        if (ec) {
+          // Yes. Forward it to the Modbus server
+          myself->accept(ec, myself->serverTimeout, 0);
+          LOG_D("Accepted connection - %d clients running\n", myself->activeClients());
+        }
       }
+      // Give scheduler room to breathe
+      delay(10);
     }
-    // Give scheduler room to breathe
-    delay(10);
+    LOG_E("Server going down\n");
+    // We must go down
+    server.end();
   }
+  vTaskDelete(NULL);
 }
 
 template <typename ST, typename CT>
@@ -334,7 +349,7 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   }
 
   // Read away all that may still hang in the buffer
-  while (myClient.available()) { myClient.read(); }
+  while (myClient.read() != -1) {}
   // Now stop the client
   myClient.stop();
 

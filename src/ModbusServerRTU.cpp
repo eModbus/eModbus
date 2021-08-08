@@ -74,8 +74,8 @@ bool ModbusServerRTU::start(int coreID, uint32_t interval) {
     MSRinterval = RTUutils::calculateInterval(MSRserial, interval);
 
     // Create unique task name
-    char taskName[12];
-    snprintf(taskName, 12, "MBsrv%02XRTU", instanceCounter);
+    char taskName[18];
+    snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
 
     // Start task to handle the client
     xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);

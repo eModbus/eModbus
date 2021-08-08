@@ -71,8 +71,8 @@ void ModbusClientTCP::begin(int coreID) {
 
 #else
   // Create unique task name
-  char taskName[12];
-  snprintf(taskName, 12, "Modbus%02XTCP", instanceCounter);
+  char taskName[18];
+  snprintf(taskName, 18, "Modbus%02XTCP", instanceCounter);
   // Start task to handle the queue
   xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
   LOG_D("TCP client worker %s started\n", taskName);
@@ -95,6 +95,11 @@ bool ModbusClientTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout,
   LOG_D("Target set: %d.%d.%d.%d:%d\n", host[0], host[1], host[2], host[3], port);
   if (MT_target.host == MT_lastTarget.host && MT_target.port == MT_lastTarget.port) return false;
   return true;
+}
+
+// Return number of unprocessed requests in queue
+uint32_t ModbusClientTCP::pendingRequests() {
+  return requests.size();
 }
 
 // Base addRequest for preformatted ModbusMessage and last set target
@@ -214,6 +219,8 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
 
       // Do we have a connection open?
       if (instance->MT_client.connected()) {
+        // Empty the RX buffer in case there is a stray response left
+        while (instance->MT_client.read() != -1) {}
         // check if lastHost/lastPort!=host/port off the queued request
         if (instance->MT_lastTarget != request->target) {
           // It is different. Disconnect it.
@@ -222,10 +229,6 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
           delay(1);  // Give scheduler room to breathe
         } else {
           // it is the same host/port.
-          // Empty the RX buffer in case there is a stray response left
-          if (instance->MT_client.connected()) {
-            while (instance->MT_client.available()) { instance->MT_client.read(); }
-          }
           // Give it some slack to get ready again
           while (millis() - lastRequest < request->target.interval) { delay(1); }
         }

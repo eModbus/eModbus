@@ -64,8 +64,8 @@ void ModbusClientRTU::begin(int coreID, uint32_t interval) {
     MR_interval = RTUutils::calculateInterval(MR_serial, interval);
 
     // Create unique task name
-    char taskName[12];
-    snprintf(taskName, 12, "Modbus%02XRTU", instanceCounter);
+    char taskName[18];
+    snprintf(taskName, 18, "Modbus%02XRTU", instanceCounter);
     // Start task to handle the queue
     xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 6, &worker, coreID >= 0 ? coreID : NULL);
 
