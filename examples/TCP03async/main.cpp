@@ -95,7 +95,7 @@ void loop() {
     // and the request will not be issued
     Serial.printf("sending request with token %d\n", lastMillis);
     Error err;
-    err = MB.addRequest(1, READ_HOLD_REGISTER, 10, 4, lastMillis);
+    err = MB.addRequest(lastMillis, 1, READ_HOLD_REGISTER, 10, 4);
     if (err != SUCCESS) {
       ModbusError e(err);
       Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);
