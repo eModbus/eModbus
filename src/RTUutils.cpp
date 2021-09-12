@@ -260,6 +260,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
     // DATA_READ: successfully gathered some data. Prepare return object.
     case DATA_READ:
       // Did we get a sensible buffer length?
+      HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
       if (bufferPtr >= 4)
       {
         // Yes. Allocate response object
