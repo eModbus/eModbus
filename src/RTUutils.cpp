@@ -232,15 +232,18 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
     case IN_PACKET:
       hadBytes = false;
       b = serial.read();
+      if (b >= 0) {
+        hadBytes = true;
+      }
       while (b >= 0) {
         buffer[bufferPtr++] = b;
         // Buffer full?
         if (bufferPtr >= BUFBLOCKSIZE) {
           // Yes. Something fishy here - bail out!
-          // Most probably we will run into an error with this data, but anyway...
+          rv.push_back(PACKET_LENGTH_ERROR);
+          state = FINISHED;
           break;
         }
-        hadBytes = true;
         b = serial.read();
       }
       // Did we read some?
