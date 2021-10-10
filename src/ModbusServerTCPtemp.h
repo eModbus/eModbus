@@ -374,12 +374,11 @@ ModbusMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
   const uint16_t BUFFERSIZE(300);
   uint8_t buffer[BUFFERSIZE];
 
-  // wait for packet data or timeout
-  while (millis() - lastMillis < timeWait) {
+  // wait for sufficient packet data or timeout
+  while ((millis() - lastMillis < timeWait) && ((cnt < 6) || (cnt < lengthVal)) && (cnt < BUFFERSIZE)) 
+  {
     // Is there data waiting?
     if (client.available()) {
-      // Yes. catch as much as is there and fits into buffer
-      while (client.available() && ((cnt < 6) || (cnt < lengthVal)) && (cnt < BUFFERSIZE)) {
         buffer[cnt] = client.read();
         // Are we at the TCP header length field byte #1?
         if (cnt == 4) lengthVal = buffer[cnt] << 8;
@@ -389,12 +388,11 @@ ModbusMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
           lengthVal += 6;
         }
         cnt++;
-      }
-      delay(1);
-      // Rewind EOT and timeout timers
-      lastMillis = millis();
+        // Rewind EOT and timeout timers
+        lastMillis = millis();
+    } else {
+      delay(1); // Give scheduler room to breathe
     }
-    delay(1); // Give scheduler room to breathe
   }
   // Did we receive some data?
   if (cnt) {
