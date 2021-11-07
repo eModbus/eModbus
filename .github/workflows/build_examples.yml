@@ -21,5 +21,4 @@ jobs:
         platformio lib -g install https://github.com/maxgerhardt/Ethernet.git  # Ethernet
     - name: Build examples
       run: |
-        # chmod +x ./scripts/build_examples.sh # executable by file permission
         ./scripts/build_examples.sh
