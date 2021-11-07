@@ -26,8 +26,9 @@ while read line; do
     echo -e "building with custom platformio.ini"
     output=$(platformio ci --lib="." --project-conf="$line/platformio.ini" $line 2>&1)
   else
-     echo -e "building with generic platformio.ini"
-    output=$(platformio ci --lib="." --project-conf="../scripts/platformio.ini" $line 2>&1)
+    echo -e "building with generic platformio.ini"
+    echo $PWD
+    output=$(platformio ci --lib="." --project-conf="./scripts/platformio.ini" $line 2>&1)
   fi
   if [ $? -ne 0 ]; then
     echo "$output"
