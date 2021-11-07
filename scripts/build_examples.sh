@@ -25,7 +25,7 @@ while read line; do
   then
     output=$(platformio ci --lib="." --project-conf="$line/platformio.ini" $line 2>&1)
   else
-    output=$(platformio ci --lib="." --project-conf="scripts/platformio.ini" $line 2>&1)
+    output=$(platformio ci --lib="." --project-conf="./scripts/platformio.ini" $line 2>&1)
   fi
   if [ $? -ne 0 ]; then
     echo "$output"
