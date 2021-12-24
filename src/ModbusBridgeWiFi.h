@@ -6,6 +6,10 @@
 #define _MODBUS_BRIDGE_WIFI_H
 #include "options.h"
 #include <WiFi.h>
+
+#undef SERVER_END
+#define SERVER_END server.end();
+
 #include "ModbusServerTCPtemp.h"
 #include "ModbusBridgeTemp.h"
 
