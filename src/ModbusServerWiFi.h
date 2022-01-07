@@ -6,8 +6,11 @@
 #define _MODBUS_SERVER_WIFI_H
 #include "options.h"
 #include <WiFi.h>
-#include "ModbusServerTCPtemp.h"
 
+#undef SERVER_END
+#define SERVER_END server.end();
+
+#include "ModbusServerTCPtemp.h"
 using ModbusServerWiFi = ModbusServerTCP<WiFiServer, WiFiClient>;
 
 #endif

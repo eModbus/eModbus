@@ -8,8 +8,11 @@
 #if HAS_ETHERNET == 1
 #include <Ethernet.h>
 #include <SPI.h>
-#include "ModbusServerTCPtemp.h"
 
+#undef SERVER_END
+#define SERVER_END // NIL for Ethernet
+
+#include "ModbusServerTCPtemp.h"
 using ModbusServerEthernet = ModbusServerTCP<EthernetServer, EthernetClient>;
 #endif
 

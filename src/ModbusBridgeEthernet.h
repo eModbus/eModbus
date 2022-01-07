@@ -8,6 +8,10 @@
 #if HAS_ETHERNET == 1
 #include <Ethernet.h>
 #include <SPI.h>
+
+#undef SERVER_END
+#define SERVER_END // NIL for Ethernet
+
 #include "ModbusServerTCPtemp.h"
 #include "ModbusBridgeTemp.h"
 
