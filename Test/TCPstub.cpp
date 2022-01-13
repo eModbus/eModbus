@@ -206,7 +206,7 @@ void TCPstub::workerTask(TCPstub *instance) {
         // Does the test case prescribe an initial delay?
         if (myTest->delayTime) {
           // Yes. idle until time has passed
-          uint32_t startTime = millis();
+          unsigned long startTime = millis();
           while (millis() - startTime <= myTest->delayTime) {
             delay(1);
           }

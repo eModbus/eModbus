@@ -69,7 +69,7 @@ protected:
   mutex qLock;                    // Mutex to protect queue
   #endif
   HardwareSerial& MR_serial;      // Ptr to the serial interface used
-  uint32_t MR_lastMicros;         // Microseconds since last bus activity
+  unsigned long MR_lastMicros;         // Microseconds since last bus activity
   uint32_t MR_interval;           // Modbus RTU bus quiet time
   int8_t MR_rtsPin;               // GPIO pin to toggle RS485 DE/RE line. -1 if none.
   RTScallback MTRSrts;            // RTS line callback function

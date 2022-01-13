@@ -253,7 +253,7 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
   uint32_t myTimeOut = myData->timeout;
   // TaskHandle_t myTask = myData->task;
   ModbusServerTCP<ST, CT> *myParent = myData->parent;
-  uint32_t myLastMessage = millis();
+  unsigned long myLastMessage = millis();
 
   LOG_D("Worker started, timeout=%d\n", myTimeOut);
 
@@ -367,7 +367,7 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
 // receive: get request via Client connection
 template <typename ST, typename CT>
 ModbusMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
-  uint32_t lastMillis = millis();     // Timer to check for timeout
+  unsigned long lastMillis = millis();     // Timer to check for timeout
   ModbusMessage m;                    // to take read data
   register uint16_t lengthVal = 0;
   register uint16_t cnt = 0;

@@ -62,7 +62,7 @@ uint32_t ModbusClient::getMessageCount() {
 // waitSync: wait for response on syncRequest to arrive
 ModbusMessage ModbusClient::waitSync(uint8_t serverID, uint8_t functionCode, uint32_t token) {
   ModbusMessage response;
-  uint32_t lostPatience = millis();
+  unsigned long lostPatience = millis();
  
   // Default response is TIMEOUT
   response.setError(serverID, functionCode, TIMEOUT);

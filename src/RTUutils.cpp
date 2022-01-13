@@ -157,7 +157,7 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, RTScallback rts, const uint8_t *data, uint16_t len) {
+void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, const uint8_t *data, uint16_t len) {
   uint16_t crc16 = calcCRC(data, len);
 
   // Clear serial buffers
@@ -184,12 +184,12 @@ void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t inter
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, uint32_t& lastMicros, uint32_t interval, RTScallback rts, ModbusMessage raw) {
+void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, ModbusMessage raw) {
   send(serial, lastMicros, interval, rts, raw.data(), raw.size());
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval
-ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32_t& lastMicros, uint32_t interval) {
+ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(512);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
@@ -208,10 +208,10 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, uint32
   register STATES state = WAIT_DATA;
 
   // Timeout tracker
-  uint32_t TimeOut = millis();
+  unsigned long TimeOut = millis();
 
   // interval tracker 
-  uint32_t intervalEnd = micros();
+  unsigned long intervalEnd = micros();
 
   while (state != FINISHED) {
     switch (state) {

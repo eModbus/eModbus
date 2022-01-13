@@ -50,7 +50,7 @@ protected:
                                          // receive again.
   HardwareSerial& MSRserial;             // The serial interface to use
   uint32_t MSRinterval;                  // Bus quiet time between messages
-  uint32_t MSRlastMicros;                // microsecond time stamp of last bus activity
+  unsigned long MSRlastMicros;                // microsecond time stamp of last bus activity
   int8_t MSRrtsPin;                      // GPIO number of the RS485 module's RE/DE line
   RTScallback MRTSrts;                   // Callback to set the RTS line to HIGH/LOW
 

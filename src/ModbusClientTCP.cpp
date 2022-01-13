@@ -206,7 +206,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
   const uint8_t RETRIES(2);
   uint8_t retryCounter = RETRIES;
   bool doNotPop;
-  uint32_t lastRequest = millis();
+  unsigned long lastRequest = millis();
 
   // Loop forever - or until task is killed
   while (1) {
@@ -356,7 +356,7 @@ void ModbusClientTCP::send(RequestEntry *request) {
 
 // receive: get response via Client connection
 ModbusMessage ModbusClientTCP::receive(RequestEntry *request) {
-  uint32_t lastMillis = millis();     // Timer to check for timeout
+  unsigned long lastMillis = millis();     // Timer to check for timeout
   bool hadData = false;               // flag data received
   const uint16_t dataLen(300);        // Modbus Packet supposedly will fit (260<300)
   uint8_t data[dataLen];              // Local buffer to collect received data

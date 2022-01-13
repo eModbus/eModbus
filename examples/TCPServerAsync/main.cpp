@@ -88,7 +88,7 @@ void setup() {
 
 // loop() - nothing done here today!
 void loop() {
-  static uint32_t lastMillis = 0;
+  static unsigned long lastMillis = 0;
   if (millis() - lastMillis > 10000) {
     lastMillis = millis();
     Serial.printf("free heap: %d\n", ESP.getFreeHeap());

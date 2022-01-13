@@ -79,7 +79,7 @@ void setup() {
 
 // loop() - nothing done here today!
 void loop() {
-  static uint32_t lastMillis = 0;
+  static unsigned long lastMillis = 0;
   if (millis() - lastMillis > 5000) {
     lastMillis = millis();
 
@@ -93,9 +93,9 @@ void loop() {
     //
     // If something is missing or wrong with the call parameters, we will immediately get an error code 
     // and the request will not be issued
-    Serial.printf("sending request with token %d\n", lastMillis);
+    Serial.printf("sending request with token %d\n", (uint32_t)lastMillis);
     Error err;
-    err = MB.addRequest(lastMillis, 1, READ_HOLD_REGISTER, 10, 4);
+    err = MB.addRequest((uint32_t)lastMillis, 1, READ_HOLD_REGISTER, 10, 4);
     if (err != SUCCESS) {
       ModbusError e(err);
       Serial.printf("Error creating request: %02X - %s\n", (int)e, (const char *)e);

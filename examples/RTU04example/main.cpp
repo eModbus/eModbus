@@ -80,14 +80,14 @@ void setup() {
 
 // loop() - cyclically request the data
 void loop() {
-  static uint32_t next_request = millis();
+  static unsigned long next_request = millis();
 
   // Shall we do another request?
   if (millis() - next_request > READ_INTERVAL) {
     // Yes.
     data_ready = false;
     // Issue the request
-    Error err = MB.addRequest(millis(), 1, READ_INPUT_REGISTER, FIRST_REGISTER, NUM_VALUES * 2);
+    Error err = MB.addRequest((uint32_t)millis(), 1, READ_INPUT_REGISTER, FIRST_REGISTER, NUM_VALUES * 2);
     if (err!=SUCCESS) {
       ModbusError e(err);
       LOG_E("Error creating request: %02X - %s\n", (int)e, (const char *)e);
