@@ -241,7 +241,7 @@ void ModbusServerTCP<ST, CT>::serve(ModbusServerTCP<ST, CT> *myself) {
     }
     LOG_E("Server going down\n");
     // We must go down
-    server.end();
+    SERVER_END;
   }
   vTaskDelete(NULL);
 }

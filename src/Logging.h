@@ -124,7 +124,7 @@ extern int MBUlogLvl;
 #define LOGRAW_C(format, ...) LOG_RAW_C(LOG_LEVEL_CRITICAL, C, format, ##__VA_ARGS__)
 #define HEXDUMP_C(label, address, length) HEX_DUMP_T(C, LOG_LEVEL_CRITICAL, label, address, length)
 #else
-#define LOG_c(format, ...)
+#define LOG_C(format, ...)
 #define LOGRAW_C(format, ...)
 #define HEXDUMP_C(label, address, length)
 #endif
