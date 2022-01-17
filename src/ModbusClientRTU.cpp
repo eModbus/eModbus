@@ -28,8 +28,6 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t
     } else {
       MTRSrts = RTUutils::RTSauto;
     }
-    // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
-    RTUutils::UARTinit(serial, 1);
 }
 
 // Alternative constructor takes Serial reference and RTS callback function
@@ -43,8 +41,6 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, RTScallback rts, uint16
   MR_timeoutValue(DEFAULTTIMEOUT) {
     MR_rtsPin = -1;
     MTRSrts(LOW);
-    // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
-    RTUutils::UARTinit(serial, 1);
 }
 
 // Destructor: clean up queue, task etc.
@@ -62,6 +58,9 @@ void ModbusClientRTU::begin(int coreID, uint32_t interval) {
 
     // Set minimum interval time
     MR_interval = RTUutils::calculateInterval(MR_serial, interval);
+
+    // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
+    RTUutils::UARTinit(MR_serial, 1);
 
     // Create unique task name
     char taskName[18];

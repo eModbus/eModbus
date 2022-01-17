@@ -33,8 +33,6 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
   } else {
     MRTSrts = RTUutils::RTSauto;
   }
-  // Set the UART FIFO copy threshold to 1 byte
-  RTUutils::UARTinit(serial, 1);
 }
 
 // Constructor with RTS callback
@@ -51,8 +49,6 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTSca
   // Configure RTS callback
   MSRrtsPin = -1;
   MRTSrts(LOW);
-  // Set the UART FIFO copy threshold to 1 byte
-  RTUutils::UARTinit(serial, 1);
 }
 
 // Destructor
@@ -72,6 +68,9 @@ bool ModbusServerRTU::start(int coreID, uint32_t interval) {
   if (MSRserial.baudRate()) {
     // Set minimum interval time
     MSRinterval = RTUutils::calculateInterval(MSRserial, interval);
+
+    // Set the UART FIFO copy threshold to 1 byte
+    RTUutils::UARTinit(MSRserial, 1);
 
     // Create unique task name
     char taskName[18];
