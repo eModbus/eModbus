@@ -34,6 +34,15 @@ public:
   // stop: kill server task
   bool stop();
 
+  // Toggle protocol to ModbusASCII
+  void useModbusASCII();
+
+  // Toggle protocol to ModbusRTU
+  void useModbusRTU();
+
+  // Inquire protocol mode
+  bool isModbusASCII();
+
 protected:
   // Prevent copy construction and assignment
   ModbusServerRTU(ModbusServerRTU& m) = delete;
@@ -53,6 +62,7 @@ protected:
   unsigned long MSRlastMicros;                // microsecond time stamp of last bus activity
   int8_t MSRrtsPin;                      // GPIO number of the RS485 module's RE/DE line
   RTScallback MRTSrts;                   // Callback to set the RTS line to HIGH/LOW
+  bool MSRuseASCII;                      // true=ModbusASCII, false=ModbusRTU
 
   // serve: loop function for server task
   static void serve(ModbusServerRTU *myself);

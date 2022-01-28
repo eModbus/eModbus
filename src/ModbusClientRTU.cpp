@@ -18,7 +18,8 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t
   MR_interval(2000),
   MR_rtsPin(rtsPin),
   MR_qLimit(queueLimit),
-  MR_timeoutValue(DEFAULTTIMEOUT) {
+  MR_timeoutValue(DEFAULTTIMEOUT),
+  MR_useASCII(false) {
     if (MR_rtsPin >= 0) {
       pinMode(MR_rtsPin, OUTPUT);
       MTRSrts = [this](bool level) {
@@ -38,7 +39,8 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, RTScallback rts, uint16
   MR_interval(2000),
   MTRSrts(rts),
   MR_qLimit(queueLimit),
-  MR_timeoutValue(DEFAULTTIMEOUT) {
+  MR_timeoutValue(DEFAULTTIMEOUT),
+  MR_useASCII(false) {
     MR_rtsPin = -1;
     MTRSrts(LOW);
 }
@@ -97,6 +99,23 @@ void ModbusClientRTU::end() {
 void ModbusClientRTU::setTimeout(uint32_t TOV) {
   MR_timeoutValue = TOV;
   LOG_D("Timeout set to %d\n", TOV);
+}
+
+// Toggle protocol to ModbusASCII
+void ModbusClientRTU::useModbusASCII() {
+  MR_useASCII = true;
+  LOG_D("Protocol mode: ASCII\n");
+}
+
+// Toggle protocol to ModbusRTU
+void ModbusClientRTU::useModbusRTU() {
+  MR_useASCII = false;
+  LOG_D("Protocol mode: RTU\n");
+}
+
+// Inquire protocol mode
+bool ModbusClientRTU::isModbusASCII() {
+  return MR_useASCII;
 }
 
 // Base addRequest taking a preformatted data buffer and length as parameters
@@ -173,13 +192,13 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       LOG_D("Pulled request from queue\n");
 
       // Send it via Serial
-      RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MTRSrts, request.msg);
+      RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MTRSrts, request.msg, instance->MR_useASCII);
 
       LOG_D("Request sent.\n");
       // HEXDUMP_V("Data", request.msg.data(), request.msg.size());
 
       // Get the response - if any
-      ModbusMessage response = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval);
+      ModbusMessage response = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval, instance->MR_useASCII);
 
       LOG_D("%s response (%d bytes) received.\n", response.size()>1 ? "Data" : "Error", response.size());
       HEXDUMP_V("Data", response.data(), response.size());

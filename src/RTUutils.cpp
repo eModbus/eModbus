@@ -157,25 +157,55 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, const uint8_t *data, uint16_t len) {
-  uint16_t crc16 = calcCRC(data, len);
-
+void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, const uint8_t *data, uint16_t len, bool ASCIImode) {
   // Clear serial buffers
   while (serial.available()) serial.read();
+  
+  // Treat ASCII differently
+  if (ASCIImode) {
+    // Yes, ASCII mode. Send lead-in
+    serial.write(ASCIIleadin, ALIlen);
 
-  // Respect interval
-  if (micros() - lastMicros < interval) delayMicroseconds(interval - (micros() - lastMicros));
+    uint16_t cnt = len;
+    uint8_t crc = 0;
+    uint8_t *cp = (uint8_t *)data;
 
-  // Toggle rtsPin, if necessary
-  rts(HIGH);
-  // Write message
-  serial.write(data, len);
-  // Write CRC in LSB order
-  serial.write(crc16 & 0xff);
-  serial.write((crc16 >> 8) & 0xFF);
+    // Loop over all bytes of the message
+    while (cnt--) {
+      // Write two nibbles as ASCII characters
+      serial.write(ASCIIchars[(*cp >> 4) & 0x0F]);
+      serial.write(ASCIIchars[*cp & 0x0F]);
+      // Advance CRC
+      crc += *cp;
+      // Next byte
+      cp++;
+    }
+    // Finalize CRC
+    crc = ~crc;
+    // Write ist - two nibbles as ASCII characters
+    serial.write(ASCIIchars[(crc >> 4) & 0x0F]);
+    serial.write(ASCIIchars[crc & 0x0F]);
+    
+    // Send lead-out
+    serial.write(ASCIIleadout, ALOlen);
+  } else {
+    // RTU mode
+    uint16_t crc16 = calcCRC(data, len);
+
+    // Respect interval
+    if (micros() - lastMicros < interval) delayMicroseconds(interval - (micros() - lastMicros));
+
+    // Toggle rtsPin, if necessary
+    rts(HIGH);
+    // Write message
+    serial.write(data, len);
+    // Write CRC in LSB order
+    serial.write(crc16 & 0xff);
+    serial.write((crc16 >> 8) & 0xFF);
+    // Toggle rtsPin, if necessary
+    rts(LOW);
+  }
   serial.flush();
-  // Toggle rtsPin, if necessary
-  rts(LOW);
 
   HEXDUMP_D("Sent packet", data, len);
 
@@ -184,12 +214,12 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, ModbusMessage raw) {
-  send(serial, lastMicros, interval, rts, raw.data(), raw.size());
+void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, ModbusMessage raw, bool ASCIImode) {
+  send(serial, lastMicros, interval, rts, raw.data(), raw.size(), ASCIImode);
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval
-ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval) {
+ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(512);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
@@ -264,18 +294,24 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
     case DATA_READ:
       // Did we get a sensible buffer length?
       HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
-      if (bufferPtr >= 4)
-      {
-        // Yes. Allocate response object
-        for (uint16_t i = 0; i < bufferPtr; ++i) {
-          rv.push_back(buffer[i]);
-        }
-        state = FINISHED;
+      // If in ASCII mode, handle buffer differently!
+      if (ASCIImode) {
+        // ASCII mode - validate and set up return message
+        rv = validASCII(buffer, bufferPtr);
       } else {
-        // No, packet was too short for anything usable. Return error
-        rv.push_back(PACKET_LENGTH_ERROR);
-        state = FINISHED;
+        // RTU mode
+        if (bufferPtr >= 4)
+          {
+            // Yes. Allocate response object
+            for (uint16_t i = 0; i < bufferPtr; ++i) {
+              rv.push_back(buffer[i]);
+            }
+          } else {
+            // No, packet was too short for anything usable. Return error
+            rv.push_back(PACKET_LENGTH_ERROR);
+        }
       }
+      state = FINISHED;
       break;
     // FINISHED: we are done, clean up.
     case FINISHED:
@@ -291,4 +327,96 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
   HEXDUMP_D("Received packet", rv.data(), rv.size());
 
   return rv;
+}
+
+// Printable characters for ASCII protocol: 012345678ABCDEF
+const char RTUutils::ASCIIchars[] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                                          0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0 };
+
+// ASCII protocol lead-in: :
+const char RTUutils::ASCIIleadin[] = { 0x3A, 0 };
+uint16_t RTUutils::ALIlen = strlen(ASCIIleadin);
+
+// ASCII protocol lead-out: \r\n
+const char RTUutils::ASCIIleadout[] = { 0x0D, 0x0A, 0 };
+uint16_t RTUutils::ALOlen = strlen(ASCIIleadout);
+
+// validASCII: check message for proper Modbus ASCII protocol.
+ModbusMessage RTUutils::validASCII(uint8_t *data, uint16_t len) {
+  ModbusMessage rc;
+
+  // Will a valid Modbus ASCII message fit into the buffer at all?
+  //   lead-in, server ID, function code and CRC, lead-out
+  if (ALIlen + ALOlen + 6 <= len) {
+    // Yes, length fits minimal message at least
+    // Does the lead-in match?
+    if (!strncmp(reinterpret_cast<const char *>(data), ASCIIleadin, ALIlen)) {
+      // Yes, it matches. Does the lead-out as well?
+      if (!strncmp(reinterpret_cast<const char *>(data) + len - ALOlen, ASCIIleadout, ALOlen)) {
+        // Yes, it matches, too.
+        // Now loop over inner message bytes and collect as binary
+        uint8_t *cp = data + ALIlen;
+        uint16_t cnt = len - ALIlen - ALOlen;
+
+        // cnt has to be even, we need two chars per byte
+        if ((cnt & 1) == 0) {
+          // It is even, so go ahead decoding the binary bytes
+          bool tic = false;   // true on second nibble of a byte
+          uint8_t byt = 0;    // byte value to be collected
+          uint8_t crc = 0;    // continuously calculated CRC
+
+          // Loop over chars in message
+          while (cnt--) {
+            uint8_t nib = 0xFF;  // current nibble
+            // Look for character in ASCIIchars
+            for (uint8_t i = 0; i< 16; ++i) {
+              // Found it?
+              if (ASCIIchars[i] == *cp) {
+                // Yes. Save nibble and leave loop
+                nib = i;
+                break;
+              }
+            }
+            // Did we find the character?
+            if (nib == 0xFF) {
+              // No. Bail out with error
+              rc.clear();
+              rc.push_back(ASCII_INVALID_CHAR);
+              break;
+            }
+            // Character is okay. Shift it into the byte
+            byt <<= 4;
+            byt |= nib;
+
+            // Are we at the second nibble?
+            if (tic) {
+              // Yes. If we are in the message bode still (not the CRC), move the byte to the return message
+              if (cnt > 2) {
+                rc.push_back(byt);
+              }
+              // Advance CRC
+              crc += byt;
+              // Reset byte
+              byt = 0;
+            }
+            // Toggle nibble indicator
+            tic = !tic;
+            // Next character
+            cp++;
+          }
+          // CRC okay?
+          if (crc != 0) {
+            // No. Return respective error
+            rc.clear();
+            rc.push_back(ASCII_CRC_ERR);
+          }
+        } else {
+          rc.push_back(ASCII_FRAME_ERR);
+        }
+      }
+    }
+  } else {
+    rc.push_back(ASCII_FRAME_ERR);
+  }
+  return rc;
 }

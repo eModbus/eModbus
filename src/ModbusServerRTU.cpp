@@ -20,7 +20,8 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
   MSRserial(serial),
   MSRinterval(2000),     // will be calculated in start()!
   MSRlastMicros(0),
-  MSRrtsPin(rtsPin) {
+  MSRrtsPin(rtsPin), 
+  MSRuseASCII(false) {
   // Count instances one up
   instanceCounter++;
   // If we have a GPIO RE/DE pin, configure it.
@@ -43,7 +44,8 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTSca
   MSRserial(serial),
   MSRinterval(2000),     // will be calculated in start()!
   MSRlastMicros(0),
-  MRTSrts(rts) {
+  MRTSrts(rts), 
+  MSRuseASCII(false) {
   // Count instances one up
   instanceCounter++;
   // Configure RTS callback
@@ -98,6 +100,23 @@ bool ModbusServerRTU::stop() {
   return true;
 }
 
+// Toggle protocol to ModbusASCII
+void ModbusServerRTU::useModbusASCII() {
+  MSRuseASCII = true;
+  LOG_D("Protocol mode: ASCII\n");
+}
+
+// Toggle protocol to ModbusRTU
+void ModbusServerRTU::useModbusRTU() {
+  MSRuseASCII = false;
+  LOG_D("Protocol mode: RTU\n");
+}
+
+// Inquire protocol mode
+bool ModbusServerRTU::isModbusASCII() {
+  return MSRuseASCII;
+}
+
 // serve: loop until killed and receive messages from the RTU interface
 void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
   ModbusMessage request;                // received request message
@@ -114,7 +133,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     m.clear();
 
     // Wait for and read an request
-    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval);
+    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRuseASCII);
 
     // Request longer than 1 byte (that will signal an error in receive())? 
     if (request.size() > 1) {
@@ -175,7 +194,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       // Do we have gathered a valid response now?
       if (response.size() >= 3) {
         // Yes. send it back.
-        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response);
+        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
         LOG_D("Response sent.\n");
       }
     } else {

@@ -77,6 +77,9 @@ enum Error : uint8_t {
   IP_CONNECTION_FAILED   = 0xEA,
   TCP_HEAD_MISMATCH      = 0xEB,
   EMPTY_MESSAGE          = 0xEC,
+  ASCII_FRAME_ERR        = 0xED,
+  ASCII_CRC_ERR          = 0xEE,
+  ASCII_INVALID_CHAR     = 0xEF,
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
 

@@ -39,6 +39,15 @@ public:
   // Set default timeout value for interface
   void setTimeout(uint32_t TOV);
 
+  // Toggle protocol to ModbusASCII
+  void useModbusASCII();
+
+  // Toggle protocol to ModbusRTU
+  void useModbusRTU();
+
+  // Inquire protocol mode
+  bool isModbusASCII();
+
 protected:
   struct RequestEntry {
     uint32_t token;
@@ -69,12 +78,13 @@ protected:
   mutex qLock;                    // Mutex to protect queue
   #endif
   HardwareSerial& MR_serial;      // Ptr to the serial interface used
-  unsigned long MR_lastMicros;         // Microseconds since last bus activity
+  unsigned long MR_lastMicros;    // Microseconds since last bus activity
   uint32_t MR_interval;           // Modbus RTU bus quiet time
   int8_t MR_rtsPin;               // GPIO pin to toggle RS485 DE/RE line. -1 if none.
   RTScallback MTRSrts;            // RTS line callback function
   uint16_t MR_qLimit;             // Maximum number of requests to hold in the queue
   uint32_t MR_timeoutValue;       // Interface default timeout
+  bool MR_useASCII;               // true=ModbusASCII, false=ModbusRTU
 
 };
 
