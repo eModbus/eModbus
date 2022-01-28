@@ -33,21 +33,22 @@ ModbusMessage FC03(ModbusMessage request) {
   if ((addr + words) > 20) {
     // Yes - send respective error response
     response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-  }
-  // Set up response
-  response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
-  // Request for FC 0x03?
-  if (request.getFunctionCode() == READ_HOLD_REGISTER) {
-    // Yes. Complete response
-    for (uint8_t i = 0; i < words; ++i) {
-      // send increasing data values
-      response.add((uint16_t)(addr + i));
-    }
   } else {
-    // No, this is for FC 0x04. Response is random
-    for (uint8_t i = 0; i < words; ++i) {
-      // send increasing data values
-      response.add((uint16_t)random(1, 65535));
+    // Set up response
+    response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
+    // Request for FC 0x03?
+    if (request.getFunctionCode() == READ_HOLD_REGISTER) {
+      // Yes. Complete response
+      for (uint8_t i = 0; i < words; ++i) {
+        // send increasing data values
+        response.add((uint16_t)(addr + i));
+      }
+    } else {
+      // No, this is for FC 0x04. Response is random
+      for (uint8_t i = 0; i < words; ++i) {
+        // send increasing data values
+        response.add((uint16_t)random(1, 65535));
+      }
     }
   }
   // Send response back
