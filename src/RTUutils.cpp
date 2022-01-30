@@ -164,7 +164,7 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
   // Treat ASCII differently
   if (ASCIImode) {
     // Yes, ASCII mode. Send lead-in
-    serial.write(ASCIIleadin, ALIlen);
+    serial.write(':');
 
     uint16_t cnt = len;
     uint8_t crc = 0;
@@ -173,8 +173,8 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
     // Loop over all bytes of the message
     while (cnt--) {
       // Write two nibbles as ASCII characters
-      serial.write(ASCIIchars[(*cp >> 4) & 0x0F]);
-      serial.write(ASCIIchars[*cp & 0x0F]);
+      serial.write(ASCIIwrite[(*cp >> 4) & 0x0F]);
+      serial.write(ASCIIwrite[*cp & 0x0F]);
       // Advance CRC
       crc += *cp;
       // Next byte
@@ -183,11 +183,11 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
     // Finalize CRC
     crc = ~crc;
     // Write ist - two nibbles as ASCII characters
-    serial.write(ASCIIchars[(crc >> 4) & 0x0F]);
-    serial.write(ASCIIchars[crc & 0x0F]);
+    serial.write(ASCIIwrite[(crc >> 4) & 0x0F]);
+    serial.write(ASCIIwrite[crc & 0x0F]);
     
     // Send lead-out
-    serial.write(ASCIIleadout, ALOlen);
+    serial.write("\r\n");
   } else {
     // RTU mode
     uint16_t crc16 = calcCRC(data, len);
@@ -233,92 +233,208 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
   bool hadBytes = false;
   // Next buffer limit
 
-  // State machine states
+  // State machine states, RTU mode
   enum STATES : uint8_t { WAIT_DATA = 0, IN_PACKET, DATA_READ, FINISHED };
-  register STATES state = WAIT_DATA;
+
+  // State machine states, ASCII mode
+  enum ASTATES : uint8_t { A_WAIT_DATA = 0, A_DATA, A_WAIT_LEAD_OUT, A_FINISHED };
+
+  register uint8_t state;
 
   // Timeout tracker
   unsigned long TimeOut = millis();
 
-  // interval tracker 
-  unsigned long intervalEnd = micros();
-
-  while (state != FINISHED) {
-    switch (state) {
-    // WAIT_DATA: await first data byte, but watch timeout
-    case WAIT_DATA:
-      if (serial.available()) {
-        state = IN_PACKET;
-        intervalEnd = micros();
-      } else {
-        if (millis() - TimeOut >= timeout) {
-          rv.push_back(TIMEOUT);
-          state = FINISHED;
+  // RTU mode?
+  if (!ASCIImode) {
+    // Yes.
+    state = WAIT_DATA;
+    // interval tracker 
+    unsigned long intervalEnd = micros();
+  
+    while (state != FINISHED) {
+      switch (state) {
+      // WAIT_DATA: await first data byte, but watch timeout
+      case WAIT_DATA:
+        if (serial.available()) {
+          state = IN_PACKET;
+          intervalEnd = micros();
+        } else {
+          if (millis() - TimeOut >= timeout) {
+            rv.push_back(TIMEOUT);
+            state = FINISHED;
+          }
         }
-      }
-      delay(1);
-      break;
-    // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
-    case IN_PACKET:
-      hadBytes = false;
-      b = serial.read();
-      if (b >= 0) {
-        hadBytes = true;
-      }
-      while (b >= 0) {
-        buffer[bufferPtr++] = b;
-        // Buffer full?
-        if (bufferPtr >= BUFBLOCKSIZE) {
-          // Yes. Something fishy here - bail out!
-          rv.push_back(PACKET_LENGTH_ERROR);
-          state = FINISHED;
-          break;
-        }
-        b = serial.read();
-      }
-      // Did we read some?
-      if (hadBytes) {
-        // Yes, take another turn
-        intervalEnd = micros();
         delay(1);
-      } else {
-        // No. Has a complete interval passed without data?
-        lastMicros = micros();
-        if (lastMicros - intervalEnd >= interval) {
-          // Yes, go processing data
-          state = DATA_READ;
+        break;
+      // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
+      case IN_PACKET:
+        hadBytes = false;
+        b = serial.read();
+        if (b >= 0) {
+          hadBytes = true;
         }
-      }
-      break;
-    // DATA_READ: successfully gathered some data. Prepare return object.
-    case DATA_READ:
-      // Did we get a sensible buffer length?
-      HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
-      // If in ASCII mode, handle buffer differently!
-      if (ASCIImode) {
-        // ASCII mode - validate and set up return message
-        rv = validASCII(buffer, bufferPtr);
-      } else {
-        // RTU mode
-        if (bufferPtr >= 4)
-          {
-            // Yes. Allocate response object
-            for (uint16_t i = 0; i < bufferPtr; ++i) {
-              rv.push_back(buffer[i]);
-            }
-          } else {
-            // No, packet was too short for anything usable. Return error
+        while (b >= 0) {
+          buffer[bufferPtr++] = b;
+          // Buffer full?
+          if (bufferPtr >= BUFBLOCKSIZE) {
+            // Yes. Something fishy here - bail out!
             rv.push_back(PACKET_LENGTH_ERROR);
+            state = FINISHED;
+            break;
+          }
+          b = serial.read();
+        }
+        // Did we read some?
+        if (hadBytes) {
+          // Yes, take another turn
+          intervalEnd = micros();
+          delay(1);
+        } else {
+          // No. Has a complete interval passed without data?
+          lastMicros = micros();
+          if (lastMicros - intervalEnd >= interval) {
+            // Yes, go processing data
+            state = DATA_READ;
+          }
+        }
+        break;
+      // DATA_READ: successfully gathered some data. Prepare return object.
+      case DATA_READ:
+        // Did we get a sensible buffer length?
+        HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
+        if (bufferPtr >= 4)
+        {
+          // Yes. Allocate response object
+          for (uint16_t i = 0; i < bufferPtr; ++i) {
+            rv.push_back(buffer[i]);
+          }
+        } else {
+          // No, packet was too short for anything usable. Return error
+          rv.push_back(PACKET_LENGTH_ERROR);
+        }
+        state = FINISHED;
+        break;
+      // FINISHED: we are done, clean up.
+      case FINISHED:
+        // CLear serial buffer in case something is left trailing
+        // May happen with servers too slow!
+        while (serial.available()) serial.read();
+        break;
+      }
+    }
+  } else {
+    // We are in ASCII mode.
+    state = A_WAIT_DATA;
+
+    // Track nibbles in a byte
+    bool byteComplete = true; 
+
+    // ASCII crc byte
+    uint8_t crc = 0;
+
+    while (state != A_FINISHED) {
+      // Always watch timeout - 1s
+      if (millis() - TimeOut >= timeout) {
+        // Timeout! Bail out with error
+        rv.push_back(TIMEOUT);
+        state = A_FINISHED;
+      } else {
+        // Still in time. Check for another byte on serial
+        if (!hadBytes && serial.available()) {
+          b = serial.read();
+          if (b >= 0) {
+            hadBytes = true;
+          }
+        }
+        // Only use state machine with new data arrived
+        if (hadBytes) {
+          switch (state) {
+          // A_WAIT_DATA: await lead-in byte ':'
+          case A_WAIT_DATA:
+            // Is it the lead-in?
+            if (ASCIIread[b & 0x7F] == 0xF0) {
+              // Yes, proceed to data read state
+              state = A_DATA;
+            }
+            // byte was consumed in any case
+            hadBytes = false;
+            break;
+          // A_DATA: read data as it comes
+          case A_DATA:
+            // Lead-out byte 1 received?
+            if (ASCIIread[b & 0x7F] == 0xF1) {
+              // Yes. Was last buffer byte completed?
+              if (byteComplete) {
+                // Yes. Move to final state
+                state = A_WAIT_LEAD_OUT;
+              } else {
+                // No, signal with error
+                rv.push_back(PACKET_LENGTH_ERROR);
+                state = A_FINISHED;
+              }
+            } else {
+              // No lead-out, must be data byte.
+              uint8_t nib = ASCIIread[b & 0x7F];
+              // Is it valid?
+              if (nib < 0xF0) {
+                // Yes. Add it into current buffer byte
+                buffer[bufferPtr] <<= 4;
+                buffer[bufferPtr] += (nib & 0x0F);
+                // Advance nibble
+                byteComplete = !byteComplete;
+                // Was it the second of the byte?
+                if (byteComplete) {
+                  // Yes. Advance CRC and move buffer pointer by one
+                  crc += buffer[bufferPtr];
+                  bufferPtr++;
+                  buffer[bufferPtr] = 0;
+                }
+              } else {
+                // No, garbage. report error
+                rv.push_back(ASCII_INVALID_CHAR);
+                state = A_FINISHED;
+              }
+            }
+            hadBytes = false;
+            break;
+          // A_WAIT_LEAD_OUT: await \n
+          case A_WAIT_LEAD_OUT:
+            if (ASCIIread[b & 0x7F] == 0xF2) {
+              // Lead-out byte 2 received. Transfer buffer to returned message
+              HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
+              // Did we get a sensible buffer length?
+              if (bufferPtr >= 3)
+              {
+                // Yes. Was the CRC calculated correctly?
+                if (crc == 0) {
+                  // Yes, reduce buffer by 1 to get rid of CRC byte...
+                  bufferPtr--;
+                  // Move data into returned message
+                  for (uint16_t i = 0; i < bufferPtr; ++i) {
+                    rv.push_back(buffer[i]);
+                  }
+                } else {
+                  // No, CRC calculation seems to have failed
+                  rv.push_back(ASCII_CRC_ERR);
+                }
+              } else {
+                // No, packet was too short for anything usable. Return error
+                rv.push_back(PACKET_LENGTH_ERROR);
+              }
+            } else {
+              // No lead out byte 2, but something else - report error.
+              rv.push_back(ASCII_FRAME_ERR);
+            }
+            state = A_FINISHED;
+            break;
+          // A_FINISHED: Message completed
+          case A_FINISHED:
+            // Clean up serial buffer
+            while (serial.available()) serial.read();
+            break;
+          }
         }
       }
-      state = FINISHED;
-      break;
-    // FINISHED: we are done, clean up.
-    case FINISHED:
-      // CLear serial buffer in case something is left trailing
-      // May happen with servers too slow!
-      while (serial.available()) serial.read();
-      break;
     }
   }
   // Deallocate buffer
@@ -329,94 +445,27 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
   return rv;
 }
 
-// Printable characters for ASCII protocol: 012345678ABCDEF
-const char RTUutils::ASCIIchars[] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
-                                          0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0 };
+// Lower 7 bit ASCII characters - all invalid are set to 0xFF
+const char RTUutils::ASCIIread[] = { 
+  /* 00-07 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 08-0F */ 0xFF, 0xFF, 0xF2, 0xFF, 0xFF, 0xF1, 0xFF, 0xFF,  // LF + CR
+  /* 10-17 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 18-1F */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 20-27 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 28-2F */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 30-37 */    0,    1,    2,    3,    4,    5,    6,    7,  // digits 0-7
+  /* 38-3F */    8,    9, 0xF0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  // digits 8 + 9, :
+  /* 40-47 */ 0xFF,   10,   11,   12,   13,   14,   15, 0xFF,  // digits A-F
+  /* 48-4F */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 50-57 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 58-5F */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 60-67 */ 0xFF,   10,   11,   12,   13,   14,   15, 0xFF,  // digits a-f
+  /* 68-6F */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 70-77 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  /* 78-7F */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF 
+};
 
-// ASCII protocol lead-in: :
-const char RTUutils::ASCIIleadin[] = { 0x3A, 0 };
-uint16_t RTUutils::ALIlen = strlen(ASCIIleadin);
-
-// ASCII protocol lead-out: \r\n
-const char RTUutils::ASCIIleadout[] = { 0x0D, 0x0A, 0 };
-uint16_t RTUutils::ALOlen = strlen(ASCIIleadout);
-
-// validASCII: check message for proper Modbus ASCII protocol.
-ModbusMessage RTUutils::validASCII(uint8_t *data, uint16_t len) {
-  ModbusMessage rc;
-
-  // Will a valid Modbus ASCII message fit into the buffer at all?
-  //   lead-in, server ID, function code and CRC, lead-out
-  if (ALIlen + ALOlen + 6 <= len) {
-    // Yes, length fits minimal message at least
-    // Does the lead-in match?
-    if (!strncmp(reinterpret_cast<const char *>(data), ASCIIleadin, ALIlen)) {
-      // Yes, it matches. Does the lead-out as well?
-      if (!strncmp(reinterpret_cast<const char *>(data) + len - ALOlen, ASCIIleadout, ALOlen)) {
-        // Yes, it matches, too.
-        // Now loop over inner message bytes and collect as binary
-        uint8_t *cp = data + ALIlen;
-        uint16_t cnt = len - ALIlen - ALOlen;
-
-        // cnt has to be even, we need two chars per byte
-        if ((cnt & 1) == 0) {
-          // It is even, so go ahead decoding the binary bytes
-          bool tic = false;   // true on second nibble of a byte
-          uint8_t byt = 0;    // byte value to be collected
-          uint8_t crc = 0;    // continuously calculated CRC
-
-          // Loop over chars in message
-          while (cnt--) {
-            uint8_t nib = 0xFF;  // current nibble
-            // Look for character in ASCIIchars
-            for (uint8_t i = 0; i< 16; ++i) {
-              // Found it?
-              if (ASCIIchars[i] == *cp) {
-                // Yes. Save nibble and leave loop
-                nib = i;
-                break;
-              }
-            }
-            // Did we find the character?
-            if (nib == 0xFF) {
-              // No. Bail out with error
-              rc.clear();
-              rc.push_back(ASCII_INVALID_CHAR);
-              break;
-            }
-            // Character is okay. Shift it into the byte
-            byt <<= 4;
-            byt |= nib;
-
-            // Are we at the second nibble?
-            if (tic) {
-              // Yes. If we are in the message bode still (not the CRC), move the byte to the return message
-              if (cnt > 2) {
-                rc.push_back(byt);
-              }
-              // Advance CRC
-              crc += byt;
-              // Reset byte
-              byt = 0;
-            }
-            // Toggle nibble indicator
-            tic = !tic;
-            // Next character
-            cp++;
-          }
-          // CRC okay?
-          if (crc != 0) {
-            // No. Return respective error
-            rc.clear();
-            rc.push_back(ASCII_CRC_ERR);
-          }
-        } else {
-          rc.push_back(ASCII_FRAME_ERR);
-        }
-      }
-    }
-  } else {
-    rc.push_back(ASCII_FRAME_ERR);
-  }
-  return rc;
-}
+// Writable ASCII chars for hex digits
+const char RTUutils::ASCIIwrite[] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 
+                                      0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46 
+};

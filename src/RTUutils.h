@@ -54,16 +54,9 @@ public:
 
 protected:
 // Printable characters for ASCII protocol: 012345678ABCDEF
-  static const char ASCIIchars[];
+  static const char ASCIIwrite[];
+  static const char ASCIIread[];
 
-// ASCII protocol lead-in: :
-  static const char ASCIIleadin[];
-  static uint16_t ALIlen;              // size of above
-
-// ASCII protocol lead-out: \r\n
-  static const char ASCIIleadout[];
-  static uint16_t ALOlen;              // size of above
-  
   RTUutils() = delete;
 
 // UARTinit: modify the UART FIFO copy trigger threshold 
@@ -75,9 +68,6 @@ protected:
 // send: send a Modbus message in either format (ModbusMessage or data/len)
   static void send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, const uint8_t *data, uint16_t len, bool ASCIImode);
   static void send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, ModbusMessage raw, bool ASCIImode);
-
-// validASCII: check message for proper Modbus ASCII protocol.
-  static ModbusMessage validASCII(uint8_t *data, uint16_t len);
 };
 
 #endif
