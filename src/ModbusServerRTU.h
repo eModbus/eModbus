@@ -23,7 +23,7 @@ class ModbusServerRTU : public ModbusServer {
 public:
   // Constructors
   explicit ModbusServerRTU(HardwareSerial& serial, uint32_t timeout=20000, int rtsPin = -1);
-  explicit ModbusServerRTU(HardwareSerial& serial, uint32_t timeout=20000, RTScallback rts=nullptr);
+  ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts);
 
   // Destructor
   ~ModbusServerRTU();
