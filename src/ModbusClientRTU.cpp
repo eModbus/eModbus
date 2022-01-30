@@ -104,6 +104,7 @@ void ModbusClientRTU::setTimeout(uint32_t TOV) {
 // Toggle protocol to ModbusASCII
 void ModbusClientRTU::useModbusASCII() {
   MR_useASCII = true;
+  MR_timeoutValue = 1000; // Switch timeout to ASCII's 1 second
   LOG_D("Protocol mode: ASCII\n");
 }
 

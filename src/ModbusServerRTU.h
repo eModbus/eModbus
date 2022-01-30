@@ -22,8 +22,8 @@ extern "C" {
 class ModbusServerRTU : public ModbusServer {
 public:
   // Constructors
-  ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin = -1);
-  ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts);
+  explicit ModbusServerRTU(HardwareSerial& serial, uint32_t timeout=20000, int rtsPin = -1);
+  explicit ModbusServerRTU(HardwareSerial& serial, uint32_t timeout=20000, RTScallback rts=nullptr);
 
   // Destructor
   ~ModbusServerRTU();

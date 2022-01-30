@@ -16,7 +16,7 @@ uint8_t ModbusServerRTU::instanceCounter = 0;
 ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin) :
   ModbusServer(),
   serverTask(nullptr),
-  serverTimeout(20000),
+  serverTimeout(timeout),
   MSRserial(serial),
   MSRinterval(2000),     // will be calculated in start()!
   MSRlastMicros(0),
@@ -40,7 +40,7 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
 ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts) :
   ModbusServer(),
   serverTask(nullptr),
-  serverTimeout(20000),
+  serverTimeout(timeout),
   MSRserial(serial),
   MSRinterval(2000),     // will be calculated in start()!
   MSRlastMicros(0),
@@ -103,6 +103,7 @@ bool ModbusServerRTU::stop() {
 // Toggle protocol to ModbusASCII
 void ModbusServerRTU::useModbusASCII() {
   MSRuseASCII = true;
+  serverTimeout = 1000; // Set timeout to ASCII's 1 second
   LOG_D("Protocol mode: ASCII\n");
 }
 
