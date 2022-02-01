@@ -215,15 +215,7 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
         } else if (request.msg.getFunctionCode() != (response.getFunctionCode() & 0x7F)) {
           // No. Return error response
           response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), FC_MISMATCH);
-        // Both serverID and FC are ok - how about the CRC?
-        } else if (!RTUutils::validCRC(response)) {
-          // CRC faulty - return error
-          response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), CRC_ERROR);
-        // Everything seems okay
-        } else {
-          // Build response from received message (cut off CRC)
-          response.resize(response.size() - 2);
-        }
+        } 
       } else {
         // No, we got an error code from receive()
         // Return it as error response

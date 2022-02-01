@@ -304,9 +304,15 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
         HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
         if (bufferPtr >= 4)
         {
-          // Yes. Allocate response object
-          for (uint16_t i = 0; i < bufferPtr; ++i) {
-            rv.push_back(buffer[i]);
+          // Yes. Check CRC
+          if (!validCRC(buffer, bufferPtr)) {
+            // Ooops. CRC is wrong.
+            rv.push_back(CRC_ERROR);
+          } else {
+            // CRC was fine, Now allocate response object without the CRC
+            for (uint16_t i = 0; i < bufferPtr - 2; ++i) {
+              rv.push_back(buffer[i]);
+            }
           }
         } else {
           // No, packet was too short for anything usable. Return error
@@ -406,7 +412,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
               if (bufferPtr >= 3)
               {
                 // Yes. Was the CRC calculated correctly?
-                if (crc == 0) {
+                if (crc == 0xFF) {
                   // Yes, reduce buffer by 1 to get rid of CRC byte...
                   bufferPtr--;
                   // Move data into returned message

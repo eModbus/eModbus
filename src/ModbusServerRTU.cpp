@@ -144,45 +144,36 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       MBSworker callBack = myServer->getWorker(request[0], request[1]);
       if (callBack) {
         LOG_D("Callback found.\n");
-        // Yes, we do. Is the request valid (CRC correct)?
-        if (RTUutils::validCRC(request.data(), request.size())) {
-          LOG_D("CRC okay.\n");
-          // Yes, is valid. First count it
-          {
-            lock_guard<mutex> cntLock(myServer->m);
-            myServer->messageCount++;
-          }
-          // Get the user's response
-          // Cut the CRC bytes
-          request.resize(request.size() - 2);
-          m = callBack(request);
-          LOG_D("Callback called.\n");
-          HEXDUMP_V("Callback response", m.data(), m.size());
+        // Yes, we do. Count the message
+        {
+          lock_guard<mutex> cntLock(myServer->m);
+          myServer->messageCount++;
+        }
+        // Get the user's response
+        m = callBack(request);
+        LOG_D("Callback called.\n");
+        HEXDUMP_V("Callback response", m.data(), m.size());
 
-          // Process Response. Is it one of the predefined types?
-          if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
-            // Yes. Check it
-            switch (m[1]) {
-            case 0xF0: // NIL
-              response.clear();
-              break;
-            case 0xF1: // ECHO
-              response = request;
-              if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
-                  request.getFunctionCode() == WRITE_MULT_COILS) {
-                response.resize(6);
-              }
-              break;
-            default:   // Will not get here, but lint likes it!
-              break;
+        // Process Response. Is it one of the predefined types?
+        if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
+          // Yes. Check it
+          switch (m[1]) {
+          case 0xF0: // NIL
+            response.clear();
+            break;
+          case 0xF1: // ECHO
+            response = request;
+            if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
+                request.getFunctionCode() == WRITE_MULT_COILS) {
+              response.resize(6);
             }
-          } else {
-            // No predefined. User provided data in free format
-            response = m;
+            break;
+          default:   // Will not get here, but lint likes it!
+            break;
           }
         } else {
-          // No, CRC is wrong. Send error response
-          response.setError(request.getServerID(), request.getFunctionCode(), CRC_ERROR);
+          // No predefined. User provided data in free format
+          response = m;
         }
       } else {
         // No callback. Is at least the serverID valid?
