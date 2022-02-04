@@ -1,8 +1,8 @@
 {
   "name": "eModbus",
-  "version": "1.3.0",
-  "keywords": "Arduino, ESP32, Modbus, RTU, ModbusRTU, ModbusTCP",
-  "description": "ModbusRTU and ModbusTCP functions for ESP32",
+  "version": "1.4.0",
+  "keywords": "Arduino, ESP32, Modbus, RTU, ASCII, ModbusASCII, ModbusRTU, ModbusTCP",
+  "description": "ModbusRTU, ModbusASCII and ModbusTCP functions for ESP32",
   "homepage": "https://emodbus.github.io",
   "license": "MIT",
   "authors": [
