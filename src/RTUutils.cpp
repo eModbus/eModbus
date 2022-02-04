@@ -180,8 +180,9 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
       // Next byte
       cp++;
     }
-    // Finalize CRC
+    // Finalize CRC (2's complement)
     crc = ~crc;
+    crc++;
     // Write ist - two nibbles as ASCII characters
     serial.write(ASCIIwrite[(crc >> 4) & 0x0F]);
     serial.write(ASCIIwrite[crc & 0x0F]);
@@ -412,7 +413,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
               if (bufferPtr >= 3)
               {
                 // Yes. Was the CRC calculated correctly?
-                if (crc == 0xFF) {
+                if (crc == 0) {
                   // Yes, reduce buffer by 1 to get rid of CRC byte...
                   bufferPtr--;
                   // Move data into returned message
@@ -439,6 +440,9 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
             while (serial.available()) serial.read();
             break;
           }
+        } else {
+          // No data received, so give the task scheduler room to breathe
+          delay(10);
         }
       }
     }
