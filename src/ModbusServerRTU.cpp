@@ -101,9 +101,9 @@ bool ModbusServerRTU::stop() {
 }
 
 // Toggle protocol to ModbusASCII
-void ModbusServerRTU::useModbusASCII() {
+void ModbusServerRTU::useModbusASCII(unsigned long timeout) {
   MSRuseASCII = true;
-  serverTimeout = 1000; // Set timeout to ASCII's 1 second
+  serverTimeout = timeout; // Set timeout to ASCII's value
   LOG_D("Protocol mode: ASCII\n");
 }
 

@@ -35,7 +35,7 @@ public:
   bool stop();
 
   // Toggle protocol to ModbusASCII
-  void useModbusASCII();
+  void useModbusASCII(unsigned long timeout = 1000);
 
   // Toggle protocol to ModbusRTU
   void useModbusRTU();

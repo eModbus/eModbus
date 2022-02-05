@@ -355,90 +355,102 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
         }
         // Only use state machine with new data arrived
         if (hadBytes) {
-          switch (state) {
-          // A_WAIT_DATA: await lead-in byte ':'
-          case A_WAIT_DATA:
-            // Is it the lead-in?
-            if (ASCIIread[b & 0x7F] == 0xF0) {
-              // Yes, proceed to data read state
-              state = A_DATA;
-            }
-            // byte was consumed in any case
+          // First reset timeout
+          TimeOut = millis();
+          // Is it a valid character?
+          if ((b & 0x80) || ASCIIread[b] == 0xFF) {
+            // No. Report error and leave.
+            rv.clear();
+            rv.push_back(ASCII_INVALID_CHAR);
             hadBytes = false;
-            break;
-          // A_DATA: read data as it comes
-          case A_DATA:
-            // Lead-out byte 1 received?
-            if (ASCIIread[b & 0x7F] == 0xF1) {
-              // Yes. Was last buffer byte completed?
-              if (byteComplete) {
-                // Yes. Move to final state
-                state = A_WAIT_LEAD_OUT;
-              } else {
-                // No, signal with error
-                rv.push_back(PACKET_LENGTH_ERROR);
-                state = A_FINISHED;
+            state = A_FINISHED;
+          } else {
+            // Yes, is valid. Furtheron use interpreted byte
+            b = ASCIIread[b];
+            switch (state) {
+            // A_WAIT_DATA: await lead-in byte ':'
+            case A_WAIT_DATA:
+              // Is it the lead-in?
+              if (b == 0xF0) {
+                // Yes, proceed to data read state
+                state = A_DATA;
               }
-            } else {
-              // No lead-out, must be data byte.
-              uint8_t nib = ASCIIread[b & 0x7F];
-              // Is it valid?
-              if (nib < 0xF0) {
-                // Yes. Add it into current buffer byte
-                buffer[bufferPtr] <<= 4;
-                buffer[bufferPtr] += (nib & 0x0F);
-                // Advance nibble
-                byteComplete = !byteComplete;
-                // Was it the second of the byte?
+              // byte was consumed in any case
+              hadBytes = false;
+              break;
+            // A_DATA: read data as it comes
+            case A_DATA:
+              // Lead-out byte 1 received?
+              if (b == 0xF1) {
+                // Yes. Was last buffer byte completed?
                 if (byteComplete) {
-                  // Yes. Advance CRC and move buffer pointer by one
-                  crc += buffer[bufferPtr];
-                  bufferPtr++;
-                  buffer[bufferPtr] = 0;
+                  // Yes. Move to final state
+                  state = A_WAIT_LEAD_OUT;
+                } else {
+                  // No, signal with error
+                  rv.push_back(PACKET_LENGTH_ERROR);
+                  state = A_FINISHED;
                 }
               } else {
-                // No, garbage. report error
-                rv.push_back(ASCII_INVALID_CHAR);
-                state = A_FINISHED;
-              }
-            }
-            hadBytes = false;
-            break;
-          // A_WAIT_LEAD_OUT: await \n
-          case A_WAIT_LEAD_OUT:
-            if (ASCIIread[b & 0x7F] == 0xF2) {
-              // Lead-out byte 2 received. Transfer buffer to returned message
-              HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
-              // Did we get a sensible buffer length?
-              if (bufferPtr >= 3)
-              {
-                // Yes. Was the CRC calculated correctly?
-                if (crc == 0) {
-                  // Yes, reduce buffer by 1 to get rid of CRC byte...
-                  bufferPtr--;
-                  // Move data into returned message
-                  for (uint16_t i = 0; i < bufferPtr; ++i) {
-                    rv.push_back(buffer[i]);
+                // No lead-out, must be data byte.
+                // Is it valid?
+                if (b < 0xF0) {
+                  // Yes. Add it into current buffer byte
+                  buffer[bufferPtr] <<= 4;
+                  buffer[bufferPtr] += (b & 0x0F);
+                  // Advance nibble
+                  byteComplete = !byteComplete;
+                  // Was it the second of the byte?
+                  if (byteComplete) {
+                    // Yes. Advance CRC and move buffer pointer by one
+                    crc += buffer[bufferPtr];
+                    bufferPtr++;
+                    buffer[bufferPtr] = 0;
                   }
                 } else {
-                  // No, CRC calculation seems to have failed
-                  rv.push_back(ASCII_CRC_ERR);
+                  // No, garbage. report error
+                  rv.push_back(ASCII_INVALID_CHAR);
+                  state = A_FINISHED;
+                }
+              }
+              hadBytes = false;
+              break;
+            // A_WAIT_LEAD_OUT: await \n
+            case A_WAIT_LEAD_OUT:
+              if (b == 0xF2) {
+                // Lead-out byte 2 received. Transfer buffer to returned message
+                HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
+                // Did we get a sensible buffer length?
+                if (bufferPtr >= 3)
+                {
+                  // Yes. Was the CRC calculated correctly?
+                  if (crc == 0) {
+                    // Yes, reduce buffer by 1 to get rid of CRC byte...
+                    bufferPtr--;
+                    // Move data into returned message
+                    for (uint16_t i = 0; i < bufferPtr; ++i) {
+                      rv.push_back(buffer[i]);
+                    }
+                  } else {
+                    // No, CRC calculation seems to have failed
+                    rv.push_back(ASCII_CRC_ERR);
+                  }
+                } else {
+                  // No, packet was too short for anything usable. Return error
+                  rv.push_back(PACKET_LENGTH_ERROR);
                 }
               } else {
-                // No, packet was too short for anything usable. Return error
-                rv.push_back(PACKET_LENGTH_ERROR);
+                // No lead out byte 2, but something else - report error.
+                rv.push_back(ASCII_FRAME_ERR);
               }
-            } else {
-              // No lead out byte 2, but something else - report error.
-              rv.push_back(ASCII_FRAME_ERR);
+              state = A_FINISHED;
+              break;
+            // A_FINISHED: Message completed
+            case A_FINISHED:
+              // Clean up serial buffer
+              while (serial.available()) serial.read();
+              break;
             }
-            state = A_FINISHED;
-            break;
-          // A_FINISHED: Message completed
-          case A_FINISHED:
-            // Clean up serial buffer
-            while (serial.available()) serial.read();
-            break;
           }
         } else {
           // No data received, so give the task scheduler room to breathe

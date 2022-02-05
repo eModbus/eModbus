@@ -40,7 +40,7 @@ public:
   void setTimeout(uint32_t TOV);
 
   // Toggle protocol to ModbusASCII
-  void useModbusASCII();
+  void useModbusASCII(unsigned long timeout = 1000);
 
   // Toggle protocol to ModbusRTU
   void useModbusRTU();
