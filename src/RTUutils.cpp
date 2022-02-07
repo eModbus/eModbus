@@ -264,8 +264,8 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
             rv.push_back(TIMEOUT);
             state = FINISHED;
           }
+          delay(1);
         }
-        delay(1);
         break;
       // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
       case IN_PACKET:
@@ -454,7 +454,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
           }
         } else {
           // No data received, so give the task scheduler room to breathe
-          delay(10);
+          delay(1);
         }
       }
     }
