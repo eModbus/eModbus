@@ -1386,10 +1386,63 @@ void setup()
       testsPassed++;
     }
 
+    // Now to something completely different...
+    // Use Modbus ASCII now.
+    // First set client to ASCII only to check for error returns
+    RTUclient.useModbusASCII();
+
+    Serial.printf("Expect an E2 CRC error from ModbusServerRTU - is intended!\n");
+
+    // #12: read a word of data with no ASCII server present
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Read one word of data (ASCII)",
+      .transactionID = 0,
+      .token = Token++,
+      .response = empty,
+      .expected = makeVector("E0"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(tc->token, 1, 0x03, 16, 1);
+    if (e != SUCCESS) {
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
+    }
+
+    // Now switch server to ASCII as well
+    RTUserver.useModbusASCII();
+
+    // #13: read a word of data 
+    tc = new TestCase { 
+      .name = LNO(__LINE__),
+      .testname = "Read one word of data (ASCII)",
+      .transactionID = 0,
+      .token = Token++,
+      .response = empty,
+      .expected = makeVector("01 03 02 BE EF"),
+      .delayTime = 0,
+      .stopAfterResponding = true,
+      .fakeTransactionID = false
+    };
+    testCasesByToken[tc->token] = tc;
+    e = RTUclient.addRequest(tc->token, 1, 0x03, 16, 1);
+    if (e != SUCCESS) {
+      ModbusMessage r;
+      r.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, r);
+    }
+
     // Print summary. We will have to wait a bit to get all test cases executed!
     delay(2000);
     Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
+    // Switch back to RTU mode for the rest of tests
+    RTUclient.useModbusRTU();
+    RTUserver.useModbusRTU();
   }
 
   // ******************************************************************************

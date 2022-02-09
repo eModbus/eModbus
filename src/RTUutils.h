@@ -53,17 +53,21 @@ public:
   inline static void RTSauto(bool level) { return; } // NOLINT
 
 protected:
+// Printable characters for ASCII protocol: 012345678ABCDEF
+  static const char ASCIIwrite[];
+  static const char ASCIIread[];
+
   RTUutils() = delete;
 
 // UARTinit: modify the UART FIFO copy trigger threshold 
   static int UARTinit(HardwareSerial& serial, int thresholdBytes = 1);
 
 // receive: get a Modbus message from serial, maintaining timeouts etc.
-  static ModbusMessage receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval);
+  static ModbusMessage receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode);
 
 // send: send a Modbus message in either format (ModbusMessage or data/len)
-  static void send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, const uint8_t *data, uint16_t len);
-  static void send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, ModbusMessage raw);
+  static void send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, const uint8_t *data, uint16_t len, bool ASCIImode);
+  static void send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, ModbusMessage raw, bool ASCIImode);
 };
 
 #endif

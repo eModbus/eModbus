@@ -22,7 +22,7 @@ extern "C" {
 class ModbusServerRTU : public ModbusServer {
 public:
   // Constructors
-  ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin = -1);
+  explicit ModbusServerRTU(HardwareSerial& serial, uint32_t timeout=20000, int rtsPin = -1);
   ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts);
 
   // Destructor
@@ -33,6 +33,15 @@ public:
 
   // stop: kill server task
   bool stop();
+
+  // Toggle protocol to ModbusASCII
+  void useModbusASCII(unsigned long timeout = 1000);
+
+  // Toggle protocol to ModbusRTU
+  void useModbusRTU();
+
+  // Inquire protocol mode
+  bool isModbusASCII();
 
 protected:
   // Prevent copy construction and assignment
@@ -53,6 +62,7 @@ protected:
   unsigned long MSRlastMicros;                // microsecond time stamp of last bus activity
   int8_t MSRrtsPin;                      // GPIO number of the RS485 module's RE/DE line
   RTScallback MRTSrts;                   // Callback to set the RTS line to HIGH/LOW
+  bool MSRuseASCII;                      // true=ModbusASCII, false=ModbusRTU
 
   // serve: loop function for server task
   static void serve(ModbusServerRTU *myself);

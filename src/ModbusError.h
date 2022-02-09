@@ -105,6 +105,15 @@ private:
     case EMPTY_MESSAGE         : // 0xEC,
       return "Incomplete request";
       break;
+    case ASCII_FRAME_ERR       : // 0xED,
+      return "Invalid ASCII frame";
+      break;
+    case ASCII_CRC_ERR         : // 0xEE,
+      return "Invalid ASCII CRC";
+      break;
+    case ASCII_INVALID_CHAR    : // 0xEF,
+      return "Invalid ASCII character";
+      break;
     case UNDEFINED_ERROR       : // 0xFF  // otherwise uncovered communication error
     default:
       return "Unspecified error";

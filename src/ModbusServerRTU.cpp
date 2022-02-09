@@ -16,11 +16,12 @@ uint8_t ModbusServerRTU::instanceCounter = 0;
 ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin) :
   ModbusServer(),
   serverTask(nullptr),
-  serverTimeout(20000),
+  serverTimeout(timeout),
   MSRserial(serial),
   MSRinterval(2000),     // will be calculated in start()!
   MSRlastMicros(0),
-  MSRrtsPin(rtsPin) {
+  MSRrtsPin(rtsPin), 
+  MSRuseASCII(false) {
   // Count instances one up
   instanceCounter++;
   // If we have a GPIO RE/DE pin, configure it.
@@ -39,11 +40,12 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
 ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts) :
   ModbusServer(),
   serverTask(nullptr),
-  serverTimeout(20000),
+  serverTimeout(timeout),
   MSRserial(serial),
   MSRinterval(2000),     // will be calculated in start()!
   MSRlastMicros(0),
-  MRTSrts(rts) {
+  MRTSrts(rts), 
+  MSRuseASCII(false) {
   // Count instances one up
   instanceCounter++;
   // Configure RTS callback
@@ -98,6 +100,24 @@ bool ModbusServerRTU::stop() {
   return true;
 }
 
+// Toggle protocol to ModbusASCII
+void ModbusServerRTU::useModbusASCII(unsigned long timeout) {
+  MSRuseASCII = true;
+  serverTimeout = timeout; // Set timeout to ASCII's value
+  LOG_D("Protocol mode: ASCII\n");
+}
+
+// Toggle protocol to ModbusRTU
+void ModbusServerRTU::useModbusRTU() {
+  MSRuseASCII = false;
+  LOG_D("Protocol mode: RTU\n");
+}
+
+// Inquire protocol mode
+bool ModbusServerRTU::isModbusASCII() {
+  return MSRuseASCII;
+}
+
 // serve: loop until killed and receive messages from the RTU interface
 void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
   ModbusMessage request;                // received request message
@@ -114,7 +134,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     m.clear();
 
     // Wait for and read an request
-    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval);
+    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRuseASCII);
 
     // Request longer than 1 byte (that will signal an error in receive())? 
     if (request.size() > 1) {
@@ -124,45 +144,36 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       MBSworker callBack = myServer->getWorker(request[0], request[1]);
       if (callBack) {
         LOG_D("Callback found.\n");
-        // Yes, we do. Is the request valid (CRC correct)?
-        if (RTUutils::validCRC(request.data(), request.size())) {
-          LOG_D("CRC okay.\n");
-          // Yes, is valid. First count it
-          {
-            lock_guard<mutex> cntLock(myServer->m);
-            myServer->messageCount++;
-          }
-          // Get the user's response
-          // Cut the CRC bytes
-          request.resize(request.size() - 2);
-          m = callBack(request);
-          LOG_D("Callback called.\n");
-          HEXDUMP_V("Callback response", m.data(), m.size());
+        // Yes, we do. Count the message
+        {
+          lock_guard<mutex> cntLock(myServer->m);
+          myServer->messageCount++;
+        }
+        // Get the user's response
+        m = callBack(request);
+        LOG_D("Callback called.\n");
+        HEXDUMP_V("Callback response", m.data(), m.size());
 
-          // Process Response. Is it one of the predefined types?
-          if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
-            // Yes. Check it
-            switch (m[1]) {
-            case 0xF0: // NIL
-              response.clear();
-              break;
-            case 0xF1: // ECHO
-              response = request;
-              if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
-                  request.getFunctionCode() == WRITE_MULT_COILS) {
-                response.resize(6);
-              }
-              break;
-            default:   // Will not get here, but lint likes it!
-              break;
+        // Process Response. Is it one of the predefined types?
+        if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
+          // Yes. Check it
+          switch (m[1]) {
+          case 0xF0: // NIL
+            response.clear();
+            break;
+          case 0xF1: // ECHO
+            response = request;
+            if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
+                request.getFunctionCode() == WRITE_MULT_COILS) {
+              response.resize(6);
             }
-          } else {
-            // No predefined. User provided data in free format
-            response = m;
+            break;
+          default:   // Will not get here, but lint likes it!
+            break;
           }
         } else {
-          // No, CRC is wrong. Send error response
-          response.setError(request.getServerID(), request.getFunctionCode(), CRC_ERROR);
+          // No predefined. User provided data in free format
+          response = m;
         }
       } else {
         // No callback. Is at least the serverID valid?
@@ -175,7 +186,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       // Do we have gathered a valid response now?
       if (response.size() >= 3) {
         // Yes. send it back.
-        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response);
+        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
         LOG_D("Response sent.\n");
       }
     } else {
