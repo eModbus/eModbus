@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+# Helper scripts etc.
+keywords_populator.py
