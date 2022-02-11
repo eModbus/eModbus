@@ -163,6 +163,8 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
   
   // Treat ASCII differently
   if (ASCIImode) {
+    // Toggle rtsPin, if necessary
+    rts(HIGH);
     // Yes, ASCII mode. Send lead-in
     serial.write(':');
 
@@ -189,11 +191,14 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
     
     // Send lead-out
     serial.write("\r\n");
+    serial.flush();
+    // Toggle rtsPin, if necessary
+    rts(LOW);
   } else {
     // RTU mode
     uint16_t crc16 = calcCRC(data, len);
 
-    // Respect interval
+    // Respect interval - we must not toggle rtsPin before
     if (micros() - lastMicros < interval) delayMicroseconds(interval - (micros() - lastMicros));
 
     // Toggle rtsPin, if necessary
@@ -203,10 +208,10 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
     // Write CRC in LSB order
     serial.write(crc16 & 0xff);
     serial.write((crc16 >> 8) & 0xFF);
+    serial.flush();
     // Toggle rtsPin, if necessary
     rts(LOW);
   }
-  serial.flush();
 
   HEXDUMP_D("Sent packet", data, len);
 
