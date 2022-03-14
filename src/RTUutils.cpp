@@ -209,6 +209,9 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
     serial.write(crc16 & 0xff);
     serial.write((crc16 >> 8) & 0xFF);
     serial.flush();
+    // Clear serial buffers
+    while (serial.available())
+      serial.read();
     // Toggle rtsPin, if necessary
     rts(LOW);
   }
