@@ -137,6 +137,7 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
 }
 
 void ModbusServerTCPasync::mb_client::onPoll() {
+  LOCK_GUARD(lock1, obLock);
   handleOutbox();
   if (server->idle_timeout > 0 && 
       millis() - lastActiveTime > server->idle_timeout) {
@@ -154,36 +155,23 @@ void ModbusServerTCPasync::mb_client::addResponseToOutbox(ModbusMessage* respons
   if (response->size() > 0) {
     LOCK_GUARD(lock1, obLock);
     outbox.push(response);
-
-      while (!outbox.empty()) {
-      ModbusMessage* m = outbox.front();
-      if (m->size() <= client->space()) {
-        LOG_D("sending (%d)\n", m->size());
-        client->add(reinterpret_cast<const char*>(m->data()), m->size(), ASYNC_WRITE_FLAG_COPY);
-        client->send();
-        delete m;
-        outbox.pop();
-      } else {
-        return;
-      }
-    }
+    handleOutbox();
   }
 }
 
 void ModbusServerTCPasync::mb_client::handleOutbox() {
-  // LOCK_GUARD(lock1, obLock);
-  // while (!outbox.empty()) {
-  //   ModbusMessage* m = outbox.front();
-  //   if (m->size() <= client->space()) {
-  //     LOG_D("sending (%d)\n", m->size());
-  //     client->add(reinterpret_cast<const char*>(m->data()), m->size(), ASYNC_WRITE_FLAG_COPY);
-  //     client->send();
-  //     delete m;
-  //     outbox.pop();
-  //   } else {
-  //     return;
-  //   }
-  // }
+  while (!outbox.empty()) {
+    ModbusMessage* m = outbox.front();
+    if (m->size() <= client->space()) {
+      LOG_D("sending (%d)\n", m->size());
+      client->add(reinterpret_cast<const char*>(m->data()), m->size(), ASYNC_WRITE_FLAG_COPY);
+      client->send();
+      delete m;
+      outbox.pop();
+    } else {
+      return;
+    }
+  }
 }
 
 ModbusServerTCPasync::ModbusServerTCPasync() :
