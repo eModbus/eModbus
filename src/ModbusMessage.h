@@ -246,7 +246,18 @@ protected:
     FCType const operator[](uint8_t fc) const {
       return typ[fc];
     }
+
+    void set(uint8_t fc, FCType t) {
+      typ[fc] = t;
+    }
   } FCtypes;
+
+public:
+  // Check the FC type of a given function code
+  static FCType getFunctionCodeType(uint8_t fc);
+
+  // Change the FC type of a function code
+  static Error redefineFunctionCodeType(uint8_t fc, FCType t);
 };
 
 #endif

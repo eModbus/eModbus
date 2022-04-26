@@ -698,3 +698,18 @@ uint8_t ModbusMessage::floatOrder[] = { 0xFF };
 uint8_t ModbusMessage::doubleOrder[] = { 0xFF };
 
 ModbusMessage::FCTYPES ModbusMessage::FCtypes;
+
+// Check the FC type of a given function code
+FCType ModbusMessage::getFunctionCodeType(uint8_t fc) {
+  return FCtypes[fc];
+}
+
+// Change the FC type of a function code
+Error ModbusMessage::redefineFunctionCodeType(uint8_t fc, FCType t) {
+  // Do not allow redefining the basics of Modbus
+  if (fc == 0 || fc > 127) {
+    return ILLEGAL_FUNCTION;
+  }
+  FCtypes.set(fc, t);
+  return SUCCESS;
+}
