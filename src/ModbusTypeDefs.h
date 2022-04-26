@@ -52,6 +52,18 @@ enum FunctionCode : uint8_t {
   USER_DEFINED_6E         = 0x6E,
 };
 
+enum FCType : uint8_t {
+  FC01_TYPE,              // Two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
+  FC07_TYPE,              // no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
+  FC0F_TYPE,              // two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
+  FC10_TYPE,              // two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
+  FC16_TYPE,              // three uint16_t parameters (FC 0x16)
+  FC18_TYPE,              // one uint16_t parameter (FC 0x18)
+  FCGENERIC_TYPE,         // for FCs not yet explicitly coded (or too complex)
+  FCUSER_TYPE,            // No checks except the server ID
+  FCILLEGAL_TYPE,         // not allowed function codes
+};
+
 enum Error : uint8_t {
   SUCCESS                = 0x00,
   ILLEGAL_FUNCTION       = 0x01,

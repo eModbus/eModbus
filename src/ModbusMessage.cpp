@@ -440,14 +440,7 @@ uint16_t ModbusMessage::get(uint16_t index, vector<uint8_t>& v, uint8_t count) {
 Error ModbusMessage::checkServerFC(uint8_t serverID, uint8_t functionCode) {
   if (serverID == 0)      return INVALID_SERVER;   // Broadcast - not supported here
   if (serverID > 247)     return INVALID_SERVER;   // Reserved server addresses
-  if (functionCode == 0)  return ILLEGAL_FUNCTION; // FC 0 does not exist
-  if (functionCode == 9)  return ILLEGAL_FUNCTION; // FC 9 does not exist
-  if (functionCode == 10) return ILLEGAL_FUNCTION; // FC 10 does not exist
-  if (functionCode == 13) return ILLEGAL_FUNCTION; // FC 13 does not exist
-  if (functionCode == 14) return ILLEGAL_FUNCTION; // FC 14 does not exist
-  if (functionCode == 18) return ILLEGAL_FUNCTION; // FC 18 does not exist
-  if (functionCode == 19) return ILLEGAL_FUNCTION; // FC 19 does not exist
-  if (functionCode > 127) return ILLEGAL_FUNCTION; // FC only defined up to 127
+  if (FCtypes[functionCode] == FCILLEGAL_TYPE)  return ILLEGAL_FUNCTION; // FC 0 does not exist
   return SUCCESS;
 }
 
@@ -457,31 +450,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode) {
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    switch (functionCode) {
-    case 0x01:
-    case 0x02:
-    case 0x03:
-    case 0x04:
-    case 0x05:
-    case 0x06:
-    // case 0x07:
-    case 0x08:
-    // case 0x0b:
-    // case 0x0c:
-    case 0x0f:
-    case 0x10:
-    // case 0x11:
-    case 0x14:
-    case 0x15:
-    case 0x16:
-    case 0x17:
-    case 0x18:
-    case 0x2b:
+    if (FCtypes[functionCode] != FC07_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
       returnCode = PARAMETER_COUNT_ERROR;
-      break;
-    default:
-      returnCode = SUCCESS;
-      break;
     }
   }
   return returnCode;
@@ -493,32 +463,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    switch (functionCode) {
-    case 0x01:
-    case 0x02:
-    case 0x03:
-    case 0x04:
-    case 0x05:
-    case 0x06:
-    case 0x07:
-    case 0x08:
-    case 0x0b:
-    case 0x0c:
-    case 0x0f:
-    case 0x10:
-    case 0x11:
-    case 0x14:
-    case 0x15:
-    case 0x16:
-    case 0x17:
-    // case 0x18:
-    case 0x2b:
+    if (FCtypes[functionCode] != FC18_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
       returnCode = PARAMETER_COUNT_ERROR;
-      break;
-    // 0x18: any value acceptable
-    default:
-      returnCode = SUCCESS;
-      break;
     }
   }
   return returnCode;
@@ -530,37 +476,22 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    switch (functionCode) {
-    case 0x01:
-    case 0x02:
-      if ((p2 > 0x7d0) || (p2 == 0)) returnCode = PARAMETER_LIMIT_ERROR;
-      break;
-    case 0x03:
-    case 0x04:
-      if ((p2 > 0x7d) || (p2 == 0)) returnCode = PARAMETER_LIMIT_ERROR;
-      break;
-    case 0x05:
-      if ((p2 != 0) && (p2 != 0xff00)) returnCode = PARAMETER_LIMIT_ERROR;
-      break;
-    // case 0x06: all values are acceptable for p1 and p2
-    case 0x07:
-    case 0x08:
-    case 0x0b:
-    case 0x0c:
-    case 0x0f:
-    case 0x10:
-    case 0x11:
-    case 0x14:
-    case 0x15:
-    case 0x16:
-    case 0x17:
-    case 0x18:
-    case 0x2b:
+    if (FCtypes[functionCode] != FC01_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
       returnCode = PARAMETER_COUNT_ERROR;
-      break;
-    default:
-      returnCode = SUCCESS;
-      break;
+    } else {
+      switch (functionCode) {
+      case 0x01:
+      case 0x02:
+        if ((p2 > 0x7d0) || (p2 == 0)) returnCode = PARAMETER_LIMIT_ERROR;
+        break;
+      case 0x03:
+      case 0x04:
+        if ((p2 > 0x7d) || (p2 == 0)) returnCode = PARAMETER_LIMIT_ERROR;
+        break;
+      case 0x05:
+        if ((p2 != 0) && (p2 != 0xff00)) returnCode = PARAMETER_LIMIT_ERROR;
+        break;
+      }
     }
   }
   return returnCode;
@@ -572,33 +503,9 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    switch (functionCode) {
-    case 0x01:
-    case 0x02:
-    case 0x03:
-    case 0x04:
-    case 0x05:
-    case 0x06:
-    case 0x07:
-    case 0x08:
-    case 0x0b:
-    case 0x0c:
-    case 0x0f:
-    case 0x10:
-    case 0x11:
-    case 0x14:
-    case 0x15:
-    // case 0x16:
-    case 0x17:
-    case 0x18:
-    case 0x2b:
+    if (FCtypes[functionCode] != FC16_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
       returnCode = PARAMETER_COUNT_ERROR;
-      break;
-    // 0x18: any value acceptable for p1, p2 and p3
-    default:
-      returnCode = SUCCESS;
-      break;
-    }
+    } 
   }
   return returnCode;
 }
@@ -609,35 +516,11 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    switch (functionCode) {
-    case 0x01:
-    case 0x02:
-    case 0x03:
-    case 0x04:
-    case 0x05:
-    case 0x06:
-    case 0x07:
-    case 0x08:
-    case 0x0b:
-    case 0x0c:
-    case 0x0f:
-    // case 0x10:
-    case 0x11:
-    case 0x14:
-    case 0x15:
-    case 0x16:
-    case 0x17:
-    case 0x18:
-    case 0x2b:
+    if (FCtypes[functionCode] != FC10_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
       returnCode = PARAMETER_COUNT_ERROR;
-      break;
-    case 0x10:
+    } else {
       if ((p2 == 0) || (p2 > 0x7b)) returnCode = PARAMETER_LIMIT_ERROR;
       else if (count != (p2 * 2)) returnCode = ILLEGAL_DATA_VALUE;
-      break;
-    default:
-      returnCode = SUCCESS;
-      break;
     }
   }
   return returnCode;
@@ -649,35 +532,11 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    switch (functionCode) {
-    case 0x01:
-    case 0x02:
-    case 0x03:
-    case 0x04:
-    case 0x05:
-    case 0x06:
-    case 0x07:
-    case 0x08:
-    case 0x0b:
-    case 0x0c:
-    // case 0x0f:
-    case 0x10:
-    case 0x11:
-    case 0x14:
-    case 0x15:
-    case 0x16:
-    case 0x17:
-    case 0x18:
-    case 0x2b:
+    if (FCtypes[functionCode] != FC0F_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
       returnCode = PARAMETER_COUNT_ERROR;
-      break;
-    case 0x0f:
+    } else {
       if ((p2 == 0) || (p2 > 0x7b0)) returnCode = PARAMETER_LIMIT_ERROR;
       else if (count != ((p2 / 8 + (p2 % 8 ? 1 : 0)))) returnCode = ILLEGAL_DATA_VALUE;
-      break;
-    default:
-      returnCode = SUCCESS;
-      break;
     }
   }
   return returnCode;
@@ -686,7 +545,14 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
 // 7. generic constructor for preformatted data ==> count is counting bytes!
 Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t count, uint8_t *arrayOfBytes) {
   LOG_V("Check data #7\n");
-  return checkServerFC(serverID, functionCode);
+  Error returnCode = checkServerFC(serverID, functionCode);
+  if (returnCode == SUCCESS)
+  {
+    if (FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
+      returnCode = PARAMETER_COUNT_ERROR;
+    } 
+  }
+  return returnCode;
 }
 
 // Factory methods to create valid Modbus messages from the parameters
@@ -830,3 +696,5 @@ void ModbusMessage::printError(const char *file, int lineNo, Error e, uint8_t se
 
 uint8_t ModbusMessage::floatOrder[] = { 0xFF };
 uint8_t ModbusMessage::doubleOrder[] = { 0xFF };
+
+ModbusMessage::FCTYPES ModbusMessage::FCtypes;
