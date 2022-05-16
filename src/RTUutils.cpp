@@ -225,7 +225,7 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval
-ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode) {
+ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(512);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
@@ -240,7 +240,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
   // Next buffer limit
 
   // State machine states, RTU mode
-  enum STATES : uint8_t { WAIT_DATA = 0, IN_PACKET, DATA_READ, FINISHED };
+  enum STATES : uint8_t { WAIT_DATA = 0, SKIP_ZERO, IN_PACKET, DATA_READ, FINISHED };
 
   // State machine states, ASCII mode
   enum ASTATES : uint8_t { A_WAIT_DATA = 0, A_DATA, A_WAIT_LEAD_OUT, A_FINISHED };
@@ -262,7 +262,9 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
       // WAIT_DATA: await first data byte, but watch timeout
       case WAIT_DATA:
         if (serial.available()) {
-          state = IN_PACKET;
+          state = skipLeadingZeroBytes ? SKIP_ZERO : IN_PACKET;
+          // get first byte
+          b = serial.read();
           intervalEnd = micros();
         } else {
           if (millis() - TimeOut >= timeout) {
@@ -272,10 +274,20 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
           delay(1);
         }
         break;
+      // SKIP_ZERO: Drop the first ghost byte if it is 0x00 (RS485 toggle issue)
+      case SKIP_ZERO:
+        // Did we read a zero byte or none at all?
+        if (b <=0) {
+          // Yes, read again and loop
+          b = serial.read();
+        } else {
+          // No, we had a valid data byte != 0. Proceed to collecting a packet
+          state = IN_PACKET;
+        }
+        break;
       // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
       case IN_PACKET:
         hadBytes = false;
-        b = serial.read();
         if (b >= 0) {
           hadBytes = true;
         }
@@ -294,7 +306,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
         if (hadBytes) {
           // Yes, take another turn
           intervalEnd = micros();
-          delay(1);
+          delayMicroseconds(1000);
         } else {
           // No. Has a complete interval passed without data?
           lastMicros = micros();

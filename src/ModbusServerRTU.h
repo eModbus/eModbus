@@ -43,6 +43,9 @@ public:
   // Inquire protocol mode
   bool isModbusASCII();
 
+  // Toggle skipping of leading 0x00 byte
+  void skipLeading0x00(bool onOff = true);
+
 protected:
   // Prevent copy construction and assignment
   ModbusServerRTU(ModbusServerRTU& m) = delete;
@@ -63,6 +66,7 @@ protected:
   int8_t MSRrtsPin;                      // GPIO number of the RS485 module's RE/DE line
   RTScallback MRTSrts;                   // Callback to set the RTS line to HIGH/LOW
   bool MSRuseASCII;                      // true=ModbusASCII, false=ModbusRTU
+  bool MSRskipLeadingZeroByte;           // true=first byte ignored if 0x00, false=all bytes accepted
 
   // serve: loop function for server task
   static void serve(ModbusServerRTU *myself);

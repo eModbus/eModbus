@@ -48,6 +48,12 @@ public:
   // Inquire protocol mode
   bool isModbusASCII();
 
+  // Toggle skipping of leading 0x00 byte
+  void skipLeading0x00(bool onOff = true);
+
+  // Return number of unprocessed requests in queue
+  uint32_t pendingRequests();
+
 protected:
   struct RequestEntry {
     uint32_t token;
@@ -85,6 +91,7 @@ protected:
   uint16_t MR_qLimit;             // Maximum number of requests to hold in the queue
   uint32_t MR_timeoutValue;       // Interface default timeout
   bool MR_useASCII;               // true=ModbusASCII, false=ModbusRTU
+  bool MR_skipLeadingZeroByte;    // true=skip the first byte if it is 0x00, false=accept all bytes
 
 };
 

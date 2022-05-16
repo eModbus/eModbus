@@ -42,7 +42,7 @@ void RTStest(bool level) {
 }
 
 // Baud rate to be used for RTU components
-const uint32_t BaudRate(115200);
+const uint32_t BaudRate(4000000);
 
 // Test prerequisites
 TCPstub stub;
@@ -57,9 +57,12 @@ IPAddress ip = {127,   0,   0,   1};            // IP address of ModbusServerWiF
 uint16_t port = 502;                            // port of modbus server
 uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
 uint16_t testsPassed = 0;              // Global passed test cases counter. Incremented in testOutput().
-bool printPassed = true;               // If true, testOutput will print passed tests as well.
+bool printPassed = false;              // If true, testOutput will print passed tests as well.
 TidMap testCasesByTID;
 TokenMap testCasesByToken;
+uint32_t highestTokenProcessed = 0;
+
+#define WAIT_FOR_FINISH(x) while ((highestTokenProcessed < (Token - 1)) && (x.pendingRequests() != 0)) { delay(100); }
 
 uint16_t memo[32];                     // Test server memory: 32 words
 
@@ -402,6 +405,8 @@ bool MSG08(uint8_t serverID, uint8_t functionCode, Error error, const char *name
 
 void handleData(ModbusMessage response, uint32_t token) 
 {
+  // catch highest token processed
+  if (highestTokenProcessed < token) highestTokenProcessed = token;
   // Look for the token in the TestCase map
   auto tc = testCasesByToken.find(token);
   if (tc != testCasesByToken.end()) {
@@ -415,6 +420,8 @@ void handleData(ModbusMessage response, uint32_t token)
 
 void handleError(Error err, uint32_t token)
 {
+  // catch highest token processed
+  if (highestTokenProcessed < token) highestTokenProcessed = token;
   // Look for the token in the TestCase map
   auto tc = testCasesByToken.find(token);
   if (tc != testCasesByToken.end()) {
@@ -454,8 +461,6 @@ void setup()
   // Restart test case and tests passed counter
   testsExecuted = 0;
   testsPassed = 0;
-
-  printPassed = false;          // Omit passed tests in output
 
   // #### MSG, setMessage(serverID, functionCode) #01
   MSG01(0, 0x07, LNO(__LINE__) "invalid server id",    "00 87 E1");
@@ -608,9 +613,10 @@ void setup()
   // ******************************************************************************
   // Tests using the complete turnaround next. TCP is simulated by TCPstub stub!
   //
-  // ATTENTION: the request queue limit has ben set to >>> 2 <<< entries only for
-  //            test reasons. Better have a "delay(1000);" after each test to not
-  //            flood it!
+  // ATTENTION: the request queue limit has been set to >>> 2 <<< entries only for
+  //            test reasons. Better have a 
+  //              WAIT_FOR_FINISH(<client>)
+  //            after longer test cases to not flood it!
   // ******************************************************************************
 
   // Restart test case and tests passed counter
@@ -686,9 +692,10 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
   // Delay a bit to get the request queue accepting again (see ATTENTION! above)
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   // Template to copy & paste
   /* ------------- 21 lines below -------------------------------------------------
@@ -713,6 +720,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
   delay(1000);
     ------------------------------------------------------------------------------- */
@@ -742,9 +750,12 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
   // Wait for secure timeout end
-  delay(10000);
+  WAIT_FOR_FINISH(TestTCP)
+  delay(5000);
+  stub.flush();
 
   // Send response with wrong transaction ID
   tc = new TestCase { 
@@ -765,8 +776,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   // Send response with wrong server ID
   tc = new TestCase { 
@@ -787,8 +799,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   // Send response with wrong function code
   tc = new TestCase { 
@@ -809,8 +822,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   // Stub will not respond at all - another timeout constellation
   tc = new TestCase { 
@@ -831,9 +845,12 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
   // Wait for secure timeout end
-  delay(4000);
+  WAIT_FOR_FINISH(TestTCP)
+  delay(5000);
+  stub.clear();
 
   // Provoke full request queue by sending 3 requests without delay.
   // The third shall get the REQUEST_QUEUE_FULL error
@@ -855,6 +872,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // Second call immediately following
@@ -876,6 +894,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // Third and final. This should catch the error
@@ -897,8 +916,11 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
+  delay(5000);
+  stub.clear();
 
   // Simulate Server not responding (host/port different from stub's identity)
   TestTCP.setTarget(testHost2, 502);
@@ -920,8 +942,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   // Server returns undefined error code
   TestTCP.setTarget(testHost, 502);
@@ -943,8 +966,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   // Host switch sequence (requires re-connect())
   // testHost2, testHost2, testHost, testHost2
@@ -969,8 +993,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   tc = new TestCase { 
     .name = LNO(__LINE__),
@@ -990,8 +1015,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   TestTCP.setTarget(testHost, 502, 2000, 200);
   stub.setIdentity(testHost, 502);
@@ -1013,8 +1039,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
+  WAIT_FOR_FINISH(TestTCP)
 
   TestTCP.setTarget(testHost2, 502);
   stub.setIdentity(testHost2, 502);
@@ -1036,11 +1063,12 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(1000);
 
   // Print summary. We will have to wait a bit to get all test cases executed!
-  delay(2000);
+  WAIT_FOR_FINISH(TestTCP)
+
   Serial.printf("----->    TCP loop stub tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
 
@@ -1057,6 +1085,9 @@ void setup()
   // Set up Serial1 and Serial2
   Serial1.begin(BaudRate, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
   Serial2.begin(BaudRate, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
+
+  Serial.printf("Serial1 at %d baud\n", Serial1.baudRate());
+  Serial.printf("Serial2 at %d baud\n", Serial2.baudRate());
 
 // CHeck if connections are made
   char chkSerial[64];
@@ -1149,6 +1180,7 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
     // #2: write a word of data
@@ -1170,6 +1202,7 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
     // #3: read several words
@@ -1191,6 +1224,7 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
     // #4: use explicit worker
@@ -1212,6 +1246,7 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
     // #5: use default worker
@@ -1233,6 +1268,7 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
     // #6: invalid FC
@@ -1254,6 +1290,7 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
     // #7: invalid server id
@@ -1274,8 +1311,9 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
-    delay(5000);   // #7 results in timeout, so wat a bit.
+  WAIT_FOR_FINISH(RTUclient)
 
     // #8: NIL_RESPONSE (aka timeout)
     tc = new TestCase { 
@@ -1295,8 +1333,9 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
-    delay(5000);   // #8 results in timeout, so wat a bit.
+    WAIT_FOR_FINISH(RTUclient)
 
     // Test-wise, switch handlers
     RTUclient.onResponseHandler(nullptr);
@@ -1322,6 +1361,7 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
     // #10: Large message
@@ -1348,6 +1388,7 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
     // #11: Oversize message
@@ -1372,10 +1413,36 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
 
-    // Wait even longer for all requests finishing
-    delay(15000);
+    // #12: Queue and loop stress
+    for (uint8_t i = 0; i < 100; ++i) {
+      char tn[32];
+      snprintf(tn, 32, "RTU stress loop #%d", i);
+      tc = new TestCase { 
+        .name = LNO(__LINE__),
+        .testname = tn,
+        .transactionID = 0,
+        .token = Token++,
+        .response = empty,
+        .expected = makeVector("02 03 08 C9 C8 C7 C6 C5 C4 C3 C2"),
+        .delayTime = 0,
+        .stopAfterResponding = true,
+        .fakeTransactionID = false
+      };
+      testCasesByToken[tc->token] = tc;
+      ExpectedToggles++;
+      e = RTUclient.addRequest(tc->token, 2, READ_HOLD_REGISTER, 28, 4);
+      if (e != SUCCESS) {
+        ModbusMessage r;
+        r.add(e);
+        testOutput(tc->testname, tc->name, tc->expected, r);
+        highestTokenProcessed = tc->token;
+      }
+    }
+
+    WAIT_FOR_FINISH(RTUclient)
 
     // Check RTS toggle
     testsExecuted++;
@@ -1411,7 +1478,10 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
+
+    WAIT_FOR_FINISH(RTUclient)
 
     // Now switch server to ASCII as well
     RTUserver.useModbusASCII();
@@ -1434,15 +1504,16 @@ void setup()
       ModbusMessage r;
       r.add(e);
       testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
     }
-
-    // Print summary. We will have to wait a bit to get all test cases executed!
-    delay(2000);
-    Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
     // Switch back to RTU mode for the rest of tests
     RTUclient.useModbusRTU();
     RTUserver.useModbusRTU();
+
+    // Print summary. We will have to wait a bit to get all test cases executed!
+    WAIT_FOR_FINISH(RTUclient)
+    Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
   }
 
   // ******************************************************************************
@@ -1500,6 +1571,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // #2: write a word of data
@@ -1520,6 +1592,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // #3: read several words
@@ -1540,6 +1613,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // #4: use explicit worker
@@ -1560,6 +1634,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // #5: use default worker
@@ -1580,6 +1655,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // #6: invalid FC
@@ -1600,6 +1676,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // #7: invalid server id
@@ -1620,6 +1697,7 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // #8: NIL_RESPONSE (aka timeout)
@@ -1640,8 +1718,9 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
-  delay(2000);   // #8 results in timeout, so wat a bit.
+  WAIT_FOR_FINISH(TestClientWiFi)
 
   // #9: Error response
   tc = new TestCase { 
@@ -1661,10 +1740,11 @@ void setup()
     ModbusMessage r;
     r.add(e);
     testOutput(tc->testname, tc->name, tc->expected, r);
+    highestTokenProcessed = tc->token;
   }
 
   // Print summary. We will have to wait a bit to get all test cases executed!
-  delay(2000);
+  WAIT_FOR_FINISH(RTUclient)
   Serial.printf("----->    TCP WiFi loopback tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
   // ******************************************************************************
@@ -1995,6 +2075,7 @@ void setup()
   // ======================================================================================
   // Final message
   Serial.println("\n\n *** ----> All finished.");
+
 }
 
 void loop() {
