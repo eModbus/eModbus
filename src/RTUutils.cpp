@@ -149,7 +149,7 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
       LOG_W("Unable to identify serial\n");
     }
   } else {
-    Serial.printf("Threshold must be between 1 and 127! (was %d)", thresholdBytes);
+    LOG_E("Threshold must be between 1 and 127! (was %d)", thresholdBytes);
   }
 #endif
   // Return the previous value in case someone likes to see it.
@@ -276,10 +276,16 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
         break;
       // SKIP_ZERO: Drop the first ghost byte if it is 0x00 (RS485 toggle issue)
       case SKIP_ZERO:
-        // Did we read a zero byte or none at all?
-        if (b <=0) {
-          // Yes, read again and loop
+        // Did we read a zero byte?
+        if (b == 0) {
+          // Yes, read again
           b = serial.read();
+          // If we got no further byte, restart the read process. Else move on with the read byte.
+          if (b < 0) {
+            state = WAIT_DATA;
+          } else {
+            state = IN_PACKET;
+          }
         } else {
           // No, we had a valid data byte != 0. Proceed to collecting a packet
           state = IN_PACKET;
