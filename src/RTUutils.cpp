@@ -132,6 +132,7 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
       rc = UART0.conf1.rxfifo_full_thrhd;
       UART0.conf1.rxfifo_full_thrhd = thresholdBytes;
       LOG_D("Serial FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
+#if SOC_UART_NUM > 1
     // No, but perhaps is Serial1?
     } else if (&serial == &Serial1) {
       // It is. Get the current value and set ours.
@@ -139,12 +140,15 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
       UART1.conf1.rxfifo_full_thrhd = thresholdBytes;
       LOG_D("Serial1 FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
     // No, but it may be Serial2
+#if SOC_UART_NUM > 2
     } else if (&serial == &Serial2) {
       // Found it. Get the current value and set ours.
       rc = UART2.conf1.rxfifo_full_thrhd;
       UART2.conf1.rxfifo_full_thrhd = thresholdBytes;
       LOG_D("Serial2 FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
     // None of the three, so we are at an end here
+#endif
+#endif
     } else {
       LOG_W("Unable to identify serial\n");
     }
@@ -319,6 +323,10 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
           if (lastMicros - intervalEnd >= interval) {
             // Yes, go processing data
             state = DATA_READ;
+            LOG_V("%ldus without data\n", lastMicros - intervalEnd);
+          } else {
+            // No, try to get another byte
+            b = serial.read();
           }
         }
         break;
