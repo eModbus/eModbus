@@ -317,6 +317,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
           // Yes, take another turn
           intervalEnd = micros();
           delayMicroseconds(1000);
+          b = serial.read();
         } else {
           // No. Has a complete interval passed without data?
           lastMicros = micros();
