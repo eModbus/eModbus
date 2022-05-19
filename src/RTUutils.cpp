@@ -126,29 +126,28 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
   // Is the threshold value valid? The UART FIFO is 128 bytes only
   if (thresholdBytes > 0 && thresholdBytes < 128) {
     // Yes, it is. Try to identify the Serial/Serial1/Serial2 the user has provided.
-    // Is it Serial (UART0)?
+    uart_dev_t *uart = nullptr;
+    uint8_t uart_num = 0;
     if (&serial == &Serial) {
+      uart_num = 0;
+      uart = &UART0;
+    } else {
+      if (&serial == &Serial1) {
+        uart_num = 1;
+        uart = &UART1;
+      } else {
+        if (&serial == &Serial2) {
+          uart_num = 2;
+          uart = &UART2;
+        }
+      }
+    }
+    // Is it a defined serial?
+    if (uart != nullptr) {
       // Yes. get the current value and set ours instead
-      rc = UART0.conf1.rxfifo_full_thrhd;
-      UART0.conf1.rxfifo_full_thrhd = thresholdBytes;
-      LOG_D("Serial FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
-#if SOC_UART_NUM > 1
-    // No, but perhaps is Serial1?
-    } else if (&serial == &Serial1) {
-      // It is. Get the current value and set ours.
-      rc = UART1.conf1.rxfifo_full_thrhd;
-      UART1.conf1.rxfifo_full_thrhd = thresholdBytes;
-      LOG_D("Serial1 FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
-    // No, but it may be Serial2
-#if SOC_UART_NUM > 2
-    } else if (&serial == &Serial2) {
-      // Found it. Get the current value and set ours.
-      rc = UART2.conf1.rxfifo_full_thrhd;
-      UART2.conf1.rxfifo_full_thrhd = thresholdBytes;
-      LOG_D("Serial2 FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
-    // None of the three, so we are at an end here
-#endif
-#endif
+      rc = uart->conf1.rxfifo_full_thrhd;
+      uart->conf1.rxfifo_full_thrhd = thresholdBytes;
+      LOG_D("Serial%u FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
     } else {
       LOG_W("Unable to identify serial\n");
     }
