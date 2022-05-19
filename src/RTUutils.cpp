@@ -239,12 +239,9 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
   register uint16_t bufferPtr = 0;
   // Byte read
   register int b; 
-  // Flag for successful read cycle
-  bool hadBytes = false;
-  // Next buffer limit
 
   // State machine states, RTU mode
-  enum STATES : uint8_t { WAIT_DATA = 0, SKIP_ZERO, IN_PACKET, DATA_READ, FINISHED };
+  enum STATES : uint8_t { WAIT_DATA = 0, IN_PACKET, DATA_READ, FINISHED };
 
   // State machine states, ASCII mode
   enum ASTATES : uint8_t { A_WAIT_DATA = 0, A_DATA, A_WAIT_LEAD_OUT, A_FINISHED };
@@ -259,18 +256,24 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
     // Yes.
     state = WAIT_DATA;
     // interval tracker 
-    unsigned long intervalEnd = micros();
+    lastMicros = micros();
   
     while (state != FINISHED) {
       switch (state) {
       // WAIT_DATA: await first data byte, but watch timeout
       case WAIT_DATA:
-        if (serial.available()) {
-          state = skipLeadingZeroBytes ? SKIP_ZERO : IN_PACKET;
-          // get first byte
-          b = serial.read();
-          intervalEnd = micros();
+        // Blindly try to read a byte
+        b = serial.read();
+        // Did we get one?
+        if (b >= 0) {
+          // Yes. Do we need to skip it, if it is zero?
+          if (b > 0 || !skipLeadingZeroBytes) {
+            // No, we can go process it regularly
+            state = IN_PACKET;
+            lastMicros = micros();
+          } 
         } else {
+          // No, we had no byte. Just check the timeout period
           if (millis() - TimeOut >= timeout) {
             rv.push_back(TIMEOUT);
             state = FINISHED;
@@ -278,56 +281,30 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
           delay(1);
         }
         break;
-      // SKIP_ZERO: Drop the first ghost byte if it is 0x00 (RS485 toggle issue)
-      case SKIP_ZERO:
-        // Did we read a zero byte?
-        if (b == 0) {
-          // Yes, read again
-          b = serial.read();
-          // If we got no further byte, restart the read process. Else move on with the read byte.
-          if (b < 0) {
-            state = WAIT_DATA;
-          } else {
-            state = IN_PACKET;
-          }
-        } else {
-          // No, we had a valid data byte != 0. Proceed to collecting a packet
-          state = IN_PACKET;
-        }
-        break;
       // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
       case IN_PACKET:
-        hadBytes = false;
-        if (b >= 0) {
-          hadBytes = true;
-        }
-        while (b >= 0) {
-          buffer[bufferPtr++] = b;
-          // Buffer full?
-          if (bufferPtr >= BUFBLOCKSIZE) {
-            // Yes. Something fishy here - bail out!
-            rv.push_back(PACKET_LENGTH_ERROR);
-            state = FINISHED;
-            break;
-          }
-          b = serial.read();
-        }
-        // Did we read some?
-        if (hadBytes) {
-          // Yes, take another turn
-          intervalEnd = micros();
-          delayMicroseconds(1000);
-          b = serial.read();
+        // Are we past the interval gap without another byte?
+        if (micros() - lastMicros > interval) {
+          // Yes, terminate reading
+          LOG_V("%ldus without data\n", micros() - lastMicros);
+          state = DATA_READ;
         } else {
-          // No. Has a complete interval passed without data?
-          lastMicros = micros();
-          if (lastMicros - intervalEnd >= interval) {
-            // Yes, go processing data
-            state = DATA_READ;
-            LOG_V("%ldus without data\n", lastMicros - intervalEnd);
-          } else {
-            // No, try to get another byte
-            b = serial.read();
+          // No, still in reading sequence
+          // Did we get a byte?
+          if (b >= 0) {
+            // Yes, collect it
+            buffer[bufferPtr++] = b;
+            // Buffer full?
+            if (bufferPtr >= BUFBLOCKSIZE) {
+              // Yes. Something fishy here - bail out!
+              rv.push_back(PACKET_LENGTH_ERROR);
+              state = FINISHED;
+            } else {
+              // Mark time of last byte
+              lastMicros = micros();
+              // Buffer has space left - try to read another byte
+              b = serial.read();
+            }
           }
         }
         break;
@@ -367,6 +344,9 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
 
     // Track nibbles in a byte
     bool byteComplete = true; 
+
+    // Track bytes read
+    bool hadBytes = false;
 
     // ASCII crc byte
     uint8_t crc = 0;
