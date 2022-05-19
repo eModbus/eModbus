@@ -266,11 +266,12 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
         b = serial.read();
         // Did we get one?
         if (b >= 0) {
-          // Yes. Do we need to skip it, if it is zero?
+          // Yes. Note the time.
+          lastMicros = micros();
+          // Do we need to skip it, if it is zero?
           if (b > 0 || !skipLeadingZeroBytes) {
             // No, we can go process it regularly
             state = IN_PACKET;
-            lastMicros = micros();
           } 
         } else {
           // No, we had no byte. Just check the timeout period
@@ -284,7 +285,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
       // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
       case IN_PACKET:
         // Are we past the interval gap without another byte?
-        if (micros() - lastMicros > interval) {
+        if (micros() - lastMicros >= interval) {
           // Yes, terminate reading
           LOG_V("%ldus without data\n", micros() - lastMicros);
           state = DATA_READ;
@@ -294,18 +295,18 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
           if (b >= 0) {
             // Yes, collect it
             buffer[bufferPtr++] = b;
+            // Mark time of last byte
+            lastMicros = micros();
             // Buffer full?
             if (bufferPtr >= BUFBLOCKSIZE) {
               // Yes. Something fishy here - bail out!
               rv.push_back(PACKET_LENGTH_ERROR);
               state = FINISHED;
-            } else {
-              // Mark time of last byte
-              lastMicros = micros();
-              // Buffer has space left - try to read another byte
-              b = serial.read();
+              break;
             }
           }
+          // Buffer has space left - try to read another byte
+          b = serial.read();
         }
         break;
       // DATA_READ: successfully gathered some data. Prepare return object.
