@@ -2035,6 +2035,40 @@ void setup()
   // Print summary.
   Serial.printf("----->    CoilData tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
 
+  // ******************************************************************************
+  // FC redefinition tests
+  // ******************************************************************************
+  testsExecuted = 0;
+  testsPassed = 0;
+  FCType ft = FCILLEGAL;
+
+  // #1 - try redefining an existing function code
+  testsExecuted++;
+  ft = FCT::redefineType(READ_HOLD_REGISTER, FCGENERIC);
+  if (ft == FC01) {
+    testsPassed++;
+  } else {
+    Serial.print(LNO(__LINE__) "FC redefinition #1 failed\n");
+  }
+
+  // #2 - try redefining an undefined function code
+  testsExecuted++;
+  ft = FCT::redefineType(0x55, FC01);
+  if (ft == FC01) {
+    testsPassed++;
+  } else {
+    Serial.print(LNO(__LINE__) "FC redefinition #2 failed\n");
+  }
+
+  // #3 - use redefined function code
+  MSG03(1, 0x55, 0x1020, 125,    LNO(__LINE__) "correct call 0x55 (125)",  "01 55 10 20 00 7D");
+
+  // #4 - use redefined function code with wrong call
+  MSG04(1, 0x55, 0x1020, 125, 4711,    LNO(__LINE__) "wrong call parameter 0x55 (4711)",  "01 D5 E6");
+
+  // Print summary.
+  Serial.printf("----->    FC redefiniton: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
 /*
   // ******************************************************************************
   // Logging tests

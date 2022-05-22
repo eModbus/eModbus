@@ -440,7 +440,7 @@ uint16_t ModbusMessage::get(uint16_t index, vector<uint8_t>& v, uint8_t count) {
 Error ModbusMessage::checkServerFC(uint8_t serverID, uint8_t functionCode) {
   if (serverID == 0)      return INVALID_SERVER;   // Broadcast - not supported here
   if (serverID > 247)     return INVALID_SERVER;   // Reserved server addresses
-  if (FCtypes[functionCode] == FCILLEGAL_TYPE)  return ILLEGAL_FUNCTION; // FC 0 does not exist
+  if (FCT::getType(functionCode) == FCILLEGAL)  return ILLEGAL_FUNCTION; // FC 0 does not exist
   return SUCCESS;
 }
 
@@ -450,7 +450,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode) {
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    if (FCtypes[functionCode] != FC07_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
+    FCType ft = FCT::getType(functionCode);
+    if (ft != FC07 && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     }
   }
@@ -463,7 +464,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    if (FCtypes[functionCode] != FC18_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
+    FCType ft = FCT::getType(functionCode);
+    if (ft != FC18 && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     }
   }
@@ -476,7 +478,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    if (FCtypes[functionCode] != FC01_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
+    FCType ft = FCT::getType(functionCode);
+    if (ft != FC01 && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } else {
       switch (functionCode) {
@@ -503,7 +506,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    if (FCtypes[functionCode] != FC16_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
+    FCType ft = FCT::getType(functionCode);
+    if (ft != FC16 && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } 
   }
@@ -516,7 +520,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    if (FCtypes[functionCode] != FC10_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
+    FCType ft = FCT::getType(functionCode);
+    if (ft != FC10 && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } else {
       if ((p2 == 0) || (p2 > 0x7b)) returnCode = PARAMETER_LIMIT_ERROR;
@@ -532,7 +537,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    if (FCtypes[functionCode] != FC0F_TYPE && FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
+    FCType ft = FCT::getType(functionCode);
+    if (ft != FC0F && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } else {
       if ((p2 == 0) || (p2 > 0x7b0)) returnCode = PARAMETER_LIMIT_ERROR;
@@ -548,7 +554,8 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   Error returnCode = checkServerFC(serverID, functionCode);
   if (returnCode == SUCCESS)
   {
-    if (FCtypes[functionCode] != FCUSER_TYPE && FCtypes[functionCode] != FCGENERIC_TYPE) {
+    FCType ft = FCT::getType(functionCode);
+    if (ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } 
   }
@@ -696,20 +703,3 @@ void ModbusMessage::printError(const char *file, int lineNo, Error e, uint8_t se
 
 uint8_t ModbusMessage::floatOrder[] = { 0xFF };
 uint8_t ModbusMessage::doubleOrder[] = { 0xFF };
-
-ModbusMessage::FCTYPES ModbusMessage::FCtypes;
-
-// Check the FC type of a given function code
-FCType ModbusMessage::getFunctionCodeType(uint8_t fc) {
-  return FCtypes[fc];
-}
-
-// Change the FC type of a function code
-Error ModbusMessage::redefineFunctionCodeType(uint8_t fc, FCType t) {
-  // Do not allow redefining the basics of Modbus
-  if (fc == 0 || fc > 127) {
-    return ILLEGAL_FUNCTION;
-  }
-  FCtypes.set(fc, t);
-  return SUCCESS;
-}

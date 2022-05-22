@@ -11,6 +11,7 @@
 
 using Modbus::Error;
 using Modbus::FCType;
+using Modbus::FCT;
 using std::vector;
 
 class ModbusMessage {
@@ -210,54 +211,6 @@ protected:
     }
     return index;
   }
-
-  // Treatment of function codes 
-  static class FCTYPES {
-  protected:
-    FCType typ[256];
-  
-  public:
-    FCTYPES() {
-      // Default: illegal code
-      for (auto &t: typ) {
-        t = FCILLEGAL_TYPE;
-      }
-      // Explicitly coded FCs
-      typ[READ_COIL] = typ[READ_DISCR_INPUT] = typ[READ_HOLD_REGISTER] = 
-        typ[READ_INPUT_REGISTER] = typ[WRITE_COIL] = typ[WRITE_HOLD_REGISTER] = FC01_TYPE;
-      typ[READ_EXCEPTION_SERIAL] = typ[READ_COMM_CNT_SERIAL] = typ[READ_COMM_LOG_SERIAL] =
-        typ[REPORT_SERVER_ID_SERIAL] = FC07_TYPE;
-      typ[WRITE_MULT_COILS] = FC0F_TYPE;
-      typ[WRITE_MULT_REGISTERS] = FC10_TYPE;
-      typ[MASK_WRITE_REGISTER] = FC16_TYPE;
-      typ[READ_FIFO_QUEUE] = FC18_TYPE;
-      // Defined, but not (yet) explicitly coded
-      typ[DIAGNOSTICS_SERIAL] = typ[READ_FILE_RECORD] = typ[R_W_MULT_REGISTERS] =
-        typ[ENCAPSULATED_INTERFACE] = FCGENERIC_TYPE;
-      // User defined FCs
-      for (uint8_t i = 0x41; i <= 0x48; ++i) {
-        typ[i] = FCUSER_TYPE;
-      }
-      for (uint8_t i = 0x64; i <= 0x6E; ++i) {
-        typ[i] = FCUSER_TYPE;
-      }
-    }
-
-    FCType const operator[](uint8_t fc) const {
-      return typ[fc];
-    }
-
-    void set(uint8_t fc, FCType t) {
-      typ[fc] = t;
-    }
-  } FCtypes;
-
-public:
-  // Check the FC type of a given function code
-  static FCType getFunctionCodeType(uint8_t fc);
-
-  // Change the FC type of a function code
-  static Error redefineFunctionCodeType(uint8_t fc, FCType t);
 };
 
 #endif
