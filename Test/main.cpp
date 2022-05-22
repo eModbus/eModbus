@@ -2045,7 +2045,7 @@ void setup()
   // #1 - try redefining an existing function code
   testsExecuted++;
   ft = FCT::redefineType(READ_HOLD_REGISTER, FCGENERIC);
-  if (ft == FC01) {
+  if (ft == FC01_TYPE) {
     testsPassed++;
   } else {
     Serial.print(LNO(__LINE__) "FC redefinition #1 failed\n");
@@ -2053,8 +2053,8 @@ void setup()
 
   // #2 - try redefining an undefined function code
   testsExecuted++;
-  ft = FCT::redefineType(0x55, FC01);
-  if (ft == FC01) {
+  ft = FCT::redefineType(0x55, FC01_TYPE);
+  if (ft == FC01_TYPE) {
     testsPassed++;
   } else {
     Serial.print(LNO(__LINE__) "FC redefinition #2 failed\n");

@@ -10,13 +10,13 @@ using Modbus::FCT;
 // Initialize function code type table
 FCType FCT::table[] = {
 // 0x.0      0x.1       0x.2       0x.3       0x.4       0x.5       0x.6       0x.7
-  FCILLEGAL, FC01,      FC01,      FC01,      FC01,      FC01,      FC01,      FC07,       // 0x0.
+  FCILLEGAL, FC01_TYPE, FC01_TYPE, FC01_TYPE, FC01_TYPE, FC01_TYPE, FC01_TYPE, FC07_TYPE,  // 0x0.
 // 0x.8      0x.9       0x.A       0x.B       0x.C       0x.D       0x.E       0x.F
-  FCGENERIC, FCILLEGAL, FCILLEGAL, FC07,      FC07,      FCILLEGAL, FCILLEGAL, FC0F,       // 0x0.
+  FCGENERIC, FCILLEGAL, FCILLEGAL, FC07_TYPE, FC07_TYPE, FCILLEGAL, FCILLEGAL, FC0F_TYPE,  // 0x0.
 // 0x.0      0x.1       0x.2       0x.3       0x.4       0x.5       0x.6       0x.7
-  FC10,      FC07,      FCILLEGAL, FCILLEGAL, FCGENERIC, FCGENERIC, FC16,      FCGENERIC,  // 0x1.
+  FC10_TYPE, FC07_TYPE, FCILLEGAL, FCILLEGAL, FCGENERIC, FCGENERIC, FC16_TYPE, FCGENERIC,  // 0x1.
 // 0x.8      0x.9       0x.A       0x.B       0x.C       0x.D       0x.E       0x.F
-  FC18,      FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL,  // 0x1.
+  FC18_TYPE, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL,  // 0x1.
 // 0x.0      0x.1       0x.2       0x.3       0x.4       0x.5       0x.6       0x.7
   FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL, FCILLEGAL,  // 0x2.
 // 0x.8      0x.9       0x.A       0x.B       0x.C       0x.D       0x.E       0x.F

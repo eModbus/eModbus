@@ -37,8 +37,8 @@ CoilData myCoils(35);
 bool coilTrigger = false;
 
 // Some functions to be called when function codes 0x01, 0x05 or 0x15 are requested
-// FC01: act on 0x01 requests - READ_COIL
-ModbusMessage FC01(ModbusMessage request) {
+// FC_01: act on 0x01 requests - READ_COIL
+ModbusMessage FC_01(ModbusMessage request) {
   ModbusMessage response;
 // Request parameters are first coil and number of coils to read
   uint16_t start = 0;
@@ -60,7 +60,7 @@ ModbusMessage FC01(ModbusMessage request) {
 }
 
 // FC05: act on 0x05 requests - WRITE_COIL
-ModbusMessage FC05(ModbusMessage request) {
+ModbusMessage FC_05(ModbusMessage request) {
   ModbusMessage response;
 // Request parameters are coil number and 0x0000 (OFF) or 0xFF00 (ON)
   uint16_t start = 0;
@@ -94,7 +94,7 @@ ModbusMessage FC05(ModbusMessage request) {
 }
 
 // FC0F: act on 0x0F requests - WRITE_MULT_COILS
-ModbusMessage FC0F(ModbusMessage request) {
+ModbusMessage FC_0F(ModbusMessage request) {
   ModbusMessage response;
 // Request parameters are first coil to be set, number of coils, number of bytes and packed coil bytes
   uint16_t start = 0;
@@ -149,9 +149,9 @@ void setup() {
   Serial.printf("WIFi IP address: %u.%u.%u.%u\n", wIP[0], wIP[1], wIP[2], wIP[3]);
 
 // Register function codes/server IDs the server shall react on
-  MB.registerWorker(1, READ_COIL, FC01);
-  MB.registerWorker(1, WRITE_COIL, FC05);
-  MB.registerWorker(1, WRITE_MULT_COILS, FC0F);
+  MB.registerWorker(1, READ_COIL, FC_01);
+  MB.registerWorker(1, WRITE_COIL, FC_05);
+  MB.registerWorker(1, WRITE_MULT_COILS, FC_0F);
 
 // Set some coils to 1
   myCoils.set(3, true);

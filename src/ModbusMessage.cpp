@@ -451,7 +451,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode) {
   if (returnCode == SUCCESS)
   {
     FCType ft = FCT::getType(functionCode);
-    if (ft != FC07 && ft != FCUSER && ft != FCGENERIC) {
+    if (ft != FC07_TYPE && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     }
   }
@@ -465,7 +465,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     FCType ft = FCT::getType(functionCode);
-    if (ft != FC18 && ft != FCUSER && ft != FCGENERIC) {
+    if (ft != FC18_TYPE && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     }
   }
@@ -479,7 +479,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     FCType ft = FCT::getType(functionCode);
-    if (ft != FC01 && ft != FCUSER && ft != FCGENERIC) {
+    if (ft != FC01_TYPE && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } else {
       switch (functionCode) {
@@ -507,7 +507,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     FCType ft = FCT::getType(functionCode);
-    if (ft != FC16 && ft != FCUSER && ft != FCGENERIC) {
+    if (ft != FC16_TYPE && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } 
   }
@@ -521,7 +521,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     FCType ft = FCT::getType(functionCode);
-    if (ft != FC10 && ft != FCUSER && ft != FCGENERIC) {
+    if (ft != FC10_TYPE && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } else {
       if ((p2 == 0) || (p2 > 0x7b)) returnCode = PARAMETER_LIMIT_ERROR;
@@ -538,7 +538,7 @@ Error ModbusMessage::checkData(uint8_t serverID, uint8_t functionCode, uint16_t 
   if (returnCode == SUCCESS)
   {
     FCType ft = FCT::getType(functionCode);
-    if (ft != FC0F && ft != FCUSER && ft != FCGENERIC) {
+    if (ft != FC0F_TYPE && ft != FCUSER && ft != FCGENERIC) {
       returnCode = PARAMETER_COUNT_ERROR;
     } else {
       if ((p2 == 0) || (p2 > 0x7b0)) returnCode = PARAMETER_LIMIT_ERROR;
