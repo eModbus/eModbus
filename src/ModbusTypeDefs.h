@@ -52,6 +52,18 @@ enum FunctionCode : uint8_t {
   USER_DEFINED_6E         = 0x6E,
 };
 
+enum FCType : uint8_t {
+  FC01_TYPE,         // Two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
+  FC07_TYPE,         // no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
+  FC0F_TYPE,         // two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
+  FC10_TYPE,         // two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
+  FC16_TYPE,         // three uint16_t parameters (FC 0x16)
+  FC18_TYPE,         // one uint16_t parameter (FC 0x18)
+  FCGENERIC,         // for FCs not yet explicitly coded (or too complex)
+  FCUSER,            // No checks except the server ID
+  FCILLEGAL,         // not allowed function codes
+};
+
 enum Error : uint8_t {
   SUCCESS                = 0x00,
   ILLEGAL_FUNCTION       = 0x01,
@@ -98,6 +110,23 @@ const uint8_t swapTables[8][8] = {
   { 5, 4, 7, 6, 1, 0, 3, 2 },  // words and bytes (double)
   { 6, 7, 4, 5, 2, 3, 0, 1 },  // words and registers (double)
   { 7, 6, 5, 4, 3, 2, 1, 0 }   // Words, registers and bytes (double)
+};
+
+// FCT: static class to hold the types of function codes
+class FCT {
+protected:
+  static FCType table[128];     // data table
+  FCT() = delete;                // No instances allowed
+  FCT(const FCT&) = delete;      // No copy constructor
+  FCT& operator=(const FCT& other) = delete; // No assignment either
+public:
+  // getType: get the function code type for a given function code
+  static const FCType getType(uint8_t functionCode);
+
+  // setType: change the type of a function code.
+  // This is possible only for the codes undefined yet and will return
+  // the effective type
+  static const FCType redefineType(uint8_t functionCode, const FCType type = FCUSER);
 };
 
 }  // namespace Modbus

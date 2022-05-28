@@ -10,6 +10,8 @@
 #include <vector>
 
 using Modbus::Error;
+using Modbus::FCType;
+using Modbus::FCT;
 using std::vector;
 
 class ModbusMessage {
@@ -209,7 +211,6 @@ protected:
     }
     return index;
   }
-
 };
 
 #endif

@@ -126,30 +126,33 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
   // Is the threshold value valid? The UART FIFO is 128 bytes only
   if (thresholdBytes > 0 && thresholdBytes < 128) {
     // Yes, it is. Try to identify the Serial/Serial1/Serial2 the user has provided.
-    // Is it Serial (UART0)?
+    uart_dev_t *uart = nullptr;
+    uint8_t uart_num = 0;
     if (&serial == &Serial) {
+      uart_num = 0;
+      uart = &UART0;
+    } else {
+      if (&serial == &Serial1) {
+        uart_num = 1;
+        uart = &UART1;
+      } else {
+        if (&serial == &Serial2) {
+          uart_num = 2;
+          uart = &UART2;
+        }
+      }
+    }
+    // Is it a defined serial?
+    if (uart != nullptr) {
       // Yes. get the current value and set ours instead
-      rc = UART0.conf1.rxfifo_full_thrhd;
-      UART0.conf1.rxfifo_full_thrhd = thresholdBytes;
-      LOG_D("Serial FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
-    // No, but perhaps is Serial1?
-    } else if (&serial == &Serial1) {
-      // It is. Get the current value and set ours.
-      rc = UART1.conf1.rxfifo_full_thrhd;
-      UART1.conf1.rxfifo_full_thrhd = thresholdBytes;
-      LOG_D("Serial1 FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
-    // No, but it may be Serial2
-    } else if (&serial == &Serial2) {
-      // Found it. Get the current value and set ours.
-      rc = UART2.conf1.rxfifo_full_thrhd;
-      UART2.conf1.rxfifo_full_thrhd = thresholdBytes;
-      LOG_D("Serial2 FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
-    // None of the three, so we are at an end here
+      rc = uart->conf1.rxfifo_full_thrhd;
+      uart->conf1.rxfifo_full_thrhd = thresholdBytes;
+      LOG_D("Serial%u FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
     } else {
       LOG_W("Unable to identify serial\n");
     }
   } else {
-    Serial.printf("Threshold must be between 1 and 127! (was %d)", thresholdBytes);
+    LOG_E("Threshold must be between 1 and 127! (was %d)", thresholdBytes);
   }
 #endif
   // Return the previous value in case someone likes to see it.
@@ -225,7 +228,7 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval
-ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode) {
+ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(512);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
@@ -235,9 +238,6 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
   register uint16_t bufferPtr = 0;
   // Byte read
   register int b; 
-  // Flag for successful read cycle
-  bool hadBytes = false;
-  // Next buffer limit
 
   // State machine states, RTU mode
   enum STATES : uint8_t { WAIT_DATA = 0, IN_PACKET, DATA_READ, FINISHED };
@@ -255,16 +255,25 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
     // Yes.
     state = WAIT_DATA;
     // interval tracker 
-    unsigned long intervalEnd = micros();
+    lastMicros = micros();
   
     while (state != FINISHED) {
       switch (state) {
       // WAIT_DATA: await first data byte, but watch timeout
       case WAIT_DATA:
-        if (serial.available()) {
-          state = IN_PACKET;
-          intervalEnd = micros();
+        // Blindly try to read a byte
+        b = serial.read();
+        // Did we get one?
+        if (b >= 0) {
+          // Yes. Note the time.
+          lastMicros = micros();
+          // Do we need to skip it, if it is zero?
+          if (b > 0 || !skipLeadingZeroBytes) {
+            // No, we can go process it regularly
+            state = IN_PACKET;
+          } 
         } else {
+          // No, we had no byte. Just check the timeout period
           if (millis() - TimeOut >= timeout) {
             rv.push_back(TIMEOUT);
             state = FINISHED;
@@ -274,34 +283,29 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
         break;
       // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
       case IN_PACKET:
-        hadBytes = false;
-        b = serial.read();
-        if (b >= 0) {
-          hadBytes = true;
-        }
-        while (b >= 0) {
-          buffer[bufferPtr++] = b;
-          // Buffer full?
-          if (bufferPtr >= BUFBLOCKSIZE) {
-            // Yes. Something fishy here - bail out!
-            rv.push_back(PACKET_LENGTH_ERROR);
-            state = FINISHED;
-            break;
-          }
-          b = serial.read();
-        }
-        // Did we read some?
-        if (hadBytes) {
-          // Yes, take another turn
-          intervalEnd = micros();
-          delay(1);
+        // Are we past the interval gap without another byte?
+        if (micros() - lastMicros >= interval) {
+          // Yes, terminate reading
+          LOG_V("%ldus without data\n", micros() - lastMicros);
+          state = DATA_READ;
         } else {
-          // No. Has a complete interval passed without data?
-          lastMicros = micros();
-          if (lastMicros - intervalEnd >= interval) {
-            // Yes, go processing data
-            state = DATA_READ;
+          // No, still in reading sequence
+          // Did we get a byte?
+          if (b >= 0) {
+            // Yes, collect it
+            buffer[bufferPtr++] = b;
+            // Mark time of last byte
+            lastMicros = micros();
+            // Buffer full?
+            if (bufferPtr >= BUFBLOCKSIZE) {
+              // Yes. Something fishy here - bail out!
+              rv.push_back(PACKET_LENGTH_ERROR);
+              state = FINISHED;
+              break;
+            }
           }
+          // Buffer has space left - try to read another byte
+          b = serial.read();
         }
         break;
       // DATA_READ: successfully gathered some data. Prepare return object.
@@ -340,6 +344,9 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
 
     // Track nibbles in a byte
     bool byteComplete = true; 
+
+    // Track bytes read
+    bool hadBytes = false;
 
     // ASCII crc byte
     uint8_t crc = 0;

@@ -162,6 +162,9 @@ template <typename ST, typename CT>
     xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
     LOG_D("Server task %s started (%d).\n", taskName, (uint32_t)serverTask);
 
+    // Wait two seconds for it to establish
+    delay(2000);
+
     return true;
   }
 

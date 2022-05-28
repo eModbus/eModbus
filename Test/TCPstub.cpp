@@ -131,8 +131,18 @@ int TCPstub::peek() {
   return byte;
 }
 
-// flush has no meaning in the stub yet
+// flush will do nothing
 void TCPstub::flush() {
+}
+
+void TCPstub::clear() {
+  // Delete inQueue, if anything is still in it
+  if (!inQueue.empty()) {
+    lock_guard<mutex> Lin(inLock);
+    while (!inQueue.empty()) {
+      inQueue.pop();
+    }
+  }
 }
 
 // stop will kill the worker task
@@ -206,10 +216,8 @@ void TCPstub::workerTask(TCPstub *instance) {
         // Does the test case prescribe an initial delay?
         if (myTest->delayTime) {
           // Yes. idle until time has passed
-          unsigned long startTime = millis();
-          while (millis() - startTime <= myTest->delayTime) {
-            delay(1);
-          }
+          // Serial.printf("Wait for %d\n", myTest->delayTime);
+          delay(myTest->delayTime);
         }
         // Do we have to send a response?
         if (myTest->response.size() > 0) {
@@ -251,7 +259,7 @@ void TCPstub::workerTask(TCPstub *instance) {
         Serial.printf("No test case for TID %04X\n", tid);
       }
     } else {
-      delay(1);
+      delay(10);
     }
   }
 }

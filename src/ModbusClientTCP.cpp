@@ -183,7 +183,7 @@ bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHo
   bool rc = false;
   // Did we get one?
   LOG_D("Queue size: %d\n", (uint32_t)requests.size());
-  HEXDUMP_V("Enqueue", request.data(), request.size());
+  HEXDUMP_D("Enqueue", request.data(), request.size());
   if (request) {
     if (requests.size()<MT_qLimit) {
       RequestEntry *re = new RequestEntry(token, request, target, syncReq);
@@ -203,8 +203,6 @@ bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHo
 // handleConnection: worker task
 // This was created in begin() to handle the queue entries
 void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
-  const uint8_t RETRIES(2);
-  uint8_t retryCounter = RETRIES;
   bool doNotPop;
   unsigned long lastRequest = millis();
 
@@ -274,50 +272,34 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
           }
         } else {
           // No, something went wrong. All we have is an error
-          // Shall we retry?
-          if (response.getError() == TIMEOUT && retryCounter--) {
-            // Yes, do that.
-            LOG_D("Retry on timeout...\n");
-            doNotPop = true;
-          } else {
-            // No, we have finally caught an error.
-            LOG_D("Error response.\n");
-            // Is it a synchronous request?
-            if (request->isSyncRequest) {
-              // Yes. Put the response into the response map
-              {
-                LOCK_GUARD(sL, instance->syncRespM);
-                instance->syncResponse[request->token] = response;
-              }
-            // No, but do we have an onResponse handler?
-            } else if (instance->onResponse) {
-              // Yes, call it.
-              instance->onResponse(response, request->token);
-            // No, but do we have an onError handler?
-            } else if (instance->onError) {
-              // Yes. Forward the error code to it
-              instance->onError(response.getError(), request->token);
-            } else {
-              LOG_D("No onError handler\n");
+          LOG_D("Error response.\n");
+          // Is it a synchronous request?
+          if (request->isSyncRequest) {
+            // Yes. Put the response into the response map
+            {
+              LOCK_GUARD(sL, instance->syncRespM);
+              instance->syncResponse[request->token] = response;
             }
+          // No, but do we have an onResponse handler?
+          } else if (instance->onResponse) {
+            // Yes, call it.
+            instance->onResponse(response, request->token);
+          // No, but do we have an onError handler?
+          } else if (instance->onError) {
+            // Yes. Forward the error code to it
+            instance->onError(response.getError(), request->token);
+          } else {
+            LOG_D("No onError handler\n");
           }
         }
         //   set lastHost/lastPort tp host/port
         instance->MT_lastTarget = request->target;
       } else {
         // Oops. Connection failed
-        // Retry, if attempts are left or report error.
-        if (retryCounter--) {
-          instance->MT_client.stop();
-          delay(10);
-          LOG_D("Retry on connect failure...\n");
-          doNotPop = true;
-        } else {
-          // Do we have an onError handler?
-          if (instance->onError) {
-            // Yes. Forward the error code to it
-            instance->onError(IP_CONNECTION_FAILED, request->token);
-          }
+        // Do we have an onError handler?
+        if (instance->onError) {
+          // Yes. Forward the error code to it
+          instance->onError(IP_CONNECTION_FAILED, request->token);
         }
       }
       // Clean-up time. 
@@ -327,7 +309,6 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         LOCK_GUARD(lockGuard, instance->qLock);
         // Remove the front queue entry
         instance->requests.pop();
-        retryCounter = RETRIES;
         // Delete request
         delete request;
         LOG_D("Request popped from queue.\n");

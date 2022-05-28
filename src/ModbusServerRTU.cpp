@@ -21,7 +21,8 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
   MSRinterval(2000),     // will be calculated in start()!
   MSRlastMicros(0),
   MSRrtsPin(rtsPin), 
-  MSRuseASCII(false) {
+  MSRuseASCII(false),
+  MSRskipLeadingZeroByte(false) {
   // Count instances one up
   instanceCounter++;
   // If we have a GPIO RE/DE pin, configure it.
@@ -45,7 +46,8 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTSca
   MSRinterval(2000),     // will be calculated in start()!
   MSRlastMicros(0),
   MRTSrts(rts), 
-  MSRuseASCII(false) {
+  MSRuseASCII(false),
+  MSRskipLeadingZeroByte(false) {
   // Count instances one up
   instanceCounter++;
   // Configure RTS callback
@@ -118,6 +120,12 @@ bool ModbusServerRTU::isModbusASCII() {
   return MSRuseASCII;
 }
 
+// Toggle skipping of leading 0x00 byte
+void ModbusServerRTU::skipLeading0x00(bool onOff) {
+  MSRskipLeadingZeroByte = onOff;
+  LOG_D("Skip leading 0x00 mode = %s\n", onOff ? "ON" : "OFF");
+}
+
 // serve: loop until killed and receive messages from the RTU interface
 void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
   ModbusMessage request;                // received request message
@@ -134,7 +142,13 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     m.clear();
 
     // Wait for and read an request
-    request = RTUutils::receive(myServer->MSRserial, myServer->serverTimeout, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRuseASCII);
+    request = RTUutils::receive(
+      myServer->MSRserial, 
+      myServer->serverTimeout, 
+      myServer->MSRlastMicros, 
+      myServer->MSRinterval, 
+      myServer->MSRuseASCII, 
+      myServer->MSRskipLeadingZeroByte);
 
     // Request longer than 1 byte (that will signal an error in receive())? 
     if (request.size() > 1) {

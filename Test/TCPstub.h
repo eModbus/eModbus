@@ -67,7 +67,10 @@ public:
   int read(uint8_t *buf, size_t size);
   int peek();
 
-  // flush will kill the worker task, empty the queues and restart the worker
+  // clear will empty the queues
+  void clear();
+  
+  // flush does nothing
   void flush();
 
   // stop will kill the worker task

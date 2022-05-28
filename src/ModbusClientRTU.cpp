@@ -19,7 +19,8 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t
   MR_rtsPin(rtsPin),
   MR_qLimit(queueLimit),
   MR_timeoutValue(DEFAULTTIMEOUT),
-  MR_useASCII(false) {
+  MR_useASCII(false),
+  MR_skipLeadingZeroByte(false) {
     if (MR_rtsPin >= 0) {
       pinMode(MR_rtsPin, OUTPUT);
       MTRSrts = [this](bool level) {
@@ -40,7 +41,8 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, RTScallback rts, uint16
   MTRSrts(rts),
   MR_qLimit(queueLimit),
   MR_timeoutValue(DEFAULTTIMEOUT),
-  MR_useASCII(false) {
+  MR_useASCII(false),
+  MR_skipLeadingZeroByte(false) {
     MR_rtsPin = -1;
     MTRSrts(LOW);
 }
@@ -117,6 +119,17 @@ void ModbusClientRTU::useModbusRTU() {
 // Inquire protocol mode
 bool ModbusClientRTU::isModbusASCII() {
   return MR_useASCII;
+}
+
+// Toggle skipping of leading 0x00 byte
+void ModbusClientRTU::skipLeading0x00(bool onOff) {
+  MR_skipLeadingZeroByte = onOff;
+  LOG_D("Skip leading 0x00 mode = %s\n", onOff ? "ON" : "OFF");
+}
+
+// Return number of unprocessed requests in queue
+uint32_t ModbusClientRTU::pendingRequests() {
+  return requests.size();
 }
 
 // Base addRequest taking a preformatted data buffer and length as parameters
@@ -199,7 +212,13 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       // HEXDUMP_V("Data", request.msg.data(), request.msg.size());
 
       // Get the response - if any
-      ModbusMessage response = RTUutils::receive(instance->MR_serial, instance->MR_timeoutValue, instance->MR_lastMicros, instance->MR_interval, instance->MR_useASCII);
+      ModbusMessage response = RTUutils::receive(
+        instance->MR_serial, 
+        instance->MR_timeoutValue, 
+        instance->MR_lastMicros, 
+        instance->MR_interval, 
+        instance->MR_useASCII,
+        instance->MR_skipLeadingZeroByte);
 
       LOG_D("%s response (%d bytes) received.\n", response.size()>1 ? "Data" : "Error", response.size());
       HEXDUMP_V("Data", response.data(), response.size());
