@@ -374,7 +374,7 @@ uint16_t ModbusMessage::add(double v, int swapRule) {
 
 // get() variants for float and double values
 // values will be read in IEEE754 byte sequence (MSB first)
-uint16_t ModbusMessage::get(uint16_t index, float& v, int swapRule) {
+uint16_t ModbusMessage::get(uint16_t index, float& v, int swapRule) const {
   // First check if we need to determine byte order
   if (determineFloatOrder()) {
     // If we get here, the floatOrder is known
@@ -399,7 +399,7 @@ uint16_t ModbusMessage::get(uint16_t index, float& v, int swapRule) {
   return index;
 }
 
-uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) {
+uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) const {
   // First check if we need to determine byte order
   if (determineDoubleOrder()) {
     // If we get here, the doubleOrder is known
@@ -425,7 +425,7 @@ uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) {
 }
 
 // get() - read a byte array of a given size into a vector<uint8_t>. Returns updated index
-uint16_t ModbusMessage::get(uint16_t index, vector<uint8_t>& v, uint8_t count) {
+uint16_t ModbusMessage::get(uint16_t index, vector<uint8_t>& v, uint8_t count) const {
   // Clean target vector
   v.clear();
   // Loop until required count is complete or the source is exhausted

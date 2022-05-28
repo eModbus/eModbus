@@ -105,15 +105,15 @@ public:
   }
 
 // get() - read a byte array of a given size into a vector<uint8_t>. Returns updated index
-uint16_t get(uint16_t index, vector<uint8_t>& v, uint8_t count);
+uint16_t get(uint16_t index, vector<uint8_t>& v, uint8_t count) const;
 
 // get() - recursion stopper for template function below
-inline uint16_t get(uint16_t index) { return index; }
+inline uint16_t get(uint16_t index) const { return index; }
 
 // Template function to extend getOne(index, A&) to get(index, A&, B&, C&, ...)
 template <class T, class... Args>
 typename std::enable_if<!std::is_pointer<T>::value, uint16_t>::type
-get(uint16_t index, T& v, Args&... args) {
+get(uint16_t index, T& v, Args&... args) const {
   uint16_t pos = getOne(index, v);
   return get(pos, args...);
 }
@@ -126,8 +126,8 @@ uint16_t add(float v, int swapRules = 0);
 uint16_t add(double v, int swapRules = 0);
 
 // get() variants for float and double values
-uint16_t get(uint16_t index, float& v, int swapRules = 0);
-uint16_t get(uint16_t index, double& v, int swapRules = 0);
+uint16_t get(uint16_t index, float& v, int swapRules = 0) const;
+uint16_t get(uint16_t index, double& v, int swapRules = 0) const;
 
   // Message generation methods
   // 1. no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
@@ -195,7 +195,7 @@ protected:
   static double swapDouble(double& f, int swapRule);
 
   // getOne() - read a MSB-first value starting at byte index. Returns updated index
-  template <typename T> uint16_t getOne(uint16_t index, T& retval) {
+  template <typename T> uint16_t getOne(uint16_t index, T& retval) const {
     uint16_t sz = sizeof(retval);    // Size of value to be read
 
     retval = 0;                      // return value
