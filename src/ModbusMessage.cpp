@@ -106,7 +106,7 @@ void ModbusMessage::append(std::vector<uint8_t>& m) {
   MM_data.insert(MM_data.end(), m.begin(), m.end()); 
 }
 
-uint8_t ModbusMessage::getServerID() {
+uint8_t ModbusMessage::getServerID() const {
   // Only if we have data and it is at least as long to fit serverID and function code, return serverID
   if (MM_data.size() >= 2) { return MM_data[0]; }
   // Else return 0 - normally the Broadcast serverID, but we will not support that. Full stop. :-D
@@ -114,7 +114,7 @@ uint8_t ModbusMessage::getServerID() {
 }
 
 // Get MM_data[0] (server ID) and MM_data[1] (function code)
-uint8_t ModbusMessage::getFunctionCode() {
+uint8_t ModbusMessage::getFunctionCode() const {
   // Only if we have data and it is at least as long to fit serverID and function code, return FC
   if (MM_data.size() >= 2) { return MM_data[1]; }
   // Else return 0 - which is no valid Modbus FC.
@@ -122,7 +122,7 @@ uint8_t ModbusMessage::getFunctionCode() {
 }
 
 // getError() - returns error code
-Error ModbusMessage::getError() {
+Error ModbusMessage::getError() const {
   // Do we have data long enough?
   if (MM_data.size() > 2) {
     // Yes. Does it indicate an error?

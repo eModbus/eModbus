@@ -72,9 +72,9 @@ public:
   void append(std::vector<uint8_t>& m);
 
   // Modbus data extraction
-  uint8_t getServerID();      // returns Server ID or 0 if MM_data is shorter than 3
-  uint8_t getFunctionCode();  // returns FC or 0 if MM_data is shorter than 3
-  Error   getError();         // getError() - returns error code (MM_data[2], if MM_data[1] > 0x7F, else SUCCESS)
+  uint8_t getServerID() const;      // returns Server ID or 0 if MM_data is shorter than 3
+  uint8_t getFunctionCode() const;  // returns FC or 0 if MM_data is shorter than 3
+  Error   getError() const;         // getError() - returns error code (MM_data[2], if MM_data[1] > 0x7F, else SUCCESS)
 
   // Modbus data manipulation
   void    setServerID(uint8_t serverID); // Change server ID
