@@ -2,7 +2,7 @@ all: libeModbus.a
 
 SRC = IPAddress.cpp Client.cpp parseTarget.cpp
 INC = IPAddress.h Client.h parseTarget.h
-BASESRC = ModbusMessage.cpp Logging.cpp ModbusClient.cpp ModbusClientTCP.cpp CoilData.cpp
+BASESRC = ModbusMessage.cpp Logging.cpp ModbusClient.cpp ModbusClientTCP.cpp CoilData.cpp ModbusTypeDefs.cpp
 BASEINC = ModbusMessage.h Logging.h ModbusClient.h ModbusClientTCP.h ModbusTypeDefs.h ModbusError.h options.h CoilData.h
 
 OBJ = $(SRC:.cpp=.o) $(BASESRC:.cpp=.o)
