@@ -26,7 +26,7 @@ You will need to copy some more files from the main eModbus ``src`` folder here 
 - ``ModbusClientTCP.cpp`` and ``ModbusClientTCP.h``
 - ``ModbusMessage.cpp`` and ``ModbusMessage.h``
 - ``ModbusError.h``
-- ``ModbusTypeDefs.h``
+- ``ModbusTypeDefs.h`` and ``ModbusTypeDefs.cpp``
 - ``CoilData.h`` and ``CoilData.cpp``
 
 The main Linux directory has a `Makefile` as well to build the two examples `SyncClient.cpp` and `AsynClient.cpp`.
