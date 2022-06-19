@@ -7,7 +7,7 @@ LIBDIR = ./eModbus
 DEPS := $(OBJ:.o=.d)
 	-include $(DEPS)
 
-BASESRC = ModbusMessage.cpp Logging.cpp ModbusClient.cpp ModbusClientTCP.cpp CoilData.cpp
+BASESRC = ModbusMessage.cpp Logging.cpp ModbusClient.cpp ModbusClientTCP.cpp CoilData.cpp ModbusTypeDefs.cpp
 BASEINC = ModbusMessage.h Logging.h ModbusClient.h ModbusClientTCP.h ModbusTypeDefs.h ModbusError.h options.h CoilData.h
 
 $(info Be sure to copy files from the eModbus main directory into $(LIBDIR): )
