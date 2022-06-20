@@ -61,6 +61,7 @@ bool printPassed = false;              // If true, testOutput will print passed 
 TidMap testCasesByTID;
 TokenMap testCasesByToken;
 uint32_t highestTokenProcessed = 0;
+uint16_t broadcastCnt = 0;
 
 #define WAIT_FOR_FINISH(x) while ((highestTokenProcessed < (Token - 1)) && (x.pendingRequests() != 0)) { delay(100); }
 
@@ -144,6 +145,15 @@ ModbusMessage FC06(ModbusMessage request) {
 // Worker function function code 0x41 (user defined)
 ModbusMessage FC41(ModbusMessage request) {
   // return nothing to test timeout
+  return NIL_RESPONSE;
+}
+
+// Worker function for broadcast requests
+ModbusMessage BroadcastWorker(ModbusMessage request) {
+  HEXDUMP_D("Broadcast caught", request.data(), request.size());
+  // Count broadcasts
+  broadcastCnt++;
+  // return nothing
   return NIL_RESPONSE;
 }
 
@@ -1510,6 +1520,41 @@ void setup()
     // Switch back to RTU mode for the rest of tests
     RTUclient.useModbusRTU();
     RTUserver.useModbusRTU();
+    // We will have to wait a bit to get all test cases executed!
+    WAIT_FOR_FINISH(RTUclient)
+
+    // Test Broadcasts
+    // Set up some BC data
+    uint8_t bcdata[] = "Broadcast data #1";
+    uint8_t bclen = 18;
+
+    // Send message
+    e = RTUclient.addBroadcastMessage(bcdata, bclen);
+    if (e != SUCCESS) {
+      ModbusError me(e);
+      LOG_N("%s failed: %d - %s\n", (const char *)bcdata, (int)me, (const char *)me);
+    }
+    testsExecuted++;
+    // We have no worker registered yet, so the message shall be discarded
+    if (broadcastCnt == 0) testsPassed++;
+
+    // Modify BC data
+    bcdata[16] = '2';
+
+    // Now register a worker for Broadcasts
+    RTUserver.registerBroadcastWorker(BroadcastWorker);
+    delay(5000);
+
+    // Send BC again
+    e = RTUclient.addBroadcastMessage(bcdata, bclen);
+    if (e != SUCCESS) {
+      ModbusError me(e);
+      LOG_N("%s failed: %d - %s\n", (const char *)bcdata, (int)me, (const char *)me);
+    }
+    testsExecuted++;
+    // The BC must have been caught
+    if (broadcastCnt == 1) testsPassed++;
+
 
     // Print summary. We will have to wait a bit to get all test cases executed!
     WAIT_FOR_FINISH(RTUclient)

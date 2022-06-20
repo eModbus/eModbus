@@ -46,6 +46,9 @@ public:
   // Toggle skipping of leading 0x00 byte
   void skipLeading0x00(bool onOff = true);
 
+  // Special case: worker to react on broadcast requests
+  void registerBroadcastWorker(MBSworker worker);
+
 protected:
   // Prevent copy construction and assignment
   ModbusServerRTU(ModbusServerRTU& m) = delete;

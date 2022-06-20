@@ -4,6 +4,8 @@
 // =================================================================================================
 #include "ModbusTypeDefs.h"
 
+#ifndef MINIMAL
+
 using Modbus::FCType;
 using Modbus::FCT;
 
@@ -61,5 +63,4 @@ const FCType FCT::redefineType(uint8_t functionCode, const FCType type) {
   return table[fc];
 }
 
-
-
+#endif

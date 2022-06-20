@@ -54,6 +54,9 @@ public:
   // Return number of unprocessed requests in queue
   uint32_t pendingRequests();
 
+  // addBroadcastMessage: create a fire-and-forget message to all servers on the RTU bus
+  Error addBroadcastMessage(uint8_t *data, uint8_t len);
+
 protected:
   struct RequestEntry {
     uint32_t token;

@@ -170,6 +170,37 @@ ModbusMessage ModbusClientRTU::syncRequestM(ModbusMessage msg, uint32_t token) {
   return response;
 }
 
+// addBroadcastMessage: create a fire-and-forget message to all servers on the RTU bus
+Error ModbusClientRTU::addBroadcastMessage(uint8_t *data, uint8_t len) {
+  Error rc = SUCCESS;        // Return value
+
+  LOG_D("Broadcast request of length %d\n", len);
+
+  // We do only accept requests with data, 0 byte, data and CRC must fit into 256 bytes.
+  if (len && len < 254) {
+    // Create a "broadcast token"
+    uint32_t token = (millis() & 0xFFFFFF) | 0xBC000000;
+    ModbusMessage msg;
+    
+    // Server ID is 0x00 for broadcast
+    msg.add((uint8_t)0x00);
+    // Append data
+    msg.add(data, len);
+
+    // Queue add successful?
+    if (!addToQueue(token, msg)) {
+      // No. Return error after deleting the allocated request.
+      rc = REQUEST_QUEUE_FULL;
+    }
+  } else {
+    rc =  BROADCAST_ERROR;
+  }
+
+  LOG_D("RC=%02X\n", rc);
+  return rc;
+}
+
+
 // addToQueue: send freshly created request to queue
 bool ModbusClientRTU::addToQueue(uint32_t token, ModbusMessage request, bool syncReq) {
   bool rc = false;
@@ -211,65 +242,68 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       LOG_D("Request sent.\n");
       // HEXDUMP_V("Data", request.msg.data(), request.msg.size());
 
-      // Get the response - if any
-      ModbusMessage response = RTUutils::receive(
-        instance->MR_serial, 
-        instance->MR_timeoutValue, 
-        instance->MR_lastMicros, 
-        instance->MR_interval, 
-        instance->MR_useASCII,
-        instance->MR_skipLeadingZeroByte);
-
-      LOG_D("%s response (%d bytes) received.\n", response.size()>1 ? "Data" : "Error", response.size());
-      HEXDUMP_V("Data", response.data(), response.size());
-
-      // No error in receive()?
-      if (response.size() > 1) {
-        // No. Check message contents
-        // Does the serverID match the requested?
-        if (request.msg.getServerID() != response.getServerID()) {
-          // No. Return error response
-          response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), SERVER_ID_MISMATCH);
-        // ServerID ok, but does the FC match as well?
-        } else if (request.msg.getFunctionCode() != (response.getFunctionCode() & 0x7F)) {
-          // No. Return error response
-          response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), FC_MISMATCH);
-        } 
-      } else {
-        // No, we got an error code from receive()
-        // Return it as error response
-        response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), static_cast<Error>(response[0]));
-      }
-
-      LOG_D("Response generated.\n");
-      HEXDUMP_V("Response packet", response.data(), response.size());
-
-      // Was it a synchronous request?
-      if (request.isSyncRequest) {
-        // Yes. Put it into the response map
-        {
-          LOCK_GUARD(sL, instance->syncRespM);
-          instance->syncResponse[request.token] = response;
-        }
-      // No, an async request. Do we have an onResponse handler?
-      } else if (instance->onResponse) {
-        // Yes. Call it
-        instance->onResponse(response, request.token);
-      } else {
-        // No, but we may have onData or onError handlers
-        // Did we get a normal response?
-        if (response.getError()==SUCCESS) {
-          // Yes. Do we have an onData handler registered?
-          if (instance->onData) {
-            // Yes. call it
-            instance->onData(response, request.token);
-          }
+      // For a broadcast, we will not wait for a response
+      if (request.msg.getServerID() != 0 || ((request.token & 0xFF000000) != 0xBC000000)) {
+        // This is a regular request, Get the response - if any
+        ModbusMessage response = RTUutils::receive(
+          instance->MR_serial, 
+          instance->MR_timeoutValue, 
+          instance->MR_lastMicros, 
+          instance->MR_interval, 
+          instance->MR_useASCII,
+          instance->MR_skipLeadingZeroByte);
+  
+        LOG_D("%s response (%d bytes) received.\n", response.size()>1 ? "Data" : "Error", response.size());
+        HEXDUMP_V("Data", response.data(), response.size());
+  
+        // No error in receive()?
+        if (response.size() > 1) {
+          // No. Check message contents
+          // Does the serverID match the requested?
+          if (request.msg.getServerID() != response.getServerID()) {
+            // No. Return error response
+            response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), SERVER_ID_MISMATCH);
+          // ServerID ok, but does the FC match as well?
+          } else if (request.msg.getFunctionCode() != (response.getFunctionCode() & 0x7F)) {
+            // No. Return error response
+            response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), FC_MISMATCH);
+          } 
         } else {
-          // No, something went wrong. All we have is an error
-          // Do we have an onError handler?
-          if (instance->onError) {
-            // Yes. Forward the error code to it
-            instance->onError(response.getError(), request.token);
+          // No, we got an error code from receive()
+          // Return it as error response
+          response.setError(request.msg.getServerID(), request.msg.getFunctionCode(), static_cast<Error>(response[0]));
+        }
+  
+        LOG_D("Response generated.\n");
+        HEXDUMP_V("Response packet", response.data(), response.size());
+  
+        // Was it a synchronous request?
+        if (request.isSyncRequest) {
+          // Yes. Put it into the response map
+          {
+            LOCK_GUARD(sL, instance->syncRespM);
+            instance->syncResponse[request.token] = response;
+          }
+        // No, an async request. Do we have an onResponse handler?
+        } else if (instance->onResponse) {
+          // Yes. Call it
+          instance->onResponse(response, request.token);
+        } else {
+          // No, but we may have onData or onError handlers
+          // Did we get a normal response?
+          if (response.getError()==SUCCESS) {
+            // Yes. Do we have an onData handler registered?
+            if (instance->onData) {
+              // Yes. call it
+              instance->onData(response, request.token);
+            }
+          } else {
+            // No, something went wrong. All we have is an error
+            // Do we have an onError handler?
+            if (instance->onError) {
+              // Yes. Forward the error code to it
+              instance->onError(response.getError(), request.token);
+            }
           }
         }
       }

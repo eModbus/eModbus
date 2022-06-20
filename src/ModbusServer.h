@@ -35,7 +35,7 @@ public:
   // registerWorker: register a worker function for a certain serverID/FC combination
   // If there is one already, it will be overwritten!
   void registerWorker(uint8_t serverID, uint8_t functionCode, MBSworker worker);
-
+  
   // getWorker: if a worker function is registered, return its address, nullptr otherwise
   MBSworker getWorker(uint8_t serverID, uint8_t functionCode);
 

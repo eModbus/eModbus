@@ -126,6 +126,13 @@ void ModbusServerRTU::skipLeading0x00(bool onOff) {
   LOG_D("Skip leading 0x00 mode = %s\n", onOff ? "ON" : "OFF");
 }
 
+// Special case: worker to react on broadcast requests
+void ModbusServerRTU::registerBroadcastWorker(MBSworker worker) {
+  // If there is one already, it will be overwritten!
+  workerMap[0x00][ANY_FUNCTION_CODE] = worker;
+  LOG_D("Registered worker for broadcast requests\n");
+}
+
 // serve: loop until killed and receive messages from the RTU interface
 void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
   ModbusMessage request;                // received request message
@@ -164,38 +171,44 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           myServer->messageCount++;
         }
         // Get the user's response
-        m = callBack(request);
         LOG_D("Callback called.\n");
+        m = callBack(request);
         HEXDUMP_V("Callback response", m.data(), m.size());
 
-        // Process Response. Is it one of the predefined types?
-        if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
-          // Yes. Check it
-          switch (m[1]) {
-          case 0xF0: // NIL
-            response.clear();
-            break;
-          case 0xF1: // ECHO
-            response = request;
-            if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
-                request.getFunctionCode() == WRITE_MULT_COILS) {
-              response.resize(6);
-            }
-            break;
-          default:   // Will not get here, but lint likes it!
-            break;
-          }
+        // Was it a broadcast request?
+        if (request[0] == 0) {
+          // Yes. Discard any response
+          response.clear();
         } else {
-          // No predefined. User provided data in free format
-          response = m;
+          // Process Response. Is it one of the predefined types?
+          if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
+            // Yes. Check it
+            switch (m[1]) {
+            case 0xF0: // NIL
+              response.clear();
+              break;
+            case 0xF1: // ECHO
+              response = request;
+              if (request.getFunctionCode() == WRITE_MULT_REGISTERS ||
+                  request.getFunctionCode() == WRITE_MULT_COILS) {
+                response.resize(6);
+              }
+              break;
+            default:   // Will not get here, but lint likes it!
+              break;
+            }
+          } else {
+            // No predefined. User provided data in free format
+            response = m;
+          }
         }
       } else {
-        // No callback. Is at least the serverID valid?
-        if (myServer->isServerFor(request[0])) {
+        // No callback. Is at least the serverID valid and no broadcast?
+        if (myServer->isServerFor(request[0]) && request[0] != 0x00) {
           // Yes. Send back a ILLEGAL_FUNCTION error
           response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
         }
-        // Else we will ignore the request, as it is not meant for us!
+        // Else we will ignore the request, as it is not meant for us and we do not deal with broadcasts!
       }
       // Do we have gathered a valid response now?
       if (response.size() >= 3) {
