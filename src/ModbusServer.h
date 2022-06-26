@@ -27,7 +27,6 @@ const ModbusMessage NIL_RESPONSE (std::vector<uint8_t>{0xFF, 0xF0});
 const ModbusMessage ECHO_RESPONSE(std::vector<uint8_t>{0xFF, 0xF1});
 
 // MBSworker: function signature for worker functions to handle single serverID/functionCode combinations
-// typedef ResponseType (*MBSworker) (uint8_t serverID, uint8_t functionCode, uint16_t dataLen, uint8_t *data);
 using MBSworker = std::function<ModbusMessage(ModbusMessage msg)>;
 
 class ModbusServer {

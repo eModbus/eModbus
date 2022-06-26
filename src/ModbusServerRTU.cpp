@@ -22,7 +22,9 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
   MSRlastMicros(0),
   MSRrtsPin(rtsPin), 
   MSRuseASCII(false),
-  MSRskipLeadingZeroByte(false) {
+  MSRskipLeadingZeroByte(false),
+  listener(nullptr),
+  sniffer(nullptr) {
   // Count instances one up
   instanceCounter++;
   // If we have a GPIO RE/DE pin, configure it.
@@ -47,7 +49,9 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTSca
   MSRlastMicros(0),
   MRTSrts(rts), 
   MSRuseASCII(false),
-  MSRskipLeadingZeroByte(false) {
+  MSRskipLeadingZeroByte(false),
+  listener(nullptr),
+  sniffer(nullptr) {
   // Count instances one up
   instanceCounter++;
   // Configure RTS callback
@@ -127,10 +131,19 @@ void ModbusServerRTU::skipLeading0x00(bool onOff) {
 }
 
 // Special case: worker to react on broadcast requests
-void ModbusServerRTU::registerBroadcastWorker(MBSworker worker) {
+void ModbusServerRTU::registerBroadcastWorker(MSRlistener worker) {
   // If there is one already, it will be overwritten!
-  workerMap[0x00][ANY_FUNCTION_CODE] = worker;
+  listener = worker;
   LOG_D("Registered worker for broadcast requests\n");
+}
+
+// Even more special: register a sniffer worker
+void ModbusServerRTU::registerSniffer(MSRlistener worker) {
+  // If there is one already, it will be overwritten!
+  // This holds true for the broadcast worker as well, 
+  // so a sniffer never will do else but to sniff on broadcast requests!
+  sniffer = worker;
+  LOG_D("Registered sniffer\n");
 }
 
 // serve: loop until killed and receive messages from the RTU interface
@@ -161,25 +174,36 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     if (request.size() > 1) {
       LOG_D("Request received.\n");
 
-      // Yes. Do we have a callback function registered for it?
-      MBSworker callBack = myServer->getWorker(request[0], request[1]);
-      if (callBack) {
-        LOG_D("Callback found.\n");
-        // Yes, we do. Count the message
-        {
-          lock_guard<mutex> cntLock(myServer->m);
-          myServer->messageCount++;
+      // Yes. 
+      // Do we have a sniffer listening?
+      if (myServer->sniffer) {
+        // Yes. call it
+        myServer->sniffer(request);
+      }
+      // Is it a broadcast?
+      if (request[0] == 0) {
+        // Yes. Do we have a listener?
+        if (myServer->listener) {
+          // Yes. call it
+          myServer->listener(request);
         }
-        // Get the user's response
-        LOG_D("Callback called.\n");
-        m = callBack(request);
-        HEXDUMP_V("Callback response", m.data(), m.size());
+        // else we simply ignore it
+      } else {
+        // No Broadcast. 
+        // Do we have a callback function registered for it?
+        MBSworker callBack = myServer->getWorker(request[0], request[1]);
+        if (callBack) {
+          LOG_D("Callback found.\n");
+          // Yes, we do. Count the message
+          {
+            lock_guard<mutex> cntLock(myServer->m);
+            myServer->messageCount++;
+          }
+          // Get the user's response
+          LOG_D("Callback called.\n");
+          m = callBack(request);
+          HEXDUMP_V("Callback response", m.data(), m.size());
 
-        // Was it a broadcast request?
-        if (request[0] == 0) {
-          // Yes. Discard any response
-          response.clear();
-        } else {
           // Process Response. Is it one of the predefined types?
           if (m[0] == 0xFF && (m[1] == 0xF0 || m[1] == 0xF1)) {
             // Yes. Check it
@@ -201,20 +225,20 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
             // No predefined. User provided data in free format
             response = m;
           }
+        } else {
+          // No callback. Is at least the serverID valid and no broadcast?
+          if (myServer->isServerFor(request[0]) && request[0] != 0x00) {
+            // Yes. Send back a ILLEGAL_FUNCTION error
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
+          }
+          // Else we will ignore the request, as it is not meant for us and we do not deal with broadcasts!
         }
-      } else {
-        // No callback. Is at least the serverID valid and no broadcast?
-        if (myServer->isServerFor(request[0]) && request[0] != 0x00) {
-          // Yes. Send back a ILLEGAL_FUNCTION error
-          response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
+        // Do we have gathered a valid response now?
+        if (response.size() >= 3) {
+          // Yes. send it back.
+          RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
+          LOG_D("Response sent.\n");
         }
-        // Else we will ignore the request, as it is not meant for us and we do not deal with broadcasts!
-      }
-      // Do we have gathered a valid response now?
-      if (response.size() >= 3) {
-        // Yes. send it back.
-        RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
-        LOG_D("Response sent.\n");
       }
     } else {
       // No, we got a 1-byte request, meaning an error has happened in receive()

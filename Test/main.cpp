@@ -149,12 +149,19 @@ ModbusMessage FC41(ModbusMessage request) {
 }
 
 // Worker function for broadcast requests
-ModbusMessage BroadcastWorker(ModbusMessage request) {
+void BroadcastWorker(ModbusMessage request) {
   HEXDUMP_D("Broadcast caught", request.data(), request.size());
   // Count broadcasts
   broadcastCnt++;
-  // return nothing
-  return NIL_RESPONSE;
+}
+
+// Worker for sniffing the messages
+void Sniffer(ModbusMessage m) {
+  Serial.printf("Sniff: ");
+  for (auto b : m) {
+    Serial.printf("%02X ", b);
+  }
+  Serial.println();
 }
 
 // Worker function for any function code
@@ -1259,6 +1266,9 @@ void setup()
     highestTokenProcessed = tc->token;
     }
 
+    // Snap in the Sniffer
+    // RTUserver.registerSniffer(Sniffer);
+
     // #5: use default worker
     tc = new TestCase { 
       .name = LNO(__LINE__),
@@ -1537,6 +1547,9 @@ void setup()
     testsExecuted++;
     // We have no worker registered yet, so the message shall be discarded
     if (broadcastCnt == 0) testsPassed++;
+
+    // Kick off the Sniffer
+    // RTUserver.registerSniffer(nullptr);
 
     // Modify BC data
     bcdata[16] = '2';
