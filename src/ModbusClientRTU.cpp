@@ -171,7 +171,7 @@ ModbusMessage ModbusClientRTU::syncRequestM(ModbusMessage msg, uint32_t token) {
 }
 
 // addBroadcastMessage: create a fire-and-forget message to all servers on the RTU bus
-Error ModbusClientRTU::addBroadcastMessage(uint8_t *data, uint8_t len) {
+Error ModbusClientRTU::addBroadcastMessage(const uint8_t *data, uint8_t len) {
   Error rc = SUCCESS;        // Return value
 
   LOG_D("Broadcast request of length %d\n", len);
