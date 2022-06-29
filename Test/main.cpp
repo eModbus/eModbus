@@ -1568,6 +1568,38 @@ void setup()
     // The BC must have been caught
     if (broadcastCnt == 1) testsPassed++;
 
+    // Check unregistering workers
+    bool didit = RTUserver.unregisterWorker(1, USER_DEFINED_48);
+    testsExecuted++;
+    if (!didit && !RTUserver.getWorker(1, USER_DEFINED_48)) {
+      testsPassed++;
+    } else {
+      LOG_N("unregisterWorker 01/48 failed (didit=%d)\n", didit ? 1 : 0);
+    }
+
+    didit = RTUserver.unregisterWorker(1, USER_DEFINED_44);
+    testsExecuted++;
+    if (didit && !RTUserver.getWorker(1, USER_DEFINED_44)) {
+      testsPassed++;
+    } else {
+      LOG_N("unregisterWorker 01/44 failed (didit=%d)\n", didit ? 1 : 0);
+    }
+
+    didit = RTUserver.unregisterWorker(4);
+    testsExecuted++;
+    if (!didit) {
+      testsPassed++;
+    } else {
+      LOG_N("unregisterWorker 04 failed (didit=%d)\n", didit ? 1 : 0);
+    }
+
+    didit = RTUserver.unregisterWorker(2);
+    testsExecuted++;
+    if (didit && !RTUserver.getWorker(2, READ_HOLD_REGISTER)) {
+      testsPassed++;
+    } else {
+      LOG_N("unregisterWorker 02 failed (didit=%d)\n", didit ? 1 : 0);
+    }
 
     // Print summary. We will have to wait a bit to get all test cases executed!
     WAIT_FOR_FINISH(RTUclient)

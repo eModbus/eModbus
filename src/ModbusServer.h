@@ -38,6 +38,10 @@ public:
   // getWorker: if a worker function is registered, return its address, nullptr otherwise
   MBSworker getWorker(uint8_t serverID, uint8_t functionCode);
 
+  // unregisterWorker; remove again all or part of the registered workers for a given server ID
+  // Returns true if the worker was found and removed
+  bool unregisterWorker(uint8_t serverID, uint8_t functionCode = 0);
+
   // isServerFor: if any worker function is registered for the given serverID, return true
   bool isServerFor(uint8_t serverID);
 
