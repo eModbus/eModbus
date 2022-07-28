@@ -1460,6 +1460,7 @@ void setup()
         testOutput(tc->testname, tc->name, tc->expected, r);
         highestTokenProcessed = tc->token;
       }
+      delay(10);
     }
 
     WAIT_FOR_FINISH(RTUclient)
@@ -2158,6 +2159,14 @@ void setup()
 
   // Print summary.
   Serial.printf("----->    FC redefiniton: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+  // ******************************************************************************
+  // Counter tests
+  // ******************************************************************************
+  Serial.printf("RTUserver: %d messages, %d errors.\n", RTUserver.getMessageCount(), RTUserver.getErrorCount());
+  Serial.printf("RTUclient: %d messages, %d errors.\n", RTUclient.getMessageCount(), RTUclient.getErrorCount());
+  Serial.printf("MBserver: %d messages, %d errors.\n", MBserver.getMessageCount(), MBserver.getErrorCount());
+  Serial.printf("Bridge: %d messages, %d errors.\n", Bridge.getMessageCount(), Bridge.getErrorCount());
 
 /*
   // ******************************************************************************

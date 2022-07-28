@@ -48,6 +48,12 @@ public:
   // getMessageCount: read number of messages processed
   uint32_t getMessageCount();
 
+  // getErrorCount: read number of errors responded
+  uint32_t getErrorCount();
+
+  // resetCounts: set both message and error counts to zero
+  void resetCounts();
+
   // Local request to the server
   ModbusMessage localRequest(ModbusMessage msg);
 
@@ -66,8 +72,9 @@ protected:
 
   std::map<uint8_t, std::map<uint8_t, MBSworker>> workerMap;      // map on serverID->functionCode->worker function
   uint32_t messageCount;         // Number of Requests processed
+  uint32_t errorCount;           // Number of errors responded
   #if USE_MUTEX
-  mutex m;                       // mutex to cover changes to messageCount
+  mutex m;                       // mutex to cover changes to messageCount and errorCount
   #endif
 };
 

@@ -11,6 +11,7 @@ uint16_t ModbusClient::instanceCounter = 0;
 // Default constructor: set the default timeout to 2000ms, zero out all other 
 ModbusClient::ModbusClient() :
   messageCount(0),
+  errorCount(0),
   #if HAS_FREERTOS
   worker(NULL),
   #elif IS_LINUX
@@ -56,7 +57,31 @@ bool ModbusClient::onResponseHandler(MBOnResponse handler) {
 
 // getMessageCount: return message counter value
 uint32_t ModbusClient::getMessageCount() {
-  return messageCount;
+  uint32_t retCnt = 0;
+  {
+    LOCK_GUARD(cntLock, countAccessM);
+    retCnt = messageCount;
+  }
+  return retCnt;
+}
+
+// getErrorCount: return error counter value
+uint32_t ModbusClient::getErrorCount() {
+  uint32_t retCnt = 0;
+  {
+    LOCK_GUARD(cntLock, countAccessM);
+    retCnt = errorCount;
+  }
+  return retCnt;
+}
+
+// resetCounts: Set both message and error counts to zero
+void ModbusClient::resetCounts() {
+  {
+    LOCK_GUARD(cntLock, countAccessM);
+    messageCount = 0;
+    errorCount = 0;
+  }
 }
 
 // waitSync: wait for response on syncRequest to arrive

@@ -188,7 +188,10 @@ bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHo
     if (requests.size()<MT_qLimit) {
       RequestEntry *re = new RequestEntry(token, request, target, syncReq);
       // inject proper transactionID
-      re->head.transactionID = messageCount++;
+      {
+        LOCK_GUARD(messageCntLock, countAccessM);
+        re->head.transactionID = messageCount++;
+      }
       re->head.len = request.size();
       // Safely lock queue and push request to queue
       rc = true;
@@ -273,6 +276,11 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         } else {
           // No, something went wrong. All we have is an error
           LOG_D("Error response.\n");
+          // Count it
+          {
+            LOCK_GUARD(responseCnt, instance->countAccessM);
+            instance->errorCount++;
+          }
           // Is it a synchronous request?
           if (request->isSyncRequest) {
             // Yes. Put the response into the response map

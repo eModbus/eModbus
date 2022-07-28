@@ -196,7 +196,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           LOG_D("Callback found.\n");
           // Yes, we do. Count the message
           {
-            lock_guard<mutex> cntLock(myServer->m);
+            LOCK_GUARD(cntLock, myServer->m);
             myServer->messageCount++;
           }
           // Get the user's response
@@ -238,6 +238,11 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           // Yes. send it back.
           RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
           LOG_D("Response sent.\n");
+          // Count it, in case we had an error response
+          if (response.getError() != SUCCESS) {
+            LOCK_GUARD(errorCntLock, myServer->m);
+            myServer->errorCount++;
+          }
         }
       }
     } else {

@@ -88,6 +88,25 @@ uint32_t ModbusServer::getMessageCount() {
   return retCnt;
 }
 
+// getErrorCount: read number of errors responded
+uint32_t ModbusServer::getErrorCount() { 
+  uint32_t retCnt = 0;
+  {
+    LOCK_GUARD(cntLock, m);
+    retCnt = errorCount;
+  }
+  return retCnt;
+}
+
+// resetCounts: set both message and error counts to zero
+void ModbusServer::resetCounts() {
+  {
+    LOCK_GUARD(cntLock, m);
+    messageCount = 0;
+    errorCount = 0;
+  }
+}
+
 // LocalRequest: get response from locally running server.
 ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
   ModbusMessage m;
@@ -141,7 +160,8 @@ ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
 
 // Constructor
 ModbusServer::ModbusServer() :
-  messageCount(0) { }
+  messageCount(0),
+  errorCount(0) { }
 
 // Destructor
 ModbusServer::~ModbusServer() {

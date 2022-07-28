@@ -213,7 +213,10 @@ bool ModbusClientRTU::addToQueue(uint32_t token, ModbusMessage request, bool syn
       LOCK_GUARD(lockGuard, qLock);
       requests.push(re);
     }
-    messageCount++;
+    {
+      LOCK_GUARD(cntLock, countAccessM);
+      messageCount++;
+    }
   }
 
   LOG_D("RC=%02X\n", rc);
@@ -276,6 +279,12 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
   
         LOG_D("Response generated.\n");
         HEXDUMP_V("Response packet", response.data(), response.size());
+
+        // If we got an error, count it
+        if (response.getError() != SUCCESS) {
+          LOCK_GUARD(cntResponse, instance->countAccessM);
+          instance->errorCount++;
+        }
   
         // Was it a synchronous request?
         if (request.isSyncRequest) {
