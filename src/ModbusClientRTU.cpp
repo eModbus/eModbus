@@ -282,7 +282,6 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
 
         // If we got an error, count it
         if (response.getError() != SUCCESS) {
-          LOCK_GUARD(cntResponse, instance->countAccessM);
           instance->errorCount++;
         }
   

@@ -188,10 +188,7 @@ bool ModbusClientTCP::addToQueue(uint32_t token, ModbusMessage request, TargetHo
     if (requests.size()<MT_qLimit) {
       RequestEntry *re = new RequestEntry(token, request, target, syncReq);
       // inject proper transactionID
-      {
-        LOCK_GUARD(messageCntLock, countAccessM);
-        re->head.transactionID = messageCount++;
-      }
+      re->head.transactionID = messageCount++;
       re->head.len = request.size();
       // Safely lock queue and push request to queue
       rc = true;

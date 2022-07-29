@@ -57,22 +57,12 @@ bool ModbusClient::onResponseHandler(MBOnResponse handler) {
 
 // getMessageCount: return message counter value
 uint32_t ModbusClient::getMessageCount() {
-  uint32_t retCnt = 0;
-  {
-    LOCK_GUARD(cntLock, countAccessM);
-    retCnt = messageCount;
-  }
-  return retCnt;
+  return messageCount;
 }
 
 // getErrorCount: return error counter value
 uint32_t ModbusClient::getErrorCount() {
-  uint32_t retCnt = 0;
-  {
-    LOCK_GUARD(cntLock, countAccessM);
-    retCnt = errorCount;
-  }
-  return retCnt;
+  return errorCount;
 }
 
 // resetCounts: Set both message and error counts to zero

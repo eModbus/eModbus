@@ -142,10 +142,7 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, bool
       RequestEntry *re = new RequestEntry(token, request, syncReq);
       if (!re) return false;  //TODO: proper error returning in case allocation fails
       // inject proper transactionID
-      {
-        LOCK_GUARD(messageCntLock, countAccessM);
-        re->head.transactionID = messageCount++;
-      }
+      re->head.transactionID = messageCount++;
       re->head.len = request.size();
       // if we're already connected, try to send and push to rxQueue
       // or else push to txQueue and (re)connect

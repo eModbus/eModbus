@@ -80,22 +80,12 @@ bool ModbusServer::isServerFor(uint8_t serverID) {
 
 // getMessageCount: read number of messages processed
 uint32_t ModbusServer::getMessageCount() { 
-  uint32_t retCnt = 0;
-  {
-    LOCK_GUARD(cntLock, m);
-    retCnt = messageCount;
-  }
-  return retCnt;
+  return messageCount;
 }
 
 // getErrorCount: read number of errors responded
 uint32_t ModbusServer::getErrorCount() { 
-  uint32_t retCnt = 0;
-  {
-    LOCK_GUARD(cntLock, m);
-    retCnt = errorCount;
-  }
-  return retCnt;
+  return errorCount;
 }
 
 // resetCounts: set both message and error counts to zero
