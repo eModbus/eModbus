@@ -273,6 +273,11 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         } else {
           // No, something went wrong. All we have is an error
           LOG_D("Error response.\n");
+          // Count it
+          {
+            LOCK_GUARD(responseCnt, instance->countAccessM);
+            instance->errorCount++;
+          }
           // Is it a synchronous request?
           if (request->isSyncRequest) {
             // Yes. Put the response into the response map

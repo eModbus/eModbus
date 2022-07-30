@@ -27,9 +27,15 @@ public:
   inline bool operator!=(const Error e) { return (err != e); }
   inline explicit operator Error() { return err; }
   inline operator int() { return static_cast<int>(err); }
+
+#ifndef MINIMAL
   inline explicit operator const char *() { return getText(err); }
+#endif
+
 private:
   Error err;          // The error code
+
+#ifndef MINIMAL
 // Return error as static text
   inline static const char *getText(Error err) {
     switch (err) {
@@ -114,6 +120,9 @@ private:
     case ASCII_INVALID_CHAR    : // 0xEF,
       return "Invalid ASCII character";
       break;
+    case BROADCAST_ERROR       : // 0xF0,
+      return "Broadcast data invalid";
+      break;
     case UNDEFINED_ERROR       : // 0xFF  // otherwise uncovered communication error
     default:
       return "Unspecified error";
@@ -121,6 +130,9 @@ private:
     }
     return "What?";
   }
+
+#endif
+
 };
 
 #endif

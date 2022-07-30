@@ -19,6 +19,9 @@ extern "C" {
 #include <freertos/task.h>
 }
 
+// Specal function signature for broadcast or sniffer listeners
+using MSRlistener = std::function<void(ModbusMessage msg)>;
+
 class ModbusServerRTU : public ModbusServer {
 public:
   // Constructors
@@ -46,6 +49,12 @@ public:
   // Toggle skipping of leading 0x00 byte
   void skipLeading0x00(bool onOff = true);
 
+  // Special case: worker to react on broadcast requests
+  void registerBroadcastWorker(MSRlistener worker);
+
+  // Even more special: register a sniffer worker
+  void registerSniffer(MSRlistener worker);
+
 protected:
   // Prevent copy construction and assignment
   ModbusServerRTU(ModbusServerRTU& m) = delete;
@@ -67,6 +76,8 @@ protected:
   RTScallback MRTSrts;                   // Callback to set the RTS line to HIGH/LOW
   bool MSRuseASCII;                      // true=ModbusASCII, false=ModbusRTU
   bool MSRskipLeadingZeroByte;           // true=first byte ignored if 0x00, false=all bytes accepted
+  MSRlistener listener;                  // Broadcast listener 
+  MSRlistener sniffer;                   // Sniffer listener 
 
   // serve: loop function for server task
   static void serve(ModbusServerRTU *myself);

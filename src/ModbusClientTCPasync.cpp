@@ -280,6 +280,11 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
         error = response->getError();
       }
 
+      if (error != SUCCESS) {
+        LOCK_GUARD(errorCntLock, countAccessM);
+        errorCount++;
+      }
+
       if (request->isSyncRequest) {
         {
           LOCK_GUARD(sL ,syncRespM);

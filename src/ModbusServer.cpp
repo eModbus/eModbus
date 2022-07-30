@@ -45,6 +45,29 @@ MBSworker ModbusServer::getWorker(uint8_t serverID, uint8_t functionCode) {
   return nullptr;
 }
 
+// unregisterWorker; remove again all or part of the registered workers for a given server ID
+// Returns true if the worker was found and removed
+bool ModbusServer::unregisterWorker(uint8_t serverID, uint8_t functionCode) {
+  uint16_t numEntries = 0;    // Number of entries removed
+
+  // Is there at least one entry for the serverID?
+  auto svmap = workerMap.find(serverID);
+  // Is there one?
+  if (svmap != workerMap.end()) {
+    // Yes. we may proceed with it
+    // Are we to look for a single serverID/FC combination?
+    if (functionCode) {
+      // Yes. 
+      numEntries = svmap->second.erase(functionCode);
+    } else {
+      // No, the serverID shall be removed with all references
+      numEntries = workerMap.erase(serverID);
+    }
+  } 
+  LOG_D("Removed %d worker entries for %d/%d\n", numEntries, serverID, functionCode);
+  return (numEntries ? true : false);
+}
+
 // isServerFor: if any worker function is registered for the given serverID, return true
 bool ModbusServer::isServerFor(uint8_t serverID) {
   // Search the FC map for the serverID
@@ -57,12 +80,21 @@ bool ModbusServer::isServerFor(uint8_t serverID) {
 
 // getMessageCount: read number of messages processed
 uint32_t ModbusServer::getMessageCount() { 
-  uint32_t retCnt = 0;
+  return messageCount;
+}
+
+// getErrorCount: read number of errors responded
+uint32_t ModbusServer::getErrorCount() { 
+  return errorCount;
+}
+
+// resetCounts: set both message and error counts to zero
+void ModbusServer::resetCounts() {
   {
     LOCK_GUARD(cntLock, m);
-    retCnt = messageCount;
+    messageCount = 0;
+    errorCount = 0;
   }
-  return retCnt;
 }
 
 // LocalRequest: get response from locally running server.
@@ -118,7 +150,8 @@ ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
 
 // Constructor
 ModbusServer::ModbusServer() :
-  messageCount(0) { }
+  messageCount(0),
+  errorCount(0) { }
 
 // Destructor
 ModbusServer::~ModbusServer() {

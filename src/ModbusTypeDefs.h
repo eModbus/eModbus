@@ -52,18 +52,6 @@ enum FunctionCode : uint8_t {
   USER_DEFINED_6E         = 0x6E,
 };
 
-enum FCType : uint8_t {
-  FC01_TYPE,         // Two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-  FC07_TYPE,         // no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
-  FC0F_TYPE,         // two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
-  FC10_TYPE,         // two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
-  FC16_TYPE,         // three uint16_t parameters (FC 0x16)
-  FC18_TYPE,         // one uint16_t parameter (FC 0x18)
-  FCGENERIC,         // for FCs not yet explicitly coded (or too complex)
-  FCUSER,            // No checks except the server ID
-  FCILLEGAL,         // not allowed function codes
-};
-
 enum Error : uint8_t {
   SUCCESS                = 0x00,
   ILLEGAL_FUNCTION       = 0x01,
@@ -92,8 +80,11 @@ enum Error : uint8_t {
   ASCII_FRAME_ERR        = 0xED,
   ASCII_CRC_ERR          = 0xEE,
   ASCII_INVALID_CHAR     = 0xEF,
+  BROADCAST_ERROR        = 0xF0,
   UNDEFINED_ERROR        = 0xFF  // otherwise uncovered communication error
 };
+
+#ifndef MINIMAL
 
 // Constants for float and double re-ordering
 #define SWAP_BYTES     0x01
@@ -110,6 +101,18 @@ const uint8_t swapTables[8][8] = {
   { 5, 4, 7, 6, 1, 0, 3, 2 },  // words and bytes (double)
   { 6, 7, 4, 5, 2, 3, 0, 1 },  // words and registers (double)
   { 7, 6, 5, 4, 3, 2, 1, 0 }   // Words, registers and bytes (double)
+};
+
+enum FCType : uint8_t {
+  FC01_TYPE,         // Two uint16_t parameters (FC 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
+  FC07_TYPE,         // no additional parameter (FCs 0x07, 0x0b, 0x0c, 0x11)
+  FC0F_TYPE,         // two uint16_t parameters, a uint8_t length byte and a uint16_t* pointer to array of bytes (FC 0x0f)
+  FC10_TYPE,         // two uint16_t parameters, a uint8_t length byte and a uint8_t* pointer to array of words (FC 0x10)
+  FC16_TYPE,         // three uint16_t parameters (FC 0x16)
+  FC18_TYPE,         // one uint16_t parameter (FC 0x18)
+  FCGENERIC,         // for FCs not yet explicitly coded (or too complex)
+  FCUSER,            // No checks except the server ID
+  FCILLEGAL,         // not allowed function codes
 };
 
 // FCT: static class to hold the types of function codes
@@ -129,7 +132,8 @@ public:
   static const FCType redefineType(uint8_t functionCode, const FCType type = FCUSER);
 };
 
-}  // namespace Modbus
+#endif
 
+}  // namespace Modbus
 
 #endif

@@ -106,7 +106,7 @@ void ModbusMessage::append(std::vector<uint8_t>& m) {
   MM_data.insert(MM_data.end(), m.begin(), m.end()); 
 }
 
-uint8_t ModbusMessage::getServerID() {
+uint8_t ModbusMessage::getServerID() const {
   // Only if we have data and it is at least as long to fit serverID and function code, return serverID
   if (MM_data.size() >= 2) { return MM_data[0]; }
   // Else return 0 - normally the Broadcast serverID, but we will not support that. Full stop. :-D
@@ -114,7 +114,7 @@ uint8_t ModbusMessage::getServerID() {
 }
 
 // Get MM_data[0] (server ID) and MM_data[1] (function code)
-uint8_t ModbusMessage::getFunctionCode() {
+uint8_t ModbusMessage::getFunctionCode() const {
   // Only if we have data and it is at least as long to fit serverID and function code, return FC
   if (MM_data.size() >= 2) { return MM_data[1]; }
   // Else return 0 - which is no valid Modbus FC.
@@ -122,7 +122,7 @@ uint8_t ModbusMessage::getFunctionCode() {
 }
 
 // getError() - returns error code
-Error ModbusMessage::getError() {
+Error ModbusMessage::getError() const {
   // Do we have data long enough?
   if (MM_data.size() > 2) {
     // Yes. Does it indicate an error?
@@ -374,7 +374,7 @@ uint16_t ModbusMessage::add(double v, int swapRule) {
 
 // get() variants for float and double values
 // values will be read in IEEE754 byte sequence (MSB first)
-uint16_t ModbusMessage::get(uint16_t index, float& v, int swapRule) {
+uint16_t ModbusMessage::get(uint16_t index, float& v, int swapRule) const {
   // First check if we need to determine byte order
   if (determineFloatOrder()) {
     // If we get here, the floatOrder is known
@@ -399,7 +399,7 @@ uint16_t ModbusMessage::get(uint16_t index, float& v, int swapRule) {
   return index;
 }
 
-uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) {
+uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) const {
   // First check if we need to determine byte order
   if (determineDoubleOrder()) {
     // If we get here, the doubleOrder is known
@@ -425,7 +425,7 @@ uint16_t ModbusMessage::get(uint16_t index, double& v, int swapRule) {
 }
 
 // get() - read a byte array of a given size into a vector<uint8_t>. Returns updated index
-uint16_t ModbusMessage::get(uint16_t index, vector<uint8_t>& v, uint8_t count) {
+uint16_t ModbusMessage::get(uint16_t index, vector<uint8_t>& v, uint8_t count) const {
   // Clean target vector
   v.clear();
   // Loop until required count is complete or the source is exhausted

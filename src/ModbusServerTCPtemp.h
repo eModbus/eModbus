@@ -271,7 +271,7 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
       // has it the minimal length (6 bytes TCP header plus serverID plus FC)?
       if (m.size() >= 8) {
         {
-          lock_guard<mutex> cntLock(myParent->m);
+          LOCK_GUARD(cntLock, myParent->m);
           myParent->messageCount++;
         }
         // Extract request data
@@ -338,6 +338,11 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
         myClient.write(m.data(), m.size());
         myClient.flush();
         HEXDUMP_V("Response", m.data(), m.size());
+        // count error responses
+        if (response.getError() != SUCCESS) {
+          LOCK_GUARD(cntLock, myParent->m);
+          myParent->errorCount++;
+        }
       }
       // We did something communicationally - rewind timeout timer
       myLastMessage = millis();

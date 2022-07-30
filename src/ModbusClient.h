@@ -34,7 +34,9 @@ public:
   bool onDataHandler(MBOnData handler);   // Accept onData handler 
   bool onErrorHandler(MBOnError handler); // Accept onError handler 
   bool onResponseHandler(MBOnResponse handler); // Accept onResponse handler 
-  uint32_t getMessageCount();              // Informative: return number of messages created
+  uint32_t getMessageCount();             // Informative: return number of messages created
+  uint32_t getErrorCount();              // Informative: return number of errors received
+  void resetCounts();                    // Set both message and error counts to zero
   inline Error addRequest(ModbusMessage m, uint32_t token) { return addRequestM(m, token); }
   inline ModbusMessage syncRequest(ModbusMessage m, uint32_t token) { return syncRequestM(m, token); }
 
@@ -92,6 +94,7 @@ protected:
   
 
   uint32_t messageCount;           // Number of requests generated. Used for transactionID in TCPhead
+  uint32_t errorCount;             // Number of errors received
 #if HAS_FREERTOS
   TaskHandle_t worker;             // Interface instance worker task
 #elif IS_LINUX
@@ -103,7 +106,8 @@ protected:
   static uint16_t instanceCounter; // Number of ModbusClients created
   std::map<uint32_t, ModbusMessage> syncResponse; // Map to hold response messages on synchronous requests
 #if USE_MUTEX
-  std::mutex syncRespM;                  // Mutex protecting syncResponse map against race conditions
+  std::mutex syncRespM;            // Mutex protecting syncResponse map against race conditions
+  std::mutex countAccessM;         // Mutex protecting access to the message and error counts
 #endif
 
   // Let any ModbusBridge class use protected members
