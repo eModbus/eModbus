@@ -136,10 +136,12 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
         uart_num = 1;
         uart = &UART1;
       } else {
+        #if SOC_UART_NUM > 2
         if (&serial == &Serial2) {
           uart_num = 2;
           uart = &UART2;
         }
+        #endif
       }
     }
     // Is it a defined serial?
