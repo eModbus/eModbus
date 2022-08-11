@@ -28,8 +28,7 @@ char pass[] = MY_PASS;                     // password for the WiFi network used
 ModbusClientTCP MB(theClient);
 
 // Define an onData handler function to receive the regular responses
-// Arguments are Modbus server ID, the function code requested, the message data and length of it, 
-// plus a user-supplied token to identify the causing request
+// Arguments are the message plus a user-supplied token to identify the causing request
 void handleData(ModbusMessage response, uint32_t token) 
 {
   Serial.printf("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
