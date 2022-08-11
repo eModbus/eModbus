@@ -26,7 +26,7 @@ uint16_t port = 502;                       // port of modbus server
 // Create a ModbusRTU client instance
 ModbusClientRTU MB(Serial2);
 
-// Create server
+// Create bridge
 ModbusBridgeWiFi MBbridge;
 
 // Setup() - initialization happens here
