@@ -59,7 +59,8 @@ void setup() {
 // ServerID 4: Server with remote serverID 1, accessed through RTU client MB
 //             All FCs accepted, with the exception of FC 06
   MBbridge.attachServer(4, 1, ANY_FUNCTION_CODE, &MB);
-
+  MBbridge.denyFunctionCode(4, 6);
+  
 // ServerID 5: Server with remote serverID 4, accessed through RTU client MB
 //             Only FCs 03 and 04 accepted
   MBbridge.attachServer(5, 4, READ_HOLD_REGISTER, &MB);
