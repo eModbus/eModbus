@@ -244,7 +244,7 @@ IPAddress Client::hostname_to_ip(const char *hostname)
   // loop through all the results and connect to the first we can
   for (p = servinfo; p != NULL; p = p->ai_next) {
     h = (struct sockaddr_in *)p->ai_addr;
-    returnIP = h->sin_addr.s_addr;
+    returnIP = ::htonl(h->sin_addr.s_addr);
     if (returnIP != NIL_ADDR) break;
   }
   // Release allocated memory
