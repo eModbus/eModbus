@@ -41,7 +41,7 @@ int Client::connect(IPAddress ip, uint16_t p) {
   server.sin_family = AF_INET;
   char buf[16];
   snprintf(buf, 16, "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
-  server.sin_addr.s_addr = uint32_t(ip);
+  server.sin_addr.s_addr = ::htonl(uint32_t(ip));
   server.sin_port = ::htons(p);
 
 // Try to connect

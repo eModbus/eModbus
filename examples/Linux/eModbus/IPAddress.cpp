@@ -22,7 +22,7 @@ IPAddress::IPAddress(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
 
 // Constructor taking a 4-byte unsigned value
 IPAddress::IPAddress(uint32_t w) {
-  addr.word = w;
+  addr.word = ::htonl(w);
 }
 
 // Constructor using a written IP string "1.2.3.4"
@@ -32,7 +32,7 @@ IPAddress::IPAddress(const char *ip) {
 
 // operator uint32_t: return raw 4-byte value
 IPAddress::operator uint32_t() {
-  return addr.word;
+  return ::ntohl(addr.word);
 }
 
 // operator[] const: return a byte 0..3 or value 0 for invalid indexes
@@ -54,7 +54,7 @@ bool IPAddress::operator==(IPAddress other) {
 
 // operator== for raw 4-byte values
 bool IPAddress::operator==(uint32_t w) {
-  return addr.word == w;
+  return addr.word == ::htonl(w);
 }
 
 // operator== for written IP strings
@@ -67,7 +67,7 @@ bool IPAddress::operator!=(IPAddress other) {
   return addr.word != other.addr.word; 
 }
 bool IPAddress::operator!=(uint32_t w) { 
-  return addr.word != w; 
+  return addr.word != ::htonl(w); 
 }
 bool IPAddress::operator!=(const char *ip) { 
   return addr.word != fromChar(ip);
@@ -75,7 +75,7 @@ bool IPAddress::operator!=(const char *ip) {
 
 // Assignment of raw 4-byte value
 IPAddress& IPAddress::operator=(uint32_t w) {
-  addr.word = w;
+  addr.word = ::htonl(w);
   return *this;
 }
 
@@ -93,6 +93,7 @@ IPAddress::operator std::string() const {
 }
 
 // fromChar: utility function to convert written IP strings 
+// Note: this will return a uint32_t in network order!
 uint32_t IPAddress::fromChar(const char *ip) {
   // Target data structure
   union {
