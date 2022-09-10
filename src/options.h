@@ -36,12 +36,17 @@
 #define NEED_UART_PATCH 0
 #include <cstdio>  // for printf()
 #include <cstring> // for memcpy(), strlen() etc.
-#include <chrono>  // NOLINT
-// Use nanosleep() to avoid problems with pthreads (std::this_thread::sleep_for would interfere!)
-#define delay(x)  nanosleep((const struct timespec[]){{x/1000, (x%1000)*1000000L}}, NULL);
-typedef std::chrono::steady_clock clk;
-#define millis() std::chrono::duration_cast<std::chrono::milliseconds>(clk::now().time_since_epoch()).count()
-#define micros() std::chrono::duration_cast<std::chrono::microseconds>(clk::now().time_since_epoch()).count()
+#include <cinttypes> // for uint32_t etc.
+#if IS_RASPBERRY
+#include <wiringPi.h>
+#else
+#include <chrono>  // NOLINT^M
+// Use nanosleep() to avoid problems with pthreads (std::this_thread::sleep_for would interfere!)^M
+#define delay(x)  nanosleep((const struct timespec[]){{x/1000, (x%1000)*1000000L}}, NULL);^M
+typedef std::chrono::steady_clock clk;^M
+#define millis() std::chrono::duration_cast<std::chrono::milliseconds>(clk::now().time_since_epoch()).count()^M
+#define micros() std::chrono::duration_cast<std::chrono::microseconds>(clk::now().time_since_epoch()).count()^M
+#endif
 
 /* === INVALID TARGET === */
 #else
