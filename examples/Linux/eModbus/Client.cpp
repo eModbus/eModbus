@@ -150,7 +150,10 @@ interrupted:
   if (r == 1) return x;
 // We may have been prevented to read
   if (r < 0 && errno == EINTR) goto interrupted;
+// A zero signals no data available
+  if (r == 0) return -1;
 // All else is some error state
+// Lazyness... No error handling here!
   return r;
 }
 
