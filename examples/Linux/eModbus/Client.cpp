@@ -251,7 +251,7 @@ IPAddress Client::hostname_to_ip(const char *hostname)
   freeaddrinfo(servinfo);
 
   if (returnIP != NIL_ADDR) {
-    LOG_D("Host '%s'=%s\n", hostname, string(returnIP));
+    LOG_D("Host '%s'=%s\n", hostname, string(returnIP).c_str());
   } else {
     LOG_D("No IP for '%s' found\n", hostname);
   }
