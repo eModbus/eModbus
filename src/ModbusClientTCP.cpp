@@ -240,6 +240,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
 
         delay(1);  // Give scheduler room to breathe
       }
+      ModbusMessage response;
       // Are we connected (again)?
       if (instance->MT_client.connected()) {
         LOG_D("Is connected. Send request.\n");
@@ -247,7 +248,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         instance->send(request);
 
         // Get the response - if any
-        ModbusMessage response = instance->receive(request);
+        response = instance->receive(request);
 
         // Did we get a normal response?
         if (response.getError()==SUCCESS) {
@@ -301,8 +302,20 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
         instance->MT_lastTarget = request->target;
       } else {
         // Oops. Connection failed
-        // Do we have an onError handler?
-        if (instance->onError) {
+        response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), IP_CONNECTION_FAILED);
+        // Is it a synchronous request?
+        if (request->isSyncRequest) {
+          // Yes. Put the response into the response map
+          {
+            LOCK_GUARD(sL, instance->syncRespM);
+            instance->syncResponse[request->token] = response;
+          }
+        // No, but do we have an onResponse handler?
+        } else if (instance->onResponse) {
+          // Yes, call it.
+          instance->onResponse(response, request->token);
+        // Finally, do we have an onError handler?
+        } else if (instance->onError) {
           // Yes. Forward the error code to it
           instance->onError(IP_CONNECTION_FAILED, request->token);
         }
