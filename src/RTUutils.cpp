@@ -147,7 +147,7 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
       // Yes. get the current value and set ours instead
       rc = uart->conf1.rxfifo_full_thrhd;
       uart->conf1.rxfifo_full_thrhd = thresholdBytes;
-      LOG_D("Serial%u FIFO threshold set to %d (was %d)\n", thresholdBytes, rc);
+      LOG_D("Serial%u FIFO threshold set to %d (was %d)\n", uart_num, thresholdBytes, rc);
     } else {
       LOG_W("Unable to identify serial\n");
     }
