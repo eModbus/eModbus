@@ -179,7 +179,9 @@ void ModbusClientTCPasync::onDisconnected() {
   LOCK_GUARD(lock2, qLock);
   while (!txQueue.empty()) {
     RequestEntry* r = txQueue.front();
-    if (onError) {
+    if (onResponse) {
+      onResponse(IP_CONNECTION_FAILED, r->token);
+    } else if (onError) {
       onError(IP_CONNECTION_FAILED, r->token);
     }
     delete r;
@@ -187,7 +189,9 @@ void ModbusClientTCPasync::onDisconnected() {
   }
   while (!rxQueue.empty()) {
     RequestEntry *r = rxQueue.begin()->second;
-    if (onError) {
+    if (onResponse) {
+      onResponse(IP_CONNECTION_FAILED, r->token);
+    } else if (onError) {
       onError(IP_CONNECTION_FAILED, r->token);
     }
     delete r;
@@ -327,7 +331,9 @@ void ModbusClientTCPasync::onPoll() {
     if (millis() - request->sentTime > MTA_timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
       // oldest element timeouts, call onError and clean up
-      if (onError) {
+      if (onResponse) {
+        onResponse(TIMEOUT, request->token);
+      } else if (onError) {
         // Handle timeout error
         onError(TIMEOUT, request->token);
       }
