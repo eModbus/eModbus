@@ -7,19 +7,48 @@
 // #undef LOCAL_LOG_LEVEL
 #include "Logging.h"
 
-ModbusClientTCPasync::ModbusClientTCPasync(IPAddress address, uint16_t port, uint16_t queueLimit) :
+ModbusClientTCPasync::ModbusClientTCPasync(uint16_t queueLimit) :
   ModbusClient(),
   txQueue(),
   rxQueue(),
   MTA_client(),
-  MTA_timeout(DEFAULTTIMEOUT),
+  MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_target(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_defaultTimeout(DEFAULTTIMEOUT),
+  MT_defaultInterval(TARGETHOSTINTERVAL),
   MTA_idleTimeout(DEFAULTIDLETIME),
   MTA_qLimit(queueLimit),
   MTA_maxInflightRequests(queueLimit),
   MTA_lastActivity(0),
-  MTA_state(DISCONNECTED),
-  MTA_host(address),
-  MTA_port(port)
+  MTA_state(DISCONNECTED)
+    {
+      // attach all handlers on async tcp events
+      MTA_client.onConnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onConnected(); }, this);
+      MTA_client.onDisconnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onDisconnected(); }, this);
+      MTA_client.onError([](void* i, AsyncClient* c, int8_t error) { (static_cast<ModbusClientTCPasync*>(i))->onACError(c, error); }, this);
+      // MTA_client.onTimeout([](void* i, AsyncClient* c, uint32_t time) { (static_cast<ModbusClientTCPasync*>(i))->onTimeout(time); }, this);
+      // MTA_client.onAck([](void* i, AsyncClient* c, size_t len, uint32_t time) { (static_cast<ModbusClientTCPasync*>(i))->onAck(len, time); }, this);
+      MTA_client.onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<ModbusClientTCPasync*>(i))->onPacket(static_cast<uint8_t*>(data), len); }, this);
+      MTA_client.onPoll([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onPoll(); }, this);
+
+      // disable nagle algorithm ref Modbus spec
+      MTA_client.setNoDelay(true);
+    }
+
+ModbusClientTCPasync::ModbusClientTCPasync(IPAddress host, uint16_t port, uint16_t queueLimit) :
+  ModbusClient(),
+  txQueue(),
+  rxQueue(),
+  MTA_client(),
+  MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_target(host, port, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
+  MT_defaultTimeout(DEFAULTTIMEOUT),
+  MT_defaultInterval(TARGETHOSTINTERVAL),
+  MTA_idleTimeout(DEFAULTIDLETIME),
+  MTA_qLimit(queueLimit),
+  MTA_maxInflightRequests(queueLimit),
+  MTA_lastActivity(0),
+  MTA_state(DISCONNECTED)
     {
       // attach all handlers on async tcp events
       MTA_client.onConnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onConnected(); }, this);
@@ -62,18 +91,8 @@ void ModbusClientTCPasync::connect() {
   // only connect if disconnected
   if (MTA_state == DISCONNECTED) {
     MTA_state = CONNECTING;
-    MTA_client.connect(MTA_host, MTA_port);
+    MTA_client.connect(MT_target.host, MT_target.port);
   }
-}
-
-// connect to another modbus server.
-void ModbusClientTCPasync::connect(IPAddress host, uint16_t port) {
-  // First disconnect, if connected
-  disconnect(true);
-  // Set new host and port
-  MTA_host = host;
-  MTA_port = port;
-  connect();
 }
 
 // manually disconnect from modbus server. Connection will also auto close after idle time
@@ -82,9 +101,21 @@ void ModbusClientTCPasync::disconnect(bool force) {
   MTA_client.close(force);
 }
 
+// Switch target host (if necessary)
+// Return true, if host/port is different from last host/port used
+bool ModbusClientTCPasync::setTarget(IPAddress host, uint16_t port, uint32_t timeout, uint32_t interval) {
+  MT_target.host = host;
+  MT_target.port = port;
+  MT_target.timeout = timeout ? timeout : MT_defaultTimeout;
+  MT_target.interval = interval ? interval : MT_defaultInterval;
+  LOG_D("Target set: %d.%d.%d.%d:%d\n", host[0], host[1], host[2], host[3], port);
+  if (MT_target.host == MT_lastTarget.host && MT_target.port == MT_lastTarget.port) return false;
+  return true;
+}
+
 // Set timeout value
 void ModbusClientTCPasync::setTimeout(uint32_t timeout) {
-  MTA_timeout = timeout;
+  MT_target.timeout = timeout;
 }
 
 // Set idle timeout value (time before connection auto closes after being idle)
@@ -103,7 +134,7 @@ Error ModbusClientTCPasync::addRequestM(ModbusMessage msg, uint32_t token) {
   // Add it to the queue, if valid
   if (msg) {
     // Queue add successful?
-    if (!addToQueue(token, msg)) {
+    if (!addToQueue(token, msg, MT_target)) {
       // No. Return error after deleting the allocated request.
       rc = REQUEST_QUEUE_FULL;
     }
@@ -119,7 +150,7 @@ ModbusMessage ModbusClientTCPasync::syncRequestM(ModbusMessage msg, uint32_t tok
 
   if (msg) {
     // Queue add successful?
-    if (!addToQueue(token, msg, true)) {
+    if (!addToQueue(token, msg, MT_target, true)) {
       // No. Return error after deleting the allocated request.
       response.setError(msg.getServerID(), msg.getFunctionCode(), REQUEST_QUEUE_FULL);
     } else {
@@ -133,13 +164,13 @@ ModbusMessage ModbusClientTCPasync::syncRequestM(ModbusMessage msg, uint32_t tok
 }
 
 // addToQueue: send freshly created request to queue
-bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, bool syncReq) {
+bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, TargetHost target, bool syncReq) {
   // Did we get one?
   if (request) {
     LOCK_GUARD(lock1, qLock);
     if (txQueue.size() + rxQueue.size() < MTA_qLimit) {
       HEXDUMP_V("Enqueue", request.data(), request.size());
-      RequestEntry *re = new RequestEntry(token, request, syncReq);
+      RequestEntry *re = new RequestEntry(token, request, target, syncReq);
       if (!re) return false;  //TODO: proper error returning in case allocation fails
       // inject proper transactionID
       re->head.transactionID = messageCount++;
@@ -324,7 +355,7 @@ void ModbusClientTCPasync::onPoll() {
   // next check if timeout has struck for oldest request
   if (!rxQueue.empty()) {
     RequestEntry* request = rxQueue.begin()->second;
-    if (millis() - request->sentTime > MTA_timeout) {
+    if (millis() - request->sentTime > MT_target.timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
       // oldest element timeouts, call onError and clean up
       if (onError) {

@@ -22,24 +22,29 @@
 
 using std::vector;
 
+#define TARGETHOSTINTERVAL 10
 #define DEFAULTTIMEOUT 10000
 #define DEFAULTIDLETIME 60000
 
 class ModbusClientTCPasync : public ModbusClient {
 public:
-  // Constructor takes address and port
-  explicit ModbusClientTCPasync(IPAddress address, uint16_t port = 502, uint16_t queueLimit = 100);
+  // Constructor
+  explicit ModbusClientTCPasync(uint16_t queueLimit = 100);
+
+  // Alternative Constructor takes reference to Client (EthernetClient or WiFiClient) plus initial target host
+  ModbusClientTCPasync(IPAddress host, uint16_t port = 502, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.
   ~ModbusClientTCPasync();
 
   // optionally manually connect to modbus server. Otherwise connection will be made upon first request
   void connect();
-  // Connect to another Modbus server
-  void connect(IPAddress host, uint16_t port = 502);
 
   // manually disconnect from modbus server. Connection will also auto close after idle time
   void disconnect(bool force = false);
+
+  // Switch target host (if necessary)
+  bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
 
   // Set timeout value
   void setTimeout(uint32_t timeout);
@@ -51,6 +56,54 @@ public:
   void setMaxInflightRequests(uint32_t maxInflightRequests);
 
 protected:
+
+  // class describing a target server
+  struct TargetHost {
+    IPAddress     host;         // IP address
+    uint16_t      port;         // Port number
+    uint32_t      timeout;      // Time in ms waiting for a response
+    uint32_t      interval;     // Time in ms to wait between requests
+    
+    inline TargetHost& operator=(TargetHost& t) {
+      host = t.host;
+      port = t.port;
+      timeout = t.timeout;
+      interval = t.interval;
+      return *this;
+    }
+    
+    inline TargetHost(TargetHost& t) :
+      host(t.host),
+      port(t.port),
+      timeout(t.timeout),
+      interval(t.interval) {}
+    
+    inline TargetHost() :
+      host(IPAddress(0, 0, 0, 0)),
+      port(0),
+      timeout(0),
+      interval(0)
+    { }
+
+    inline TargetHost(IPAddress host, uint16_t port, uint32_t timeout, uint32_t interval) :
+      host(host),
+      port(port),
+      timeout(timeout),
+      interval(interval)
+    { }
+
+    inline bool operator==(TargetHost& t) {
+      if (host != t.host) return false;
+      if (port != t.port) return false;
+      return true;
+    }
+
+    inline bool operator!=(TargetHost& t) {
+      if (host != t.host) return true;
+      if (port != t.port) return true;
+      return false;
+    }
+  };
 
   // class describing the TCP header of Modbus packets
   class ModbusTCPhead {
@@ -94,12 +147,14 @@ protected:
   struct RequestEntry {
     uint32_t token;
     ModbusMessage msg;
+    TargetHost target;
     ModbusTCPhead head;
     uint32_t sentTime;
     bool isSyncRequest;
-    RequestEntry(uint32_t t, ModbusMessage m, bool syncReq = false) :
+    RequestEntry(uint32_t t, ModbusMessage m, TargetHost tg, bool syncReq = false) :
       token(t),
       msg(m),
+      target(tg),
       head(ModbusTCPhead()),
       sentTime(0),
       isSyncRequest(syncReq) {}
@@ -110,7 +165,7 @@ protected:
   ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
 
   // addToQueue: send freshly created request to queue
-  bool addToQueue(int32_t token, ModbusMessage request, bool syncReq = false);
+  bool addToQueue(int32_t token, ModbusMessage request, TargetHost target, bool syncReq = false);
 
   // send: send request via Client connection
   bool send(RequestEntry *request);
@@ -138,7 +193,10 @@ protected:
   #endif
 
   AsyncClient MTA_client;           // Async TCP client
-  uint32_t MTA_timeout;             // Standard timeout value taken
+  TargetHost MT_lastTarget;         // last used server
+  TargetHost MT_target;             // Description of target server
+  uint32_t MT_defaultTimeout;       // Standard timeout value taken if no dedicated was set
+  uint32_t MT_defaultInterval;      // Standard interval value taken if no dedicated was set
   uint32_t MTA_idleTimeout;         // Standard timeout value taken
   uint16_t MTA_qLimit;              // Maximum number of requests to accept in queue
   uint32_t MTA_maxInflightRequests; // Maximum number of inflight requests
@@ -148,8 +206,6 @@ protected:
     CONNECTING,
     CONNECTED
   } MTA_state;                      // TCP connection state
-  IPAddress MTA_host;
-  uint16_t MTA_port;
 };
 
 #endif
