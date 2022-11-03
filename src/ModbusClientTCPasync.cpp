@@ -86,10 +86,10 @@ ModbusClientTCPasync::~ModbusClientTCPasync() {
 
 // optionally manually connect to modbus server. Otherwise connection will be made upon first request
 void ModbusClientTCPasync::connect() {
-  LOG_D("connecting\n");
   LOCK_GUARD(lock1, sLock);
   // only connect if disconnected
   if (MTA_state == DISCONNECTED) {
+    LOG_D("Target connecting (%d.%d.%d.%d:%d).\n", MT_target.host[0], MT_target.host[1], MT_target.host[2], MT_target.host[3], MT_target.port);
     MTA_state = CONNECTING;
     MTA_client.connect(MT_target.host, MT_target.port);
   }
