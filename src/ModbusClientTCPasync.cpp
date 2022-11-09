@@ -39,39 +39,35 @@ ModbusClientTCPasync::ModbusClientTCPasync(IPAddress host, uint16_t port, uint16
   MTA_qLimit(queueLimit),
   MTA_state(DISCONNECTED)
     {
-      // attach all handlers on async tcp events
       MTA_client.onConnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onConnected(); }, this);
       MTA_client.onDisconnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onDisconnected(); }, this);
       MTA_client.onError([](void* i, AsyncClient* c, int8_t error) { (static_cast<ModbusClientTCPasync*>(i))->onACError(c, error); }, this);
-      // MTA_client.onTimeout([](void* i, AsyncClient* c, uint32_t time) { (static_cast<ModbusClientTCPasync*>(i))->onTimeout(time); }, this);
-      // MTA_client.onAck([](void* i, AsyncClient* c, size_t len, uint32_t time) { (static_cast<ModbusClientTCPasync*>(i))->onAck(len, time); }, this);
       MTA_client.onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<ModbusClientTCPasync*>(i))->onPacket(static_cast<uint8_t*>(data), len); }, this);
       MTA_client.onPoll([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onPoll(); }, this);
     }
 
 // Destructor: clean up queue, task etc.
 ModbusClientTCPasync::~ModbusClientTCPasync() {
-  // Clean up queue
   {
-    // Safely lock access
+    // keep lock guard in separate scope to avoid deadlock when disconnecting
     LOCK_GUARD(lock, aoLock);
-    // Delete all elements from queue
     while (!requests.empty()) {
       requests.pop();
     }
   }
-  // force close client
-  MTA_client.close(true);
+  // client will disconnect on destruction, avoid calling onDisconnect
+  MTA_client.onDisconnect(nullptr);
 }
 
 // optionally manually connect to modbus server. Otherwise connection will be made upon first request
 void ModbusClientTCPasync::connect() {
   LOCK_GUARD(lock, aoLock);
-  // only connect if disconnected
   if (MTA_state == DISCONNECTED) {
     LOG_D("Target connecting (%d.%d.%d.%d:%d).\n", MT_target.host[0], MT_target.host[1], MT_target.host[2], MT_target.host[3], MT_target.port);
     MTA_state = CONNECTING;
     MTA_client.connect(MT_target.host, MT_target.port);
+  } else {
+    LOG_W("Could not connect: client not disconnected");
   }
 }
 
@@ -144,11 +140,12 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, Targ
   // Did we get one?
   LOG_D("Queue size: %d\n", (uint32_t)requests.size());
   HEXDUMP_D("Enqueue", request.data(), request.size());
+  RequestEntry *re = nullptr;
   bool success = false;
   if (request) {
     LOCK_GUARD(lock, aoLock);
     if (requests.size() < MTA_qLimit) {
-      RequestEntry *re = new RequestEntry(token, request, target, syncReq);
+      re = new RequestEntry(token, request, target, syncReq);
       if (!re) {
         LOG_E("Could not create request entry");
         return false;  //TODO: proper error returning in case allocation fails
@@ -164,6 +161,7 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, Targ
   }
   if (success) {
     if (MTA_state == DISCONNECTED) {
+      MT_target = re->target;
       connect();
     } else if (MTA_state == CONNECTED) {
       LOCK_GUARD(lock, aoLock);
@@ -192,9 +190,7 @@ void ModbusClientTCPasync::onDisconnected() {
   // calling errorcode on request
   if (!requests.empty()) {
     RequestEntry* r = requests.front();
-    if (onError) {
-      onError(IP_CONNECTION_FAILED, r->token);
-    }
+    respond(IP_CONNECTION_FAILED, r, nullptr);
     delete r;
     requests.pop();
     }
@@ -215,16 +211,18 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   HEXDUMP_V("Response packet", data, length);
 
   LOCK_GUARD(lock1, aoLock);
-  RequestEntry* request = requests.front();
+  RequestEntry* request = nullptr;
   ModbusMessage* response = nullptr;
   uint16_t transactionID = 0;
   uint16_t protocolID = 0;
   uint16_t messageLength = 0;
   bool isOkay = false;
 
-  if (!request) {
-    LOG_V("No request waiting for response");
+  if (requests.empty()) {
+    LOG_W("No request waiting for response");
     return;
+  } else {
+    request = requests.front();
   }
 
   // 1. Check for valid modbus message
@@ -272,28 +270,11 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
     errorCount++;
   }
 
-  if (request->isSyncRequest) {
-    {
-      LOCK_GUARD(sL ,syncRespM);
-      syncResponse[request->token] = *response;
-    }
-  } else if (onResponse) {
-    onResponse(*response, request->token);
-  } else {
-    if (error == SUCCESS) {
-      if (onData) {
-        onData(*response, request->token);
-      }
-    } else {
-      if (onError) {
-        onError(response->getError(), request->token);
-      }
-    }
-  }
+  respond(response->getError(), request, response);
   MTA_state = CONNECTED;
   delete request;
   requests.pop();
-  delete response;
+  // response is deleted in respond
 
   // check if we have to send the next request
   handleSendingQueue();
@@ -310,11 +291,7 @@ void ModbusClientTCPasync::onPoll() {
     RequestEntry* request = requests.front();
     if (millis() - request->sentTime > MT_target.timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
-      // oldest element timeouts, call onError and clean up
-      if (onError) {
-        // Handle timeout error
-        onError(TIMEOUT, request->token);
-      }
+      respond(TIMEOUT, request, nullptr);
       delete request;
       requests.pop();
     }
@@ -340,4 +317,34 @@ void ModbusClientTCPasync::handleSendingQueue() {
       MTA_state = BUSY;
     }
   }
+}
+
+void ModbusClientTCPasync::respond(Error error, RequestEntry* request, ModbusMessage* response) {
+  // response is not always set at calling sites whereas request is
+  if (!response) {
+    response = new ModbusMessage();
+    if (!response) {
+      LOG_E("Could not create response\n");
+      return;
+    }
+    response->setError(request->msg.getServerID(), request->msg.getFunctionCode(), error);
+  }
+
+  if (request->isSyncRequest) {
+    LOCK_GUARD(sL ,syncRespM);
+    syncResponse[request->token] = *response;
+  } else if (onResponse) {
+    onResponse(*response, request->token);
+  } else {
+    if (error == SUCCESS) {
+      if (onData) {
+        onData(*response, request->token);
+      }
+    } else {
+      if (onError) {
+        onError(response->getError(), request->token);
+      }
+    }
+  }
+  delete response;
 }

@@ -171,6 +171,7 @@ protected:
   void onPacket(uint8_t* data, size_t length);
   void onPoll();
   void handleSendingQueue();
+  void respond(Error error, RequestEntry* request, ModbusMessage* response);
 
   queue<RequestEntry *> requests;  // Queue to hold requests to be processed
   #if USE_MUTEX
