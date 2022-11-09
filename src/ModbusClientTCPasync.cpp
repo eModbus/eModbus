@@ -26,9 +26,6 @@ ModbusClientTCPasync::ModbusClientTCPasync(uint16_t queueLimit) :
       // MTA_client.onAck([](void* i, AsyncClient* c, size_t len, uint32_t time) { (static_cast<ModbusClientTCPasync*>(i))->onAck(len, time); }, this);
       MTA_client.onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<ModbusClientTCPasync*>(i))->onPacket(static_cast<uint8_t*>(data), len); }, this);
       MTA_client.onPoll([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onPoll(); }, this);
-
-      // disable nagle algorithm ref Modbus spec
-      MTA_client.setNoDelay(true);
     }
 
 ModbusClientTCPasync::ModbusClientTCPasync(IPAddress host, uint16_t port, uint16_t queueLimit) :
@@ -50,9 +47,6 @@ ModbusClientTCPasync::ModbusClientTCPasync(IPAddress host, uint16_t port, uint16
       // MTA_client.onAck([](void* i, AsyncClient* c, size_t len, uint32_t time) { (static_cast<ModbusClientTCPasync*>(i))->onAck(len, time); }, this);
       MTA_client.onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<ModbusClientTCPasync*>(i))->onPacket(static_cast<uint8_t*>(data), len); }, this);
       MTA_client.onPoll([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onPoll(); }, this);
-
-      // disable nagle algorithm ref Modbus spec
-      MTA_client.setNoDelay(true);
     }
 
 // Destructor: clean up queue, task etc.
@@ -184,6 +178,7 @@ void ModbusClientTCPasync::onConnected() {
   LOG_D("connected\n");
   LOCK_GUARD(lock, aoLock);
   MTA_state = CONNECTED;
+  MTA_client.setNoDelay(true);
   // from now on onPoll will be called every 500 msec
   handleSendingQueue();
 }
