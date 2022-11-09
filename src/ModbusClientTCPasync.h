@@ -13,18 +13,14 @@
 #include "options.h"
 #include "ModbusMessage.h"
 #include "ModbusClient.h"
-#include <list>
-#include <map>
-#include <vector>
+#include <queue>
 #if USE_MUTEX
 #include <mutex>      // NOLINT
 #endif
-
-using std::vector;
+using std::queue;
 
 #define TARGETHOSTINTERVAL 10
-#define DEFAULTTIMEOUT 10000
-#define DEFAULTIDLETIME 60000
+#define DEFAULTTIMEOUT 2000
 
 class ModbusClientTCPasync : public ModbusClient {
 public:
@@ -40,20 +36,14 @@ public:
   // optionally manually connect to modbus server. Otherwise connection will be made upon first request
   void connect();
 
-  // manually disconnect from modbus server. Connection will also auto close after idle time
+  // manually disconnect from modbus server.
   void disconnect(bool force = false);
 
   // Switch target host (if necessary)
   bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
 
   // Set timeout value
-  void setTimeout(uint32_t timeout);
-
-  // Set idle timeout value (time before connection auto closes after being idle)
-  void setIdleTimeout(uint32_t timeout);
-
-  // Set maximum amount of messages awaiting a response. Subsequent messages will be queued.
-  void setMaxInflightRequests(uint32_t maxInflightRequests);
+  void setTimeout(uint32_t timeout = DEFAULTTIMEOUT, uint32_t interval = TARGETHOSTINTERVAL);
 
 protected:
 
@@ -167,9 +157,6 @@ protected:
   // addToQueue: send freshly created request to queue
   bool addToQueue(int32_t token, ModbusMessage request, TargetHost target, bool syncReq = false);
 
-  // send: send request via Client connection
-  bool send(RequestEntry *request);
-
   // receive: get response via Client connection
   // TCPResponse* receive(uint8_t* data, size_t length);
 
@@ -185,11 +172,9 @@ protected:
   void onPoll();
   void handleSendingQueue();
 
-  std::list<RequestEntry*> txQueue;           // Queue to hold requests to be sent
-  std::map<uint16_t, RequestEntry*> rxQueue;  // Queue to hold requests to be processed
+  queue<RequestEntry *> requests;  // Queue to hold requests to be processed
   #if USE_MUTEX
-  std::mutex sLock;                         // Mutex to protect state
-  std::mutex qLock;                         // Mutex to protect queues
+  std::mutex aoLock;                // Mutex to protect any async operation
   #endif
 
   AsyncClient MTA_client;           // Async TCP client
@@ -197,14 +182,13 @@ protected:
   TargetHost MT_target;             // Description of target server
   uint32_t MT_defaultTimeout;       // Standard timeout value taken if no dedicated was set
   uint32_t MT_defaultInterval;      // Standard interval value taken if no dedicated was set
-  uint32_t MTA_idleTimeout;         // Standard timeout value taken
   uint16_t MTA_qLimit;              // Maximum number of requests to accept in queue
-  uint32_t MTA_maxInflightRequests; // Maximum number of inflight requests
-  uint32_t MTA_lastActivity;        // Last time there was activity (disabled when queues are not empty)
   enum {
     DISCONNECTED,
     CONNECTING,
-    CONNECTED
+    CONNECTED,
+    BUSY,
+    DISCONNECTING
   } MTA_state;                      // TCP connection state
 };
 
