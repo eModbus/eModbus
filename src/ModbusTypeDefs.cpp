@@ -46,14 +46,14 @@ FCType FCT::table[] = {
 };
 
 // FCT::getType: get the function code type for a given function code
-const FCType FCT::getType(uint8_t functionCode) {
+FCType FCT::getType(uint8_t functionCode) {
   return table[functionCode & 0x7F];
 }
 
 // setType: change the type of a function code.
 // This is possible only for the codes undefined yet and will return
 // the effective type
-const FCType FCT::redefineType(uint8_t functionCode, const FCType type) {
+FCType FCT::redefineType(uint8_t functionCode, const FCType type) {
   uint8_t fc = functionCode & 0x7F;
   
   // Allow modifications for yet undefined codes only
