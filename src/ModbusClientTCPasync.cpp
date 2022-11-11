@@ -209,7 +209,6 @@ void ModbusClientTCPasync::onDisconnected() {
   if (MTA_state != CHANGE_TARGET && !requests.empty()) {  
     RequestEntry* r = requests.front();
     respond(IP_CONNECTION_FAILED, r, nullptr);
-    delete r;
     requests.pop();
     }
 
@@ -292,10 +291,10 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   respond(response->getError(), request, response);
 
   // 4. cleanup and reset state
+  //    request and response are deleted in respond()
+
   MTA_state = CONNECTED;
-  delete request;
   requests.pop();
-  // response is deleted in respond
 
   // 5. check if we have to send the next request
   MT_lastActivity = millis();
@@ -314,7 +313,6 @@ void ModbusClientTCPasync::onPoll() {
     if (millis() - request->sentTime > MT_target.timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
       respond(TIMEOUT, request, nullptr);
-      delete request;
       requests.pop();
     }
   }
@@ -361,6 +359,7 @@ void ModbusClientTCPasync::respond(Error error, RequestEntry* request, ModbusMes
     response = new ModbusMessage();
     if (!response) {
       LOG_E("Could not create response\n");
+      delete request;  // requests is always passed
       return;
     }
     response->setError(request->msg.getServerID(), request->msg.getFunctionCode(), error);
@@ -382,5 +381,6 @@ void ModbusClientTCPasync::respond(Error error, RequestEntry* request, ModbusMes
       }
     }
   }
+  delete request;
   delete response;
 }
