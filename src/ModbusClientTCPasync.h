@@ -158,9 +158,6 @@ protected:
   // addToQueue: send freshly created request to queue
   bool addToQueue(int32_t token, ModbusMessage request, TargetHost target, bool syncReq = false);
 
-  // receive: get response via Client connection
-  // TCPResponse* receive(uint8_t* data, size_t length);
-
   void isInstance() { return; }     // make class instantiable
 
   // TCP handling code
@@ -169,8 +166,6 @@ protected:
   void onConnected();
   void onDisconnected();
   void onACError(AsyncClient* c, int8_t error);
-  // void onTimeout(uint32_t time);
-  // void onAck(size_t len, uint32_t time);
   void onPacket(uint8_t* data, size_t length);
   void onPoll();
   void handleSendingQueue();
