@@ -14,6 +14,7 @@ ModbusClientTCPasync::ModbusClientTCPasync(uint16_t queueLimit) :
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_target(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_defaultTimeout(DEFAULTTIMEOUT),
+  MT_lastActivity(0),
   MT_defaultInterval(TARGETHOSTINTERVAL),
   MTA_qLimit(queueLimit),
   MTA_state(DISCONNECTED)
@@ -35,6 +36,7 @@ ModbusClientTCPasync::ModbusClientTCPasync(IPAddress host, uint16_t port, uint16
   MT_lastTarget(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_target(host, port, DEFAULTTIMEOUT, TARGETHOSTINTERVAL),
   MT_defaultTimeout(DEFAULTTIMEOUT),
+  MT_lastActivity(0),
   MT_defaultInterval(TARGETHOSTINTERVAL),
   MTA_qLimit(queueLimit),
   MTA_state(DISCONNECTED)
@@ -185,8 +187,9 @@ void ModbusClientTCPasync::onConnected() {
   LOG_D("connected\n");
   MTA_state = CONNECTED;
   MTA_client.setNoDelay(true);
-  // from now on onPoll will be called every 500 msec
+  MT_lastActivity = millis() - MT_target.interval - 1;  // send first request immediately after connecting
   handleSendingQueue();
+  // from now on onPoll will be called every 500 msec
 }
 
 void ModbusClientTCPasync::onDisconnected() {
@@ -295,6 +298,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   // response is deleted in respond
 
   // 5. check if we have to send the next request
+  MT_lastActivity = millis();
   handleSendingQueue();
 }
 
@@ -331,7 +335,12 @@ void ModbusClientTCPasync::handleSendingQueue() {
       return;
     }
 
-    // 2. send if we can send a complete packet
+  // 2. Mind interval when sending next request
+  if (millis() - MT_lastActivity < MT_target.interval) {
+    return;
+  }
+
+  // 3. We have a request waiting and are connected, try to send (a complete packet)
     if (MTA_client.space() > ((uint32_t)re->msg.size() + 6)) {
       // Write TCP header first
       MTA_client.add(reinterpret_cast<const char *>((const uint8_t *)(re->head)), 6, ASYNC_WRITE_FLAG_COPY | ASYNC_WRITE_FLAG_MORE);

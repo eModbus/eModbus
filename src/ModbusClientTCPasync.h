@@ -40,7 +40,8 @@ public:
   void disconnect(bool force = false);
 
   // Switch target host (if necessary)
-  bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
+  // Return true, if host/port is different from last host/port used
+  bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = DEFAULTTIMEOUT, uint32_t interval = TARGETHOSTINTERVAL);
 
   // Set timeout value
   void setTimeout(uint32_t timeout = DEFAULTTIMEOUT, uint32_t interval = TARGETHOSTINTERVAL);
@@ -184,6 +185,7 @@ protected:
   TargetHost MT_lastTarget;         // last used server
   TargetHost MT_target;             // Description of target server
   uint32_t MT_defaultTimeout;       // Standard timeout value taken if no dedicated was set
+  uint32_t MT_lastActivity;         // Last time the client sent a request
   uint32_t MT_defaultInterval;      // Standard interval value taken if no dedicated was set
   uint16_t MTA_qLimit;              // Maximum number of requests to accept in queue
   enum {
