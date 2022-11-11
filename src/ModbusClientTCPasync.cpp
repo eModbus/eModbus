@@ -62,22 +62,30 @@ ModbusClientTCPasync::~ModbusClientTCPasync() {
 // optionally manually connect to modbus server. Otherwise connection will be made upon first request
 void ModbusClientTCPasync::connect() {
   LOCK_GUARD(lock, aoLock);
+  // Manual action, only allow when disconnected
   if (MTA_state == DISCONNECTED) {
-    LOG_D("Target connecting (%d.%d.%d.%d:%d).\n", MT_target.host[0], MT_target.host[1], MT_target.host[2], MT_target.host[3], MT_target.port);
-    MTA_state = CONNECTING;
-    MTA_client.connect(MT_target.host, MT_target.port);
+    connectUnlocked();
   } else {
     LOG_W("Could not connect: client not disconnected");
   }
 }
 
+void ModbusClientTCPasync::connectUnlocked() {
+  MT_lastTarget = requests.front()->target;
+  LOG_D("Target connecting (%d.%d.%d.%d:%d).\n", MT_lastTarget.host[0], MT_lastTarget.host[1], MT_lastTarget.host[2], MT_lastTarget.host[3], MT_lastTarget.port);
+  MTA_state = CONNECTING;
+  MTA_client.connect(MT_lastTarget.host, MT_lastTarget.port);
+}
+
 // manually disconnect from modbus server.
 void ModbusClientTCPasync::disconnect(bool force) {
-  {
   LOCK_GUARD(lock, aoLock);
+  disconnectUnlocked(force);
+}
+
+void ModbusClientTCPasync::disconnectUnlocked(bool force) {
   MTA_state = DISCONNECTING;
   LOG_D("disconnecting\n");
-  }
   MTA_client.close(force);
 }
 
@@ -173,8 +181,8 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, Targ
 }
 
 void ModbusClientTCPasync::onConnected() {
-  LOG_D("connected\n");
   LOCK_GUARD(lock, aoLock);
+  LOG_D("connected\n");
   MTA_state = CONNECTED;
   MTA_client.setNoDelay(true);
   // from now on onPoll will be called every 500 msec
@@ -182,22 +190,30 @@ void ModbusClientTCPasync::onConnected() {
 }
 
 void ModbusClientTCPasync::onDisconnected() {
-  LOG_D("disconnected\n");
-  {
-  LOCK_GUARD(lock, aoLock);
-  MTA_state = DISCONNECTED;
+  // First check if we're in the process of changing the target.
+  // In this case, there is (at least) one request in the queue
+  // and onDisconnected is called from mutex-protected code.
+  if (MTA_state == CHANGE_TARGET) {
+    connectUnlocked();
+    return;
+  }
 
+  LOCK_GUARD(lock, aoLock);
+  LOG_D("disconnected\n");
+
+  MTA_state = DISCONNECTED;
   // calling errorcode on request
-  if (!requests.empty()) {
+  if (MTA_state != CHANGE_TARGET && !requests.empty()) {  
     RequestEntry* r = requests.front();
     respond(IP_CONNECTION_FAILED, r, nullptr);
     delete r;
     requests.pop();
     }
-  }  // unscope lock_guard to enable reconnecting
 
   // try again with next request
-  if (!requests.empty()) connect();
+  if (!requests.empty()) {
+    connectUnlocked();
+  }
 }
 
 void ModbusClientTCPasync::onACError(AsyncClient* c, int8_t error) {
@@ -271,12 +287,14 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   }
 
   respond(response->getError(), request, response);
+
+  // 4. cleanup and reset state
   MTA_state = CONNECTED;
   delete request;
   requests.pop();
   // response is deleted in respond
 
-  // check if we have to send the next request
+  // 5. check if we have to send the next request
   handleSendingQueue();
 }
 
@@ -286,8 +304,8 @@ void ModbusClientTCPasync::onPoll() {
   // try to send whatever is waiting
   handleSendingQueue();
 
-  // next check if timeout has struck for oldest request
-  if (MTA_state == BUSY && !requests.empty()) {
+  // when waiting for a response, check if timeout has struck
+  if (MTA_state == BUSY && !requests.empty()) {  // when state == busy, there should always be at least one request in the queue
     RequestEntry* request = requests.front();
     if (millis() - request->sentTime > MT_target.timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
@@ -305,6 +323,15 @@ void ModbusClientTCPasync::handleSendingQueue() {
 
   if (MTA_state == CONNECTED && !requests.empty()) {
     RequestEntry* re = requests.front();
+    // 1. check if target is the right one, disconnect if needed
+    if (MT_lastTarget != re->target) {
+      LOG_V("Switching target\n");
+      MTA_state = CHANGE_TARGET;
+      MTA_client.close();
+      return;
+    }
+
+    // 2. send if we can send a complete packet
     if (MTA_client.space() > ((uint32_t)re->msg.size() + 6)) {
       // Write TCP header first
       MTA_client.add(reinterpret_cast<const char *>((const uint8_t *)(re->head)), 6, ASYNC_WRITE_FLAG_COPY | ASYNC_WRITE_FLAG_MORE);

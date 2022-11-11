@@ -162,7 +162,9 @@ protected:
 
   void isInstance() { return; }     // make class instantiable
 
-  // TCP handling code, all static taking a class instancs as param
+  // TCP handling code
+  void connectUnlocked();
+  void disconnectUnlocked(bool force);
   void onConnected();
   void onDisconnected();
   void onACError(AsyncClient* c, int8_t error);
@@ -189,6 +191,7 @@ protected:
     CONNECTING,
     CONNECTED,
     BUSY,
+    CHANGE_TARGET,
     DISCONNECTING
   } MTA_state;                      // TCP connection state
 };
