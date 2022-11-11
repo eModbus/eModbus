@@ -188,20 +188,30 @@ void ModbusClientTCPasync::onDisconnected() {
     return;
   }
 
+  RequestEntry* request = nullptr;
+  Error error = SUCCESS;
+  bool doRespond = false;
+
+  {  // start lock scope
   LOCK_GUARD(lock, aoLock);
   LOG_D("disconnected\n");
 
   // 2. Set state and return error to user
   MTA_state = DISCONNECTED;
   if (!requests.empty()) {  
-    RequestEntry* r = requests.front();
-    respond(IP_CONNECTION_FAILED, r, nullptr);
+    request = requests.front();
+    doRespond = true;
     requests.pop();
   }
 
   // 3. Connect again using next request
   if (!requests.empty()) {
     connectUnlocked();
+  }
+
+  }  // end lock scope
+  if (doRespond) {
+    respond(error, request, nullptr);
   }
 }
 
@@ -213,13 +223,17 @@ void ModbusClientTCPasync::onACError(AsyncClient* c, int8_t error) {
 
 void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   // We assume one full Modbus packet is received in one TCP packet
+
+  RequestEntry* request = nullptr;
+  ModbusMessage* response = nullptr;
+  Error error = SUCCESS;
+  bool doRespond = false;
+
+  {  // start lock scope
   LOCK_GUARD(lock1, aoLock);
 
   LOG_D("packet received (len:%d)\n", length);
   HEXDUMP_V("Response packet", data, length);
-
-  RequestEntry* request = nullptr;
-  ModbusMessage* response = nullptr;
   uint16_t transactionID = 0;
   uint16_t protocolID = 0;
   uint16_t messageLength = 0;
@@ -264,7 +278,6 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
     return;
   }
 
-  Error error = SUCCESS;
   if (request->msg.getFunctionCode() != (response->getFunctionCode() & 0x7F)) {
     error = FC_MISMATCH;
   } else if (request->msg.getServerID() != response->getServerID()) {
@@ -276,7 +289,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
     LOCK_GUARD(errorCntLock, countAccessM);
     errorCount++;
   }
-  respond(response->getError(), request, response);
+  doRespond = true;
 
   // 4. cleanup and reset state
   //    request and response are deleted in respond()
@@ -287,9 +300,18 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   // 5. check if we have to send the next request
   MT_lastActivity = millis();
   handleSendingQueue();
+  }  // end lock scope
+
+  if (doRespond) {
+    respond(response->getError(), request, response);
+  }
 }
 
 void ModbusClientTCPasync::onPoll() {
+  bool doRespond = false;
+  RequestEntry* request = nullptr;
+  Error error = SUCCESS;
+  {  // start lock scope
   LOCK_GUARD(lock, aoLock);
 
   // try to send whatever is waiting
@@ -300,9 +322,13 @@ void ModbusClientTCPasync::onPoll() {
     RequestEntry* request = requests.front();
     if (millis() - request->sentTime > MT_target.timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
-      respond(TIMEOUT, request, nullptr);
+      doRespond = true;
       requests.pop();
     }
+  }
+  }  // end lock scope
+  if (doRespond) {
+    respond(error, request, nullptr);
   }
 }
 
