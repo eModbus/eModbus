@@ -319,7 +319,7 @@ void ModbusClientTCPasync::onPoll() {
 
   // when waiting for a response, check if timeout has struck
   if (MTA_state == BUSY && !requests.empty()) {  // when state == busy, there should always be at least one request in the queue
-    RequestEntry* request = requests.front();
+    request = requests.front();
     if (millis() - request->sentTime > MT_target.timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
       doRespond = true;
