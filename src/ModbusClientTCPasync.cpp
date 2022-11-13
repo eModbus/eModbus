@@ -189,7 +189,7 @@ void ModbusClientTCPasync::onDisconnected() {
   }
 
   RequestEntry* request = nullptr;
-  Error error = SUCCESS;
+  Error error = IP_CONNECTION_FAILED;
   bool doRespond = false;
 
   {  // start lock scope
