@@ -137,13 +137,17 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
 }
 
 void ModbusServerTCPasync::mb_client::onPoll() {
+  bool closeClient = false;
+  {
   LOCK_GUARD(lock1, obLock);
   handleOutbox();
   if (server->idle_timeout > 0 && 
       millis() - lastActiveTime > server->idle_timeout) {
     LOG_D("client idle, closing\n");
-    client->close();
+    closeClient = true;
   }
+  }
+  if (closeClient) client->close();
 }
 
 void ModbusServerTCPasync::mb_client::onDisconnect() {
