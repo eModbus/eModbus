@@ -197,8 +197,8 @@ void ModbusClientTCPasync::onDisconnected() {
   LOG_D("disconnected\n");
 
   // 2. Set state and return error to user
-  MTA_state = DISCONNECTED;
-  if (!requests.empty()) {  
+  
+  if (MTA_state == BUSY) {  // do not test for empty queue: if busy, there should be at least one request pending
     request = requests.front();
     doRespond = true;
     requests.pop();
@@ -210,6 +210,7 @@ void ModbusClientTCPasync::onDisconnected() {
   }
 
   }  // end lock scope
+  MTA_state = DISCONNECTED;
   if (doRespond) {
     respond(error, request, nullptr);
   }
@@ -318,10 +319,11 @@ void ModbusClientTCPasync::onPoll() {
   handleSendingQueue();
 
   // when waiting for a response, check if timeout has struck
-  if (MTA_state == BUSY && !requests.empty()) {  // when state == busy, there should always be at least one request in the queue
+  if (MTA_state == BUSY) {  // do not test for empty queue: if busy, there should be at least one request pending
     RequestEntry* request = requests.front();
     if (millis() - request->sentTime > MT_target.timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
+      error = TIMEOUT;
       doRespond = true;
       requests.pop();
     }
