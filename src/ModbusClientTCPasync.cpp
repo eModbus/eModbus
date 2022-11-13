@@ -325,6 +325,7 @@ void ModbusClientTCPasync::onPoll() {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
       error = TIMEOUT;
       doRespond = true;
+      MTA_state = CONNECTED;
       requests.pop();
     }
   }
