@@ -13,7 +13,6 @@ ModbusServerTCPasync::mb_client::mb_client(ModbusServerTCPasync* s, AsyncClient*
   client(c),
   lastActiveTime(millis()),
   message(nullptr),
-  error(SUCCESS),
   outbox() {
     client->onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<mb_client*>(i))->onData(static_cast<uint8_t*>(data), len); }, this);
     client->onPoll([](void* i, AsyncClient* c) { (static_cast<mb_client*>(i))->onPoll(); }, this);
@@ -40,7 +39,6 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
     // 0. start
     if (!message) {
       message = new ModbusMessage(8);
-      error = SUCCESS;
     }
 
     //  1. get minimal 8 bytes to move on
