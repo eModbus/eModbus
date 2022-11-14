@@ -48,7 +48,6 @@ class ModbusServerTCPasync : public ModbusServer {
     AsyncClient* client;
     uint32_t lastActiveTime;
     ModbusMessage* message;
-    Modbus::Error error;
     std::queue<ModbusMessage*> outbox;
     #if USE_MUTEX
     std::mutex obLock;  // outbox protection
