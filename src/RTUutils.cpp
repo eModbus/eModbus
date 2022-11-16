@@ -237,7 +237,7 @@ ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsign
   // Index into buffer
   uint16_t bufferPtr = 0;
   // Byte read
-  int b; 
+  int b{}; 
 
   // State machine states, RTU mode
   enum STATES : uint8_t { WAIT_DATA = 0, IN_PACKET, DATA_READ, FINISHED };
