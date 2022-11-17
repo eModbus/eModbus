@@ -365,6 +365,7 @@ void ModbusClientTCPasync::handleSendingQueue() {
       // done
       MTA_client.send();
       re->sentTime = millis();
+      LOG_V("Sending request\n");
       HEXDUMP_V("Request packet", re->msg.data(), re->msg.size());
       MTA_state = AWAIT_RESPONSE;
     }
