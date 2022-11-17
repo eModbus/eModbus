@@ -61,7 +61,7 @@ void ModbusClientTCPasync::connect() {
   if (MTA_state == DISCONNECTED) {
     connectUnlocked();
   } else {
-    LOG_W("Could not connect: client not disconnected");
+    LOG_W("Could not connect: client not disconnected\n");
   }
 }
 
@@ -144,7 +144,7 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, Targ
     if (requests.size() < MTA_qLimit) {
       re = new RequestEntry(token, request, target, syncReq);
       if (!re) {
-        LOG_E("Could not create request entry");
+        LOG_E("Could not create request entry\n");
         return false;  //TODO: proper error returning in case allocation fails
       }
       // inject transactionID
@@ -242,7 +242,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
 
   // 1. Check if we're actually expecting a packet
   if (requests.empty()) {
-    LOG_W("No request waiting for response");
+    LOG_W("No request waiting for response\n");
     return;
   } else {
     request = requests.front();
@@ -261,7 +261,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
       messageLength < 256) {
       response = new ModbusMessage(messageLength);
       if (!response) {
-        LOG_E("Could not create response packet");
+        LOG_E("Could not create response packet\n");
         return;
       }
       response->add(&data[6], messageLength);
@@ -312,6 +312,9 @@ void ModbusClientTCPasync::onPoll() {
   bool doRespond = false;
   RequestEntry* request = nullptr;
   Error error = SUCCESS;
+
+  LOG_V("polling\n");
+
   {  // start lock scope
   LOCK_GUARD(lock, aoLock);
 
