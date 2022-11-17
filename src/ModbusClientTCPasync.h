@@ -186,8 +186,8 @@ protected:
   enum {
     DISCONNECTED,
     CONNECTING,
-    CONNECTED,
-    BUSY,
+    IDLE,
+    AWAIT_RESPONSE,
     CHANGE_TARGET,
     DISCONNECTING
   } MTA_state;                      // TCP connection state

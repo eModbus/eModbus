@@ -160,7 +160,7 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, Targ
     if (MTA_state == DISCONNECTED) {
       MT_target = re->target;
       connect();
-    } else if (MTA_state == CONNECTED) {
+    } else if (MTA_state == IDLE) {
       LOCK_GUARD(lock, aoLock);
       handleSendingQueue();
     }
@@ -172,7 +172,7 @@ bool ModbusClientTCPasync::addToQueue(int32_t token, ModbusMessage request, Targ
 void ModbusClientTCPasync::onConnected() {
   LOCK_GUARD(lock, aoLock);
   LOG_D("connected\n");
-  MTA_state = CONNECTED;
+  MTA_state = IDLE;
   MTA_client.setNoDelay(true);
   MT_lastActivity = millis() - MT_target.interval - 1;  // send first request immediately after connecting
   handleSendingQueue();
@@ -198,7 +198,7 @@ void ModbusClientTCPasync::onDisconnected() {
 
   // 2. Set state and return error to user
   
-  if (MTA_state == BUSY) {  // do not test for empty queue: if busy, there should be at least one request pending
+  if (MTA_state != CHANGE_TARGET && !requests.empty()) {  // a request is pending but we're not changing target.
     request = requests.front();
     doRespond = true;
     requests.pop();
@@ -295,7 +295,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   // 4. cleanup and reset state
   //    request and response are deleted in respond()
 
-  MTA_state = CONNECTED;
+  MTA_state = IDLE;
   requests.pop();
 
   // 5. check if we have to send the next request
@@ -315,20 +315,21 @@ void ModbusClientTCPasync::onPoll() {
   {  // start lock scope
   LOCK_GUARD(lock, aoLock);
 
-  // try to send whatever is waiting
-  handleSendingQueue();
-
   // when waiting for a response, check if timeout has struck
-  if (MTA_state == BUSY) {  // do not test for empty queue: if busy, there should be at least one request pending
+  if (MTA_state == AWAIT_RESPONSE) {  // do not test for empty queue: if busy, there should be at least one request pending
     request = requests.front();
     if (millis() - request->sentTime > MT_target.timeout) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
       error = TIMEOUT;
       doRespond = true;
-      MTA_state = CONNECTED;
+      MTA_state = IDLE;
       requests.pop();
     }
   }
+
+  // try to send whatever is waiting
+  handleSendingQueue();
+
   }  // end lock scope
   if (doRespond) {
     respond(error, request, nullptr);
@@ -341,7 +342,7 @@ void ModbusClientTCPasync::handleSendingQueue() {
   // by mutex.
 
   // 1. If we're not busy, check if we have to switch target
-  if (MTA_state == CONNECTED && !requests.empty()) {
+  if (MTA_state == IDLE && !requests.empty()) {
     RequestEntry* re = requests.front();
     if (MT_lastTarget != re->target) {
       LOG_V("Switching target\n");
@@ -365,7 +366,7 @@ void ModbusClientTCPasync::handleSendingQueue() {
       MTA_client.send();
       re->sentTime = millis();
       HEXDUMP_V("Request packet", re->msg.data(), re->msg.size());
-      MTA_state = BUSY;
+      MTA_state = AWAIT_RESPONSE;
     }
   }
 }
