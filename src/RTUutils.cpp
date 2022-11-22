@@ -127,7 +127,7 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
   if (thresholdBytes > 0 && thresholdBytes < 128) {
     // Yes, it is. Try to identify the Serial/Serial1/Serial2 the user has provided.
     uart_dev_t *uart = nullptr;
-    uint8_t uart_num = 0;
+    uint8_t uart_num = 99;
     if (&serial == &Serial) {
       uart_num = 0;
       uart = &UART0;
@@ -143,7 +143,7 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
       }
     }
     // Is it a defined serial?
-    if (uart != nullptr) {
+    if (uart_num != 99) {
       // Yes. get the current value and set ours instead
       rc = uart->conf1.rxfifo_full_thrhd;
       uart->conf1.rxfifo_full_thrhd = thresholdBytes;

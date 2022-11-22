@@ -83,7 +83,7 @@ public:
   void init(bool value = false);
 
   // get size in coils
-  inline const uint16_t coils() const { return CDsize; }
+  inline uint16_t coils() const { return CDsize; }
 
   // Raw access to coil data buffer
   inline uint8_t *data() const { return CDbuffer; };
@@ -107,8 +107,8 @@ protected:
   // bit masks for bits left of a bit index in a byte
   const uint8_t CDfilter[8] = { 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF };
   // Calculate byte index and bit index within that byte
-  inline const uint8_t byteIndex(uint16_t index) const { return index >> 3; }
-  inline const uint8_t bitIndex(uint16_t index) const { return index & 0x07; }
+  inline uint8_t byteIndex(uint16_t index) const { return index >> 3; }
+  inline uint8_t bitIndex(uint16_t index) const { return index & 0x07; }
   // Calculate reversed bit sequence for a byte (taken from http://graphics.stanford.edu/~seander/bithacks.html#ReverseByteWith32Bits)
   inline uint8_t reverseBits(uint8_t b) { return ((b * 0x0802LU & 0x22110LU) | (b * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16; }
   // (Re-)init with bit image vector
