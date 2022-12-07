@@ -217,6 +217,12 @@ bool ModbusServerTCPasync::start(uint16_t port, uint8_t maxClients, uint32_t tim
 }
 
 bool ModbusServerTCPasync::stop() {
+  
+  if (!server) {
+    LOG_W("Server not running.\n");
+    return false;
+  }
+  
   // stop server to prevent new clients connecting
   server->end();
 
@@ -232,6 +238,11 @@ bool ModbusServerTCPasync::stop() {
   server = nullptr;
   LOG_D("Modbus server stopped\n");
   return true;
+}
+
+bool ModbusServerTCPasync::isRunning() {
+  if (server) return true;
+  else return false;
 }
 
 void ModbusServerTCPasync::onClientConnect(AsyncClient* client) {
