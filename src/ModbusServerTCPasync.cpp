@@ -240,6 +240,11 @@ bool ModbusServerTCPasync::stop() {
   return true;
 }
 
+bool ModbusServerTCPasync::isRunning() {
+  if (server) return true;
+  else return false;
+}
+
 void ModbusServerTCPasync::onClientConnect(AsyncClient* client) {
   LOG_D("new client\n");
   LOCK_GUARD(lock1, cListLock);
