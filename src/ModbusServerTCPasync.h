@@ -71,6 +71,9 @@ class ModbusServerTCPasync : public ModbusServer {
 
   // stop: drop all connections and kill server task
   bool stop();
+ 
+  // isRunning: return true is server is running
+  bool isRunning();
 
  protected:
   inline void isInstance() { }
