@@ -124,12 +124,12 @@ protected:
   FCT& operator=(const FCT& other) = delete; // No assignment either
 public:
   // getType: get the function code type for a given function code
-  static const FCType getType(uint8_t functionCode);
+  static FCType getType(uint8_t functionCode);
 
   // setType: change the type of a function code.
   // This is possible only for the codes undefined yet and will return
   // the effective type
-  static const FCType redefineType(uint8_t functionCode, const FCType type = FCUSER);
+  static FCType redefineType(uint8_t functionCode, const FCType type = FCUSER);
 };
 
 #endif
