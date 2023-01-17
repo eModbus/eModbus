@@ -106,7 +106,7 @@ ModbusMessage FC_0F(ModbusMessage request) {
   // Check the parameters so far
   if (numCoils && start + numCoils <= myCoils.coils()) {
     // Packed coils will fit in our storage
-    if (numBytes == (numCoils >> 3) + 1) {
+    if (numBytes == ((numCoils - 1) >> 3) + 1) {
       // Byte count seems okay, so get the packed coil bytes now
       vector<uint8_t> coilset;
       request.get(offset, coilset, numBytes);
