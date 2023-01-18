@@ -289,9 +289,11 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
 
 void ModbusClientTCPasync::onPoll() {
   // check if timeout has struck for currentRequest
-  if (MTA_state == BUSY && millis() - currentRequest->sentTime > MTA_target.timeout) {
+  if (currentRequest && millis() - currentRequest->sentTime > MTA_target.timeout) {
     LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
+    if (MTA_state == BUSY) {
     MTA_state = CONNECTED;
+    }
     respond(TIMEOUT, nullptr);
   }
 
