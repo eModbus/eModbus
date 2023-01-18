@@ -298,7 +298,7 @@ void ModbusClientTCPasync::onPoll() {
   }
 
   // still work to be done?
-  if (getNextRequest()) {
+  if (getNextRequest() || (MTA_state == CONNECTED && currentRequest)) {
     handleCurrentRequest();
   }
 }
