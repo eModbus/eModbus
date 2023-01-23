@@ -18,14 +18,15 @@ ModbusClientTCPasync::ModbusClientTCPasync(uint16_t queueLimit) :
   MTA_defaultInterval(TARGETHOSTINTERVAL),
   MTA_qLimit(queueLimit),
   MTA_lastActivity(0),
-  MTA_state(DISCONNECTED)
+  MTA_state(DISCONNECTED),
+  timer()
     {
       // attach all handlers on async tcp events
       MTA_client.onConnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onConnected(); }, this);
       MTA_client.onDisconnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onDisconnected(); }, this);
       MTA_client.onError([](void* i, AsyncClient* c, int8_t error) { (static_cast<ModbusClientTCPasync*>(i))->onACError(c, error); }, this);
       MTA_client.onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<ModbusClientTCPasync*>(i))->onPacket(static_cast<uint8_t*>(data), len); }, this);
-      MTA_client.onPoll([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onPoll(); }, this);
+      //MTA_client.onPoll([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onPoll(); }, this);
 
       // disable nagle algorithm ref Modbus spec
       MTA_client.setNoDelay(true);
@@ -42,14 +43,15 @@ ModbusClientTCPasync::ModbusClientTCPasync(IPAddress host, uint16_t port, uint16
   MTA_defaultInterval(TARGETHOSTINTERVAL),
   MTA_qLimit(queueLimit),
   MTA_lastActivity(0),
-  MTA_state(DISCONNECTED)
+  MTA_state(DISCONNECTED),
+  timer()
     {
       // attach all handlers on async tcp events
       MTA_client.onConnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onConnected(); }, this);
       MTA_client.onDisconnect([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onDisconnected(); }, this);
       MTA_client.onError([](void* i, AsyncClient* c, int8_t error) { (static_cast<ModbusClientTCPasync*>(i))->onACError(c, error); }, this);
       MTA_client.onData([](void* i, AsyncClient* c, void* data, size_t len) { (static_cast<ModbusClientTCPasync*>(i))->onPacket(static_cast<uint8_t*>(data), len); }, this);
-      MTA_client.onPoll([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onPoll(); }, this);
+      //MTA_client.onPoll([](void* i, AsyncClient* c) { (static_cast<ModbusClientTCPasync*>(i))->onPoll(); }, this);
 
       // disable nagle algorithm ref Modbus spec
       MTA_client.setNoDelay(true);
@@ -177,6 +179,7 @@ void ModbusClientTCPasync::connectUnlocked() {
 
   MTA_state = CONNECTING;
   MTA_client.connect(MTA_lastTarget.host, MTA_lastTarget.port);
+  timer.attach_ms(POLL_FREQ, onPollStatic, (void*)this);
 }
 
 void ModbusClientTCPasync::onConnected() {
@@ -189,6 +192,8 @@ void ModbusClientTCPasync::onConnected() {
 
 void ModbusClientTCPasync::onDisconnected() {
   LOG_D("disconnected\n");
+
+  timer.detach();
 
   // Are we changing to to targethost?
   if (MTA_state == CHANGE_TARGET) {
@@ -301,6 +306,10 @@ void ModbusClientTCPasync::onPoll() {
   if (getNextRequest() || (MTA_state == CONNECTED && currentRequest)) {
     handleCurrentRequest();
   }
+}
+
+void ModbusClientTCPasync::onPollStatic(void* mta) {
+  static_cast<ModbusClientTCPasync*>(mta)->onPoll();
 }
 
 bool ModbusClientTCPasync::getNextRequest() {

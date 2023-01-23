@@ -18,8 +18,11 @@
 #include <mutex>      // NOLINT
 #endif
 
+#include <Ticker.h>
+
 #define TARGETHOSTINTERVAL 10
 #define DEFAULTTIMEOUT 2000
+#define POLL_FREQ 500
 
 class ModbusClientTCPasync : public ModbusClient {
 public:
@@ -167,6 +170,7 @@ protected:
   void onACError(AsyncClient* c, int8_t error);
   void onPacket(uint8_t* data, size_t length);
   void onPoll();
+  static void onPollStatic(void* mta);
   bool getNextRequest();
   void handleCurrentRequest();
   void respond(Error error, ModbusMessage* response);
@@ -196,6 +200,7 @@ protected:
     BUSY,
     DISCONNECTING
   } MTA_state;                      // TCP connection state
+  Ticker timer;
 };
 
 #endif
