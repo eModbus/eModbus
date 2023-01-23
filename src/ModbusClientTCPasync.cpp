@@ -71,27 +71,29 @@ ModbusClientTCPasync::~ModbusClientTCPasync() {
 
 // optionally manually connect to modbus server. Otherwise connection will be made upon first request
 void ModbusClientTCPasync::connect() {
-  if (!MTA_client.disconnected()) {
+  if (MTA_state != DISCONNECTED) {
     LOG_W("Client not disconnected\n");
     return;
   }
-  LOG_D("connecting\n");
 
-  // only connect if disconnected
-  if (MTA_state == DISCONNECTED) {
-    connectUnlocked();
-  }
+  LOG_D("connecting\n");
+  connectUnlocked();
 }
 
 // manually disconnect from modbus server.
 void ModbusClientTCPasync::disconnect(bool force) {
-  if (!MTA_client.connected()) {
+  if (MTA_state != CONNECTED && !force) {
     LOG_W("Client not connected\n");
     return;
   }
+
   LOG_D("disconnecting\n");
   MTA_state = DISCONNECTING;
-  MTA_client.close(force);
+  if (force) {
+    MTA_client.abort();
+  } else {
+    MTA_client.close();
+  }
 }
 
 // Set default timeout value (and interval)
@@ -177,7 +179,13 @@ void ModbusClientTCPasync::connectUnlocked() {
     MTA_lastTarget = currentRequest->target;
   }
 
+  TargetHost t(IPAddress(0, 0, 0, 0), 0, DEFAULTTIMEOUT, TARGETHOSTINTERVAL);
+  if (MTA_lastTarget == t) {
+    LOG_E("No target to connect to\n");
+  }
+
   MTA_state = CONNECTING;
+  LOG_D("Connecting to : %d.%d.%d.%d:%d\n", MTA_lastTarget.host[0], MTA_lastTarget.host[1], MTA_lastTarget.host[2], MTA_lastTarget.host[3], MTA_lastTarget.port);
   MTA_client.connect(MTA_lastTarget.host, MTA_lastTarget.port);
   timer.attach_ms(POLL_FREQ, onPollStatic, (void*)this);
 }
@@ -186,7 +194,6 @@ void ModbusClientTCPasync::onConnected() {
   LOG_D("connected\n");
   MTA_state = CONNECTED;
   MTA_lastActivity = millis() - MTA_lastTarget.interval - 1;  // send first request immediately after connecting
-  // from now on onPoll will be called every 500 msec
   handleCurrentRequest();
 }
 
@@ -211,6 +218,7 @@ void ModbusClientTCPasync::onDisconnected() {
 
   // Still work to do?
   if (getNextRequest()) {
+    MTA_lastTarget = currentRequest->target;
     connectUnlocked();
   }
 }
@@ -293,17 +301,21 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
 }
 
 void ModbusClientTCPasync::onPoll() {
-  // check if timeout has struck for currentRequest
+  // check if timeout for connecting or responding has struck
   if (currentRequest && millis() - currentRequest->sentTime > MTA_target.timeout) {
-    LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
-    if (MTA_state == BUSY) {
-    MTA_state = CONNECTED;
+    if (MTA_state == CONNECTING) {
+      LOG_D("connect timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
+      disconnect(true);
+      onDisconnected();  // onDisconnected isn't called because there was no connection n the first place
+    } else if (MTA_state == BUSY) {
+      LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
+      MTA_state = CONNECTED;
+      respond(TIMEOUT, nullptr);
     }
-    respond(TIMEOUT, nullptr);
   }
 
   // still work to be done?
-  if (getNextRequest() || (MTA_state == CONNECTED && currentRequest)) {
+  if (getNextRequest()) {
     handleCurrentRequest();
   }
 }
@@ -319,6 +331,7 @@ bool ModbusClientTCPasync::getNextRequest() {
   if (!currentRequest && !queue.empty()) {
     LOG_D("Getting next request from queue\n");
     currentRequest = queue.front();
+    currentRequest->sentTime = millis();
     queue.pop();
     return true;
   }
@@ -329,6 +342,12 @@ void ModbusClientTCPasync::handleCurrentRequest() {
   // ATTENTION: This method does not have a lock guard.
   // Calling sites must assure shared resources are protected
   // by mutex.
+
+  // AsyncTCP requirement
+  if (!MTA_client.connected()) {
+    LOG_E("Client not connected\n");
+    return;
+  }
 
   // Check if we're not busy and have something to do
   if (MTA_state == CONNECTED && currentRequest) {
@@ -355,7 +374,6 @@ void ModbusClientTCPasync::handleCurrentRequest() {
       MTA_client.add(reinterpret_cast<const char*>(currentRequest->msg.data()), currentRequest->msg.size(), ASYNC_WRITE_FLAG_COPY);
       // done
       MTA_client.send();
-      currentRequest->sentTime = millis();
       LOG_D("Sending request\n");
       HEXDUMP_V("Request packet", currentRequest->msg.data(), currentRequest->msg.size());
       MTA_state = BUSY;
