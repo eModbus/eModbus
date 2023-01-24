@@ -89,11 +89,7 @@ void ModbusClientTCPasync::disconnect(bool force) {
 
   LOG_D("disconnecting\n");
   MTA_state = DISCONNECTING;
-  if (force) {
-    MTA_client.abort();
-  } else {
-    MTA_client.close();
-  }
+  MTA_client.close(force);
 }
 
 // Set default timeout value (and interval)
@@ -305,8 +301,11 @@ void ModbusClientTCPasync::onPoll() {
   if (currentRequest && millis() - currentRequest->sentTime > MTA_target.timeout) {
     if (MTA_state == CONNECTING) {
       LOG_D("connect timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
-      disconnect(true);
-      onDisconnected();  // onDisconnected isn't called because there was no connection n the first place
+      // ESPAsyncTCP/AsyncTCP doesn't allow aborting a not yet made connection.
+      // so we just try to and call our callback ourselves
+      MTA_client.abort();
+      onDisconnected();
+      return;
     } else if (MTA_state == BUSY) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
       MTA_state = CONNECTED;
