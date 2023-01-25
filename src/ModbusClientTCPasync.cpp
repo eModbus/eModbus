@@ -302,9 +302,10 @@ void ModbusClientTCPasync::onPoll() {
     if (MTA_state == CONNECTING) {
       LOG_D("connect timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
       // ESPAsyncTCP/AsyncTCP doesn't allow aborting a not yet made connection.
-      // so we just try to and call our callback ourselves
+      // This statement therefore doesn't do anything and we have to wait for the hardcoded 30s timeout.
       MTA_client.abort();
-      onDisconnected();
+      //onDisconnected();  // Don't manually call this. eModbus will create a new connection and AsyncTCP will loose the old reference.
+                           // High risk of memleak + reaching connection limit
       return;
     } else if (MTA_state == BUSY) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
