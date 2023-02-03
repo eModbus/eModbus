@@ -306,6 +306,7 @@ void ModbusClientTCPasync::onPoll() {
       MTA_client.abort();
       //onDisconnected();  // Don't manually call this. eModbus will create a new connection and AsyncTCP will loose the old reference.
                            // High risk of memleak + reaching connection limit
+      timer.detach();  // stop calling onPoll and wait for onDisconnect to be called
       return;
     } else if (MTA_state == BUSY) {
       LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), currentRequest->sentTime);
