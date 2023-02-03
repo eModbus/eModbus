@@ -195,6 +195,7 @@ protected:
   enum {
     DISCONNECTED,
     CONNECTING,
+    RETRY_CONNECT,
     CONNECTED,
     CHANGE_TARGET,
     BUSY,

@@ -182,7 +182,9 @@ void ModbusClientTCPasync::connectUnlocked() {
 
   MTA_state = CONNECTING;
   LOG_D("Connecting to : %d.%d.%d.%d:%d\n", MTA_lastTarget.host[0], MTA_lastTarget.host[1], MTA_lastTarget.host[2], MTA_lastTarget.host[3], MTA_lastTarget.port);
-  MTA_client.connect(MTA_lastTarget.host, MTA_lastTarget.port);
+  if (!MTA_client.connect(MTA_lastTarget.host, MTA_lastTarget.port)) {
+    MTA_state = RETRY_CONNECT;
+  }
   timer.attach_ms(POLL_FREQ, onPollStatic, (void*)this);
 }
 
@@ -297,6 +299,11 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
 }
 
 void ModbusClientTCPasync::onPoll() {
+  if (MTA_state == RETRY_CONNECT) {
+    connectUnlocked();
+    return;
+  }
+
   // check if timeout for connecting or responding has struck
   if (currentRequest && millis() - currentRequest->sentTime > MTA_target.timeout) {
     if (MTA_state == CONNECTING) {
