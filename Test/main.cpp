@@ -42,7 +42,7 @@ void RTStest(bool level) {
 }
 
 // Baud rate to be used for RTU components
-const uint32_t BaudRate(4000000);
+const uint32_t BaudRate(115200);
 
 // Test prerequisites
 TCPstub stub;

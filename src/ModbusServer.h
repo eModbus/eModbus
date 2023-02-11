@@ -67,6 +67,10 @@ protected:
   // Destructor
   ~ModbusServer();
 
+  // Prevent copy construction or assignment
+  ModbusServer(ModbusServer& other) = delete;
+  ModbusServer& operator=(ModbusServer& other) = delete;
+
   // Virtual function to prevent this class being instantiated
   virtual void isInstance() = 0;
 

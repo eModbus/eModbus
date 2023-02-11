@@ -91,7 +91,9 @@ protected:
   virtual Error addRequestM(ModbusMessage msg, uint32_t token) = 0;
   // Virtual syncRequest variant following the same pattern
   virtual ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token) = 0;
-  
+  // Prevent copy construction or assignment
+  ModbusClient(ModbusClient& other) = delete;
+  ModbusClient& operator=(ModbusClient& other) = delete;
 
   uint32_t messageCount;           // Number of requests generated. Used for transactionID in TCPhead
   uint32_t errorCount;             // Number of errors received
