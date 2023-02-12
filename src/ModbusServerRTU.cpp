@@ -13,7 +13,7 @@
 uint8_t ModbusServerRTU::instanceCounter = 0;
 
 // Constructor with RTS pin GPIO (or -1)
-ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin) :
+ModbusServerRTU::ModbusServerRTU(Stream& serial, uint32_t timeout, int rtsPin) :
   ModbusServer(),
   serverTask(nullptr),
   serverTimeout(timeout),
@@ -40,7 +40,7 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
 }
 
 // Constructor with RTS callback
-ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts) :
+ModbusServerRTU::ModbusServerRTU(Stream& serial, uint32_t timeout, RTScallback rts) :
   ModbusServer(),
   serverTask(nullptr),
   serverTimeout(timeout),
@@ -64,7 +64,7 @@ ModbusServerRTU::~ModbusServerRTU() {
 }
 
 // start: create task with RTU server
-bool ModbusServerRTU::start(int coreID, uint32_t interval) {
+bool ModbusServerRTU::start(int coreID, uint32_t interval, uint32_t baudRate) {
   // Task already running?
   if (serverTask != nullptr) {
     // Yes. stop it first
@@ -73,9 +73,9 @@ bool ModbusServerRTU::start(int coreID, uint32_t interval) {
   }
 
   // start only if serial interface is initialized!
-  if (MSRserial.baudRate()) {
+  if (baudRate) {
     // Set minimum interval time
-    MSRinterval = RTUutils::calculateInterval(MSRserial, interval);
+    MSRinterval = RTUutils::calculateInterval(MSRserial, interval, baudRate);
 
     // Set the UART FIFO copy threshold to 1 byte
     RTUutils::UARTinit(MSRserial, 1);
@@ -89,7 +89,7 @@ bool ModbusServerRTU::start(int coreID, uint32_t interval) {
 
     LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
   } else {
-    LOG_E("Server task could not be started. HardwareSerial not initialized?\n");
+    LOG_E("Server task could not be started. Stream not initialized?\n");
     return false;
   }
 

@@ -10,7 +10,7 @@
 #if HAS_FREERTOS
 
 #include <Arduino.h>
-#include "HardwareSerial.h"
+#include "Stream.h"
 #include "ModbusServer.h"
 #include "RTUutils.h"
 
@@ -25,14 +25,14 @@ using MSRlistener = std::function<void(ModbusMessage msg)>;
 class ModbusServerRTU : public ModbusServer {
 public:
   // Constructors
-  explicit ModbusServerRTU(HardwareSerial& serial, uint32_t timeout=20000, int rtsPin = -1);
-  ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts);
+  explicit ModbusServerRTU(Stream& serial, uint32_t timeout=20000, int rtsPin = -1);
+  ModbusServerRTU(Stream& serial, uint32_t timeout, RTScallback rts);
 
   // Destructor
   ~ModbusServerRTU();
 
   // start: create task with RTU server to accept requests
-  bool start(int coreID = -1, uint32_t interval = 0);
+  bool start(int coreID = -1, uint32_t interval = 0, uint32_t baudRate = 9600);
 
   // stop: kill server task
   bool stop();
@@ -69,7 +69,7 @@ protected:
                                          // RTUutils. After timeout without any message
                                          // the server will pause ~1ms and start 
                                          // receive again.
-  HardwareSerial& MSRserial;             // The serial interface to use
+  Stream& MSRserial;             // The serial interface to use
   uint32_t MSRinterval;                  // Bus quiet time between messages
   unsigned long MSRlastMicros;                // microsecond time stamp of last bus activity
   int8_t MSRrtsPin;                      // GPIO number of the RS485 module's RE/DE line

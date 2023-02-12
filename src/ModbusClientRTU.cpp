@@ -11,7 +11,7 @@
 #include "Logging.h"
 
 // Constructor takes Serial reference and optional DE/RE pin
-ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit) :
+ModbusClientRTU::ModbusClientRTU(Stream& serial, int8_t rtsPin, uint16_t queueLimit) :
   ModbusClient(),
   MR_serial(serial),
   MR_lastMicros(micros()),
@@ -33,7 +33,7 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t
 }
 
 // Alternative constructor takes Serial reference and RTS callback function
-ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, RTScallback rts, uint16_t queueLimit) :
+ModbusClientRTU::ModbusClientRTU(Stream& serial, RTScallback rts, uint16_t queueLimit) :
   ModbusClient(),
   MR_serial(serial),
   MR_lastMicros(micros()),
@@ -54,14 +54,14 @@ ModbusClientRTU::~ModbusClientRTU() {
 }
 
 // begin: start worker task
-void ModbusClientRTU::begin(int coreID, uint32_t interval) {
-  // Only start worker if HardwareSerial has been initialized!
-  if (MR_serial.baudRate()) {
+void ModbusClientRTU::begin(int coreID, uint32_t interval, uint32_t baudRate) {
+  // Only start worker if Stream has been initialized!
+  if (baudRate) {
     // Pull down RTS toggle, if necessary
     MTRSrts(LOW);
 
     // Set minimum interval time
-    MR_interval = RTUutils::calculateInterval(MR_serial, interval);
+    MR_interval = RTUutils::calculateInterval(MR_serial, interval, baudRate);
 
     // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
     RTUutils::UARTinit(MR_serial, 1);
@@ -74,7 +74,7 @@ void ModbusClientRTU::begin(int coreID, uint32_t interval) {
 
     LOG_D("Worker task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
   } else {
-    LOG_E("Worker task could not be started! HardwareSerial not initialized?\n");
+    LOG_E("Worker task could not be started! Stream not initialized?\n");
   }
 }
 

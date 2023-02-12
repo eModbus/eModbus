@@ -9,7 +9,7 @@
 #include <soc/uart_struct.h>
 #endif
 #include <vector>
-#include "HardwareSerial.h"
+#include "Stream.h"
 #include "ModbusTypeDefs.h"
 #include <functional> 
 
@@ -47,7 +47,7 @@ public:
   static void addCRC(ModbusMessage& raw);
 
 // calculateInterval: determine the minimal gap time between messages
-  static uint32_t calculateInterval(HardwareSerial& s, uint32_t overwrite);
+  static uint32_t calculateInterval(Stream& s, uint32_t overwrite, uint32_t baudRate);
 
 // RTSauto: dummy callback for auto half duplex RS485 boards
   inline static void RTSauto(bool level) { return; } // NOLINT
@@ -60,14 +60,14 @@ protected:
   RTUutils() = delete;
 
 // UARTinit: modify the UART FIFO copy trigger threshold 
-  static int UARTinit(HardwareSerial& serial, int thresholdBytes = 1);
+  static int UARTinit(Stream& serial, int thresholdBytes = 1);
 
 // receive: get a Modbus message from serial, maintaining timeouts etc.
-  static ModbusMessage receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes = false);
+  static ModbusMessage receive(Stream& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes = false);
 
 // send: send a Modbus message in either format (ModbusMessage or data/len)
-  static void send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, const uint8_t *data, uint16_t len, bool ASCIImode);
-  static void send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, ModbusMessage raw, bool ASCIImode);
+  static void send(Stream& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, const uint8_t *data, uint16_t len, bool ASCIImode);
+  static void send(Stream& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, ModbusMessage raw, bool ASCIImode);
 };
 
 #endif

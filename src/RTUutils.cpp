@@ -102,11 +102,11 @@ void RTUutils::addCRC(ModbusMessage& raw) {
 }
 
 // calculateInterval: determine the minimal gap time between messages
-uint32_t RTUutils::calculateInterval(HardwareSerial& s, uint32_t overwrite) {
+uint32_t RTUutils::calculateInterval(Stream& s, uint32_t overwrite, uint32_t baudRate) {
   uint32_t interval = 0;
 
   // silent interval is at least 3.5x character time
-  interval = 35000000UL / s.baudRate();  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
+  interval = 35000000UL / baudRate;  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
   if (interval < 1750) interval = 1750;       // lower limit according to Modbus RTU standard
   // User overwrite?
   if (overwrite > interval) {
@@ -120,7 +120,7 @@ uint32_t RTUutils::calculateInterval(HardwareSerial& s, uint32_t overwrite) {
 // recognized fast enough for higher Modbus bus speeds
 // Our default is 1 - every single byte arriving will have the UART FIFO
 // copied to the serial buffer.
-int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
+int RTUutils::UARTinit(Stream& serial, int thresholdBytes) {
   int rc = 0;
 #if NEED_UART_PATCH
   // Is the threshold value valid? The UART FIFO is 128 bytes only
@@ -160,7 +160,7 @@ int RTUutils::UARTinit(HardwareSerial& serial, int thresholdBytes) {
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, const uint8_t *data, uint16_t len, bool ASCIImode) {
+void RTUutils::send(Stream& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, const uint8_t *data, uint16_t len, bool ASCIImode) {
   // Clear serial buffers
   while (serial.available()) serial.read();
   
@@ -223,12 +223,12 @@ void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t 
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
-void RTUutils::send(HardwareSerial& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, ModbusMessage raw, bool ASCIImode) {
+void RTUutils::send(Stream& serial, unsigned long& lastMicros, uint32_t interval, RTScallback rts, ModbusMessage raw, bool ASCIImode) {
   send(serial, lastMicros, interval, rts, raw.data(), raw.size(), ASCIImode);
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval
-ModbusMessage RTUutils::receive(HardwareSerial& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes) {
+ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(512);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];

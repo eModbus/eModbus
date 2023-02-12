@@ -16,6 +16,8 @@
 #include "TCPstub.h"
 #include "CoilData.h"
 
+#include <SoftwareSerial.h>
+
 #define STRINGIFY(x) #x
 #define LNO(x) "line " STRINGIFY(x) " "
 
@@ -42,7 +44,7 @@ void RTStest(bool level) {
 }
 
 // Baud rate to be used for RTU components
-const uint32_t BaudRate(115200);
+const uint32_t BaudRate(4000000);
 
 // Test prerequisites
 TCPstub stub;
@@ -1100,6 +1102,12 @@ void setup()
   printPassed = false;
 
   // Set up Serial1 and Serial2
+  Serial1.setRxBufferSize(300);
+  Serial1.setRxFIFOFull(254);
+  Serial1.setRxTimeout(4);
+  Serial2.setRxBufferSize(300);
+  Serial2.setRxFIFOFull(254);
+  Serial2.setRxTimeout(4);
   Serial1.begin(BaudRate, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
   Serial2.begin(BaudRate, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
 
@@ -1154,7 +1162,7 @@ void setup()
     // RTUclient.onErrorHandler(&handleError);
     RTUclient.setTimeout(2000);
 
-    RTUclient.begin();
+    RTUclient.begin(0, 0, BaudRate);
 
     // Define and start RTU server
     RTUserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
@@ -1166,7 +1174,7 @@ void setup()
     RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=any for serverID=2
 
     // Have the RTU server run on core 1 with a grossly different interval time!
-    RTUserver.start(1);
+    RTUserver.start(1, 2000, BaudRate);
 
     ExpectedToggles = 0;
 
