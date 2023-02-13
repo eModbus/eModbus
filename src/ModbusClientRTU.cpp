@@ -54,28 +54,20 @@ ModbusClientRTU::~ModbusClientRTU() {
 }
 
 // begin: start worker task
-void ModbusClientRTU::begin(int coreID, uint32_t interval, uint32_t baudRate) {
-  // Only start worker if Stream has been initialized!
-  if (baudRate) {
-    // Pull down RTS toggle, if necessary
-    MTRSrts(LOW);
+void ModbusClientRTU::begin(uint32_t baudRate, int coreID) {
+  // Pull down RTS toggle, if necessary
+  MTRSrts(LOW);
 
-    // Set minimum interval time
-    MR_interval = RTUutils::calculateInterval(MR_serial, interval, baudRate);
+  // Set minimum interval time
+  MR_interval = RTUutils::calculateInterval(baudRate);
 
-    // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
-    RTUutils::UARTinit(MR_serial, 1);
+  // Create unique task name
+  char taskName[18];
+  snprintf(taskName, 18, "Modbus%02XRTU", instanceCounter);
+  // Start task to handle the queue
+  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 6, &worker, coreID >= 0 ? coreID : NULL);
 
-    // Create unique task name
-    char taskName[18];
-    snprintf(taskName, 18, "Modbus%02XRTU", instanceCounter);
-    // Start task to handle the queue
-    xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 6, &worker, coreID >= 0 ? coreID : NULL);
-
-    LOG_D("Worker task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
-  } else {
-    LOG_E("Worker task could not be started! Stream not initialized?\n");
-  }
+  LOG_D("Worker task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
 }
 
 // end: stop worker task

@@ -47,7 +47,7 @@ public:
   static void addCRC(ModbusMessage& raw);
 
 // calculateInterval: determine the minimal gap time between messages
-  static uint32_t calculateInterval(Stream& s, uint32_t overwrite, uint32_t baudRate);
+  static uint32_t calculateInterval(uint32_t baudRate);
 
 // RTSauto: dummy callback for auto half duplex RS485 boards
   inline static void RTSauto(bool level) { return; } // NOLINT
@@ -58,9 +58,6 @@ protected:
   static const char ASCIIread[];
 
   RTUutils() = delete;
-
-// UARTinit: modify the UART FIFO copy trigger threshold 
-  static int UARTinit(Stream& serial, int thresholdBytes = 1);
 
 // receive: get a Modbus message from serial, maintaining timeouts etc.
   static ModbusMessage receive(Stream& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes = false);

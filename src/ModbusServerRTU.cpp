@@ -64,7 +64,7 @@ ModbusServerRTU::~ModbusServerRTU() {
 }
 
 // start: create task with RTU server
-bool ModbusServerRTU::start(int coreID, uint32_t interval, uint32_t baudRate) {
+bool ModbusServerRTU::start(uint32_t baudRate, int coreID) {
   // Task already running?
   if (serverTask != nullptr) {
     // Yes. stop it first
@@ -72,27 +72,17 @@ bool ModbusServerRTU::start(int coreID, uint32_t interval, uint32_t baudRate) {
     LOG_D("Server task was running - stopped.\n");
   }
 
-  // start only if serial interface is initialized!
-  if (baudRate) {
-    // Set minimum interval time
-    MSRinterval = RTUutils::calculateInterval(MSRserial, interval, baudRate);
+  // Set minimum interval time
+  MSRinterval = RTUutils::calculateInterval(baudRate);
 
-    // Set the UART FIFO copy threshold to 1 byte
-    RTUutils::UARTinit(MSRserial, 1);
+  // Create unique task name
+  char taskName[18];
+  snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
 
-    // Create unique task name
-    char taskName[18];
-    snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
+  // Start task to handle the client
+  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
 
-    // Start task to handle the client
-    xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
-
-    LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
-  } else {
-    LOG_E("Server task could not be started. Stream not initialized?\n");
-    return false;
-  }
-
+  LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
   return true;
 }
 

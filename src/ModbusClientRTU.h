@@ -31,7 +31,7 @@ public:
   ~ModbusClientRTU();
 
   // begin: start worker task
-  void begin(int coreID = -1, uint32_t interval = 0, uint32_t baudRate = 9600);
+  void begin(uint32_t baudrate = 9600, int coreID = -1);
 
   // end: stop the worker
   void end();

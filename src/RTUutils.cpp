@@ -102,61 +102,14 @@ void RTUutils::addCRC(ModbusMessage& raw) {
 }
 
 // calculateInterval: determine the minimal gap time between messages
-uint32_t RTUutils::calculateInterval(Stream& s, uint32_t overwrite, uint32_t baudRate) {
+uint32_t RTUutils::calculateInterval(uint32_t baudRate) {
   uint32_t interval = 0;
 
   // silent interval is at least 3.5x character time
   interval = 35000000UL / baudRate;  // 3.5 * 10 bits * 1000 µs * 1000 ms / baud
   if (interval < 1750) interval = 1750;       // lower limit according to Modbus RTU standard
-  // User overwrite?
-  if (overwrite > interval) {
-    interval = overwrite;
-  }
+  LOG_V("Calc interval(%u)=%u\n", baudRate, interval);
   return interval;
-}
-
-// UARTinit: modify the UART FIFO copy trigger threshold 
-// This is normally set to 112 by default, resulting in short messages not being 
-// recognized fast enough for higher Modbus bus speeds
-// Our default is 1 - every single byte arriving will have the UART FIFO
-// copied to the serial buffer.
-int RTUutils::UARTinit(Stream& serial, int thresholdBytes) {
-  int rc = 0;
-#if NEED_UART_PATCH
-  // Is the threshold value valid? The UART FIFO is 128 bytes only
-  if (thresholdBytes > 0 && thresholdBytes < 128) {
-    // Yes, it is. Try to identify the Serial/Serial1/Serial2 the user has provided.
-    uart_dev_t *uart = nullptr;
-    uint8_t uart_num = 99;
-    if (&serial == &Serial) {
-      uart_num = 0;
-      uart = &UART0;
-    } else {
-      if (&serial == &Serial1) {
-        uart_num = 1;
-        uart = &UART1;
-      } else {
-        if (&serial == &Serial2) {
-          uart_num = 2;
-          uart = &UART2;
-        }
-      }
-    }
-    // Is it a defined serial?
-    if (uart_num != 99) {
-      // Yes. get the current value and set ours instead
-      rc = uart->conf1.rxfifo_full_thrhd;
-      uart->conf1.rxfifo_full_thrhd = thresholdBytes;
-      LOG_D("Serial%u FIFO threshold set to %d (was %d)\n", uart_num, thresholdBytes, rc);
-    } else {
-      LOG_W("Unable to identify serial\n");
-    }
-  } else {
-    LOG_E("Threshold must be between 1 and 127! (was %d)", thresholdBytes);
-  }
-#endif
-  // Return the previous value in case someone likes to see it.
-  return rc;
 }
 
 // send: send a message via Serial, watching interval times - including CRC!
@@ -283,13 +236,8 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
         break;
       // IN_PACKET: read data until a gap of at least _interval time passed without another byte arriving
       case IN_PACKET:
-        // Are we past the interval gap without another byte?
-        if (micros() - lastMicros >= interval) {
-          // Yes, terminate reading
-          LOG_V("%ldus without data\n", micros() - lastMicros);
-          state = DATA_READ;
-        } else {
-          // No, still in reading sequence
+        // tight loop until finished reading or error
+        while (state == IN_PACKET) {
           // Did we get a byte?
           if (b >= 0) {
             // Yes, collect it
@@ -301,6 +249,15 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
               // Yes. Something fishy here - bail out!
               rv.push_back(PACKET_LENGTH_ERROR);
               state = FINISHED;
+              break;
+            }
+          } else {
+            // No, no byte read
+            // Are we past the interval gap?
+            if (micros() - lastMicros >= interval) {
+              // Yes, terminate reading
+              LOG_V("%ldus without data\n", micros() - lastMicros);
+              state = DATA_READ;
               break;
             }
           }

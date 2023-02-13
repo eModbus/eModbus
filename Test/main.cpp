@@ -1162,7 +1162,7 @@ void setup()
     // RTUclient.onErrorHandler(&handleError);
     RTUclient.setTimeout(2000);
 
-    RTUclient.begin(0, 0, BaudRate);
+    RTUclient.begin(BaudRate);
 
     // Define and start RTU server
     RTUserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
@@ -1173,8 +1173,8 @@ void setup()
     RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
     RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=any for serverID=2
 
-    // Have the RTU server run on core 1 with a grossly different interval time!
-    RTUserver.start(1, 2000, BaudRate);
+    // Have the RTU server run on core 1 
+    RTUserver.start(BaudRate, 1);
 
     ExpectedToggles = 0;
 
