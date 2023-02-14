@@ -1182,7 +1182,7 @@ void setup()
     RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=any for serverID=2
 
     // Have the RTU server run on core 1, again with 1200 baud value to get a long interval 
-    RTUserver.start(1200, 1);
+    RTUserver.begin(1200, 1);
 
     ExpectedToggles = 0;
 

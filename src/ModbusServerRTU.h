@@ -31,11 +31,11 @@ public:
   // Destructor
   ~ModbusServerRTU();
 
-  // start: create task with RTU server to accept requests
-  bool start(uint32_t baudRate = 9600, int coreID = -1);
+  // begin: create task with RTU server to accept requests
+  void begin(uint32_t baudRate = 9600, int coreID = -1);
 
-  // stop: kill server task
-  bool stop();
+  // end: kill server task
+  void end();
 
   // Toggle protocol to ModbusASCII
   void useModbusASCII(unsigned long timeout = 1000);

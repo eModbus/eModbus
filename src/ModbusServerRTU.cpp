@@ -18,7 +18,7 @@ ModbusServerRTU::ModbusServerRTU(Stream& serial, uint32_t timeout, int rtsPin) :
   serverTask(nullptr),
   serverTimeout(timeout),
   MSRserial(serial),
-  MSRinterval(2000),     // will be calculated in start()!
+  MSRinterval(2000),     // will be calculated in begin()!
   MSRlastMicros(0),
   MSRrtsPin(rtsPin), 
   MSRuseASCII(false),
@@ -45,7 +45,7 @@ ModbusServerRTU::ModbusServerRTU(Stream& serial, uint32_t timeout, RTScallback r
   serverTask(nullptr),
   serverTimeout(timeout),
   MSRserial(serial),
-  MSRinterval(2000),     // will be calculated in start()!
+  MSRinterval(2000),     // will be calculated in begin()!
   MSRlastMicros(0),
   MRTSrts(rts), 
   MSRuseASCII(false),
@@ -64,11 +64,11 @@ ModbusServerRTU::~ModbusServerRTU() {
 }
 
 // start: create task with RTU server
-bool ModbusServerRTU::start(uint32_t baudRate, int coreID) {
+void ModbusServerRTU::begin(uint32_t baudRate, int coreID) {
   // Task already running?
   if (serverTask != nullptr) {
     // Yes. stop it first
-    stop();
+    end();
     LOG_D("Server task was running - stopped.\n");
   }
 
@@ -83,17 +83,15 @@ bool ModbusServerRTU::start(uint32_t baudRate, int coreID) {
   xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
 
   LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
-  return true;
 }
 
-// stop: kill server task
-bool ModbusServerRTU::stop() {
+// end: kill server task
+void ModbusServerRTU::end() {
   if (serverTask != nullptr) {
     vTaskDelete(serverTask);
     LOG_D("Server task %d stopped.\n", (uint32_t)serverTask);
     serverTask = nullptr;
   }
-  return true;
 }
 
 // Toggle protocol to ModbusASCII
