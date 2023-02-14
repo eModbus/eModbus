@@ -52,7 +52,7 @@ void setup() {
   MBserver.registerWorker(0x01, READ_HOLD_REGISTER, &FC03);
 
 // Start ModbusRTU background task
-  MBserver.start();
+  MBserver.begin();
 }
 
 // loop() - nothing done here today!
