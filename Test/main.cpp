@@ -189,6 +189,14 @@ ModbusMessage FC44(ModbusMessage request) {
   return response;
 }
 
+// 2nd Worker function for large message tests
+ModbusMessage FC45(ModbusMessage request) {
+  ModbusMessage response;
+
+  response.add(request.getServerID(), request.getFunctionCode(), request.size());
+  return response;
+}
+
 // testOutput:  takes the test function name called, the test case name and expected and recieved messages,
 // compares both and prints out the result.
 // If the test passed, true is returned - else false.
@@ -1160,19 +1168,21 @@ void setup()
     // RTUclient.onErrorHandler(&handleError);
     RTUclient.setTimeout(2000);
 
-    RTUclient.begin(BaudRate);
+    // Start RTU client. Assume 1200 baud to get a long interval value
+    RTUclient.begin(1200);
 
     // Define and start RTU server
     RTUserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
     RTUserver.registerWorker(1, READ_INPUT_REGISTER, &FC03);     // FC=04 for serverID=1
     RTUserver.registerWorker(1, WRITE_HOLD_REGISTER, &FC06);     // FC=06 for serverID=1
     RTUserver.registerWorker(1, USER_DEFINED_44, &FC44);         // FC=44 for serverID=1
+    RTUserver.registerWorker(1, USER_DEFINED_45, &FC45);         // FC=45 for serverID=1
     RTUserver.registerWorker(2, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=2
     RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
     RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=any for serverID=2
 
-    // Have the RTU server run on core 1 
-    RTUserver.start(BaudRate, 1);
+    // Have the RTU server run on core 1, again with 1200 baud value to get a long interval 
+    RTUserver.start(1200, 1);
 
     ExpectedToggles = 0;
 
@@ -1607,11 +1617,47 @@ void setup()
     } else {
       LOG_N("unregisterWorker 02 failed (didit=%d)\n", didit ? 1 : 0);
     }
+    WAIT_FOR_FINISH(RTUclient)
+
+    // Try larger packets with increasing baud rates
+    uint32_t myBaud = 1200;
+    // Prepare request long enough to exceed UART FIFO buffer
+    ModbusMessage myReq;
+    myReq.add((uint8_t)1, USER_DEFINED_45);
+    for (uint16_t cntr = 0; cntr < 160; cntr++) {
+      myReq.add((uint8_t)('A' + cntr % 26));
+    }
+    // Loop while doubling the baud rate each turn
+    while (myBaud < 5000000) {
+      Serial1.updateBaudRate(myBaud);
+      Serial2.updateBaudRate(myBaud);
+      testsExecuted++;
+      ModbusMessage ret = RTUclient.syncRequest(myReq, Token++);
+      Error e = ret.getError();
+      // If not successful, report it
+      if (e != SUCCESS) {
+        ModbusError me(e);
+        LOG_N("Baud test failed at %u (%02X - %s)", myBaud, e, (const char *)me);
+      } else {
+        // No error, but is the responded value correct?
+        uint16_t mySize = 0;
+        ret.get(2, mySize);
+        if (mySize != 162) {
+          // No, report it.
+          LOG_N("Baud test failed at %u (size %u != 162)", myBaud, mySize);
+        } else {
+          testsPassed++;
+        }
+      }
+      myBaud *= 2;
+    }
 
     // Print summary. We will have to wait a bit to get all test cases executed!
     WAIT_FOR_FINISH(RTUclient)
-    Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+    Serial.printf("----->    RTU tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+  
   }
+
 
   // ******************************************************************************
   // Tests using WiFi client and server looped together next.

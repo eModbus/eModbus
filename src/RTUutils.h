@@ -60,7 +60,7 @@ protected:
   RTUutils() = delete;
 
 // receive: get a Modbus message from serial, maintaining timeouts etc.
-  static ModbusMessage receive(Stream& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes = false);
+  static ModbusMessage receive(uint8_t caller, Stream& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes = false);
 
 // send: send a Modbus message in either format (ModbusMessage or data/len)
   static void send(Stream& serial, unsigned long& lastMicros, uint32_t interval, RTScallback r, const uint8_t *data, uint16_t len, bool ASCIImode);

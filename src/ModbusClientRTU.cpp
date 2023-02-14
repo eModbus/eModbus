@@ -241,6 +241,7 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       if (request.msg.getServerID() != 0 || ((request.token & 0xFF000000) != 0xBC000000)) {
         // This is a regular request, Get the response - if any
         ModbusMessage response = RTUutils::receive(
+          'C',
           instance->MR_serial, 
           instance->MR_timeoutValue, 
           instance->MR_lastMicros, 

@@ -153,6 +153,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
 
     // Wait for and read an request
     request = RTUutils::receive(
+      'S',
       myServer->MSRserial, 
       myServer->serverTimeout, 
       myServer->MSRlastMicros, 

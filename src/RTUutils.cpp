@@ -181,7 +181,7 @@ void RTUutils::send(Stream& serial, unsigned long& lastMicros, uint32_t interval
 }
 
 // receive: get (any) message from Serial, taking care of timeout and interval
-ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes) {
+ModbusMessage RTUutils::receive(uint8_t caller, Stream& serial, uint32_t timeout, unsigned long& lastMicros, uint32_t interval, bool ASCIImode, bool skipLeadingZeroBytes) {
   // Allocate initial receive buffer size: 1 block of BUFBLOCKSIZE bytes
   const uint16_t BUFBLOCKSIZE(512);
   uint8_t *buffer = new uint8_t[BUFBLOCKSIZE];
@@ -258,7 +258,7 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
             // Are we past the interval gap?
             if (micros() - lastMicros >= interval) {
               // Yes, terminate reading
-              LOG_V("%ldus without data after %u\n", micros() - lastMicros, bufferPtr);
+              LOG_V("%c/%ldus without data after %u\n", (const char)caller, micros() - lastMicros, bufferPtr);
               state = DATA_READ;
               break;
             }
@@ -268,6 +268,7 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
       // DATA_READ: successfully gathered some data. Prepare return object.
       case DATA_READ:
         // Did we get a sensible buffer length?
+        LOG_V("%c/", (const char)caller);
         HEXDUMP_V("Raw buffer received", buffer, bufferPtr);
         if (bufferPtr >= 4)
         {
@@ -388,7 +389,8 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
             case A_WAIT_LEAD_OUT:
               if (b == 0xF2) {
                 // Lead-out byte 2 received. Transfer buffer to returned message
-                HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
+                LOG_V("%c/", (const char)caller);
+                HEXDUMP_V("Raw buffer received", buffer, bufferPtr);
                 // Did we get a sensible buffer length?
                 if (bufferPtr >= 3)
                 {
@@ -431,6 +433,7 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
   // Deallocate buffer
   delete[] buffer;
 
+  LOG_D("%c/", (const char)caller);
   HEXDUMP_D("Received packet", rv.data(), rv.size());
 
   return rv;
