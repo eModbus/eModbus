@@ -223,6 +223,7 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
           // Do we need to skip it, if it is zero?
           if (b > 0 || !skipLeadingZeroBytes) {
             // No, we can go process it regularly
+            buffer[bufferPtr++] = b;
             state = IN_PACKET;
           } 
         } else {
@@ -238,10 +239,10 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
       case IN_PACKET:
         // tight loop until finished reading or error
         while (state == IN_PACKET) {
-          // Did we get a byte?
-          if (b >= 0) {
+          // Is there a byte?
+          while (serial.available()) {
             // Yes, collect it
-            buffer[bufferPtr++] = b;
+            buffer[bufferPtr++] = serial.read();
             // Mark time of last byte
             lastMicros = micros();
             // Buffer full?
@@ -251,24 +252,23 @@ ModbusMessage RTUutils::receive(Stream& serial, uint32_t timeout, unsigned long&
               state = FINISHED;
               break;
             }
-          } else {
-            // No, no byte read
+          } 
+          // No more byte read
+          if (state == IN_PACKET) {
             // Are we past the interval gap?
             if (micros() - lastMicros >= interval) {
               // Yes, terminate reading
-              LOG_V("%ldus without data\n", micros() - lastMicros);
+              LOG_V("%ldus without data after %u\n", micros() - lastMicros, bufferPtr);
               state = DATA_READ;
               break;
             }
           }
-          // Buffer has space left - try to read another byte
-          b = serial.read();
         }
         break;
       // DATA_READ: successfully gathered some data. Prepare return object.
       case DATA_READ:
         // Did we get a sensible buffer length?
-        HEXDUMP_D("Raw buffer received", buffer, bufferPtr);
+        HEXDUMP_V("Raw buffer received", buffer, bufferPtr);
         if (bufferPtr >= 4)
         {
           // Yes. Check CRC

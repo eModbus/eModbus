@@ -43,9 +43,6 @@ void RTStest(bool level) {
   else       cntRTSlow++;
 }
 
-// Baud rate to be used for RTU components
-const uint32_t BaudRate(4000000);
-
 // Test prerequisites
 TCPstub stub;
 ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance for stub use.
@@ -1101,15 +1098,16 @@ void setup()
 
   printPassed = false;
 
+  // Baud rate to be used for RTU components
+  const uint32_t BaudRate(5000000);
+
   // Set up Serial1 and Serial2
-  Serial1.setRxBufferSize(300);
-  Serial1.setRxFIFOFull(254);
-  Serial1.setRxTimeout(4);
-  Serial2.setRxBufferSize(300);
-  Serial2.setRxFIFOFull(254);
-  Serial2.setRxTimeout(4);
+  Serial1.setRxBufferSize(520);
+  Serial2.setRxBufferSize(520);
   Serial1.begin(BaudRate, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
+  Serial1.setRxFIFOFull(1);
   Serial2.begin(BaudRate, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
+  Serial2.setRxFIFOFull(1);
 
   Serial.printf("Serial1 at %d baud\n", Serial1.baudRate());
   Serial.printf("Serial2 at %d baud\n", Serial2.baudRate());
