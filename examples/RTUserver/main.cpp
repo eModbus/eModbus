@@ -47,12 +47,13 @@ void setup() {
 // Init Serial2 connected to the RTU Modbus
 // (Fill in your data here!)
   Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
+  Serial2.setRxFIFOFull(1);
 
 // Register served function code worker for server 1, FC 0x03
   MBserver.registerWorker(0x01, READ_HOLD_REGISTER, &FC03);
 
 // Start ModbusRTU background task
-  MBserver.begin();
+  MBserver.begin(19200);
 }
 
 // loop() - nothing done here today!

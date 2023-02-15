@@ -50,6 +50,7 @@ void setup() {
 // Set up Serial2 connected to Modbus RTU
 // (Fill in your data here!)
   Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
+  Serial2.setRxFIFOFull(1);
 
 // Set up ModbusRTU client.
 // - provide onData handler function
@@ -59,7 +60,7 @@ void setup() {
 // Set message timeout to 2000ms
   MB.setTimeout(2000);
 // Start ModbusRTU background task
-  MB.begin();
+  MB.begin(19200);
 
 // We will first set the register to a known state, read the register, 
 // then write to it and finally read it again to verify the change

@@ -66,6 +66,7 @@ void setup() {
 
 // Set up Serial2 connected to Modbus RTU
   Serial2.begin(BAUDRATE, SERIAL_8N1, RXPIN, TXPIN);
+  Serial2.setRxFIFOFull(1);
 
 // Set up ModbusRTU client.
 // - provide onData handler function
@@ -75,7 +76,7 @@ void setup() {
 // Set message timeout to 2000ms
   MB.setTimeout(2000);
 // Start ModbusRTU background task
-  MB.begin();
+  MB.begin(BAUDRATE);
 }
 
 // loop() - cyclically request the data
