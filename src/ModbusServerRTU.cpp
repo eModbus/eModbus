@@ -13,11 +13,11 @@
 uint8_t ModbusServerRTU::instanceCounter = 0;
 
 // Constructor with RTS pin GPIO (or -1)
-ModbusServerRTU::ModbusServerRTU(Stream& serial, uint32_t timeout, int rtsPin) :
+ModbusServerRTU::ModbusServerRTU(uint32_t timeout, int rtsPin) :
   ModbusServer(),
   serverTask(nullptr),
   serverTimeout(timeout),
-  MSRserial(serial),
+  MSRserial(nullptr),
   MSRinterval(2000),     // will be calculated in begin()!
   MSRlastMicros(0),
   MSRrtsPin(rtsPin), 
@@ -40,11 +40,11 @@ ModbusServerRTU::ModbusServerRTU(Stream& serial, uint32_t timeout, int rtsPin) :
 }
 
 // Constructor with RTS callback
-ModbusServerRTU::ModbusServerRTU(Stream& serial, uint32_t timeout, RTScallback rts) :
+ModbusServerRTU::ModbusServerRTU(uint32_t timeout, RTScallback rts) :
   ModbusServer(),
   serverTask(nullptr),
   serverTimeout(timeout),
-  MSRserial(serial),
+  MSRserial(nullptr),
   MSRinterval(2000),     // will be calculated in begin()!
   MSRlastMicros(0),
   MRTSrts(rts), 
@@ -63,14 +63,23 @@ ModbusServerRTU::ModbusServerRTU(Stream& serial, uint32_t timeout, RTScallback r
 ModbusServerRTU::~ModbusServerRTU() {
 }
 
-// start: create task with RTU server
-void ModbusServerRTU::begin(uint32_t baudRate, int coreID) {
-  // Task already running?
-  if (serverTask != nullptr) {
-    // Yes. stop it first
-    end();
-    LOG_D("Server task was running - stopped.\n");
-  }
+// start: create task with RTU server - general version
+void ModbusServerRTU::begin(Stream& serial, uint32_t baudRate, int coreID) {
+  MSRserial = &serial;
+  doBegin(baudRate, coreID);
+}
+
+// start: create task with RTU server - HardwareSerial versions
+void ModbusServerRTU::begin(HardwareSerial& serial, int coreID) {
+  MSRserial = &serial;
+  uint32_t baudRate = serial.baudRate();
+  serial.setRxFIFOFull(1);
+  doBegin(baudRate, coreID);
+}
+
+void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID) {
+  // Task already running? Stop it in case.
+  end();
 
   // Set minimum interval time
   MSRinterval = RTUutils::calculateInterval(baudRate);
@@ -152,7 +161,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
     // Wait for and read an request
     request = RTUutils::receive(
       'S',
-      myServer->MSRserial, 
+      *(myServer->MSRserial), 
       myServer->serverTimeout, 
       myServer->MSRlastMicros, 
       myServer->MSRinterval, 
@@ -225,7 +234,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
         // Do we have gathered a valid response now?
         if (response.size() >= 3) {
           // Yes. send it back.
-          RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
+          RTUutils::send(*(myServer->MSRserial), myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
           LOG_D("Response sent.\n");
           // Count it, in case we had an error response
           if (response.getError() != SUCCESS) {

@@ -16,8 +16,8 @@
 #include "Logging.h"
 
 // Create a ModbusRTU client instance
-// In my case the RS485 module had auto halfduplex, so no second parameter with the DE/RE pin is required!
-ModbusClientRTU MB(Serial2);
+// In my case the RS485 module had auto halfduplex, so no parameter with the DE/RE pin is required!
+ModbusClientRTU MB;
 
 // Define an onData handler function to receive the regular responses
 // Arguments are Modbus server ID, the function code requested, the message data and length of it, 
@@ -49,8 +49,8 @@ void setup() {
 
 // Set up Serial2 connected to Modbus RTU
 // (Fill in your data here!)
+  RTUutils::prepareHardwareSerial(Serial2);
   Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
-  Serial2.setRxFIFOFull(1);
 
 // Set up ModbusRTU client.
 // - provide onData handler function
@@ -60,7 +60,7 @@ void setup() {
 // Set message timeout to 2000ms
   MB.setTimeout(2000);
 // Start ModbusRTU background task
-  MB.begin(19200);
+  MB.begin(Serial2);
 
 // We will first set the register to a known state, read the register, 
 // then write to it and finally read it again to verify the change

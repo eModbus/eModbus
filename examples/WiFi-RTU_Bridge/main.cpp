@@ -24,7 +24,7 @@ char pass[] = MY_PASS;                     // password for the WiFi network used
 uint16_t port = 502;                       // port of modbus server
 
 // Create a ModbusRTU client instance
-ModbusClientRTU MB(Serial2);
+ModbusClientRTU MB;
 
 // Create bridge
 ModbusBridgeWiFi MBbridge;
@@ -38,8 +38,8 @@ void setup() {
 
 // Init Serial2 conneted to the RTU Modbus
 // (Fill in your data here!)
+  RTUutils::prepareHardwareSerial(Serial2);
   Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
-  Serial2.setRxFIFOFull(1);
 
 // Connect to WiFi
   WiFi.begin(ssid, pass);
@@ -54,7 +54,7 @@ void setup() {
 // Set RTU Modbus message timeout to 2000ms
   MB.setTimeout(2000);
 // Start ModbusRTU background task on core 1
-  MB.begin(19200, 1);
+  MB.begin(Serial2, 1);
 
 // Define and start WiFi bridge
 // ServerID 4: Server with remote serverID 1, accessed through RTU client MB

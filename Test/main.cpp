@@ -48,8 +48,8 @@ TCPstub stub;
 ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance for stub use.
 WiFiClient wc;
 ModbusClientTCP TestClientWiFi(wc, 25);         // ModbusClientTCP test instance for WiFi loopback use.
-ModbusClientRTU RTUclient(Serial1, GPIO_NUM_4);  // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
-ModbusServerRTU RTUserver(Serial2, 20000, RTStest);      // ModbusServerRTU instance
+ModbusClientRTU RTUclient(GPIO_NUM_4);  // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
+ModbusServerRTU RTUserver(20000, RTStest);      // ModbusServerRTU instance
 ModbusServerWiFi MBserver;                      // ModbusServerWiFi instance
 ModbusBridgeWiFi Bridge;                        // Modbus bridge instance
 IPAddress ip = {127,   0,   0,   1};            // IP address of ModbusServerWiFi (loopback IF)
@@ -1110,12 +1110,10 @@ void setup()
   const uint32_t BaudRate(5000000);
 
   // Set up Serial1 and Serial2
-  Serial1.setRxBufferSize(520);
-  Serial2.setRxBufferSize(520);
+  RTUutils::prepareHardwareSerial(Serial1);
+  RTUutils::prepareHardwareSerial(Serial2);
   Serial1.begin(BaudRate, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
-  Serial1.setRxFIFOFull(1);
   Serial2.begin(BaudRate, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
-  Serial2.setRxFIFOFull(1);
 
   Serial.printf("Serial1 at %d baud\n", Serial1.baudRate());
   Serial.printf("Serial2 at %d baud\n", Serial2.baudRate());
@@ -1168,8 +1166,8 @@ void setup()
     // RTUclient.onErrorHandler(&handleError);
     RTUclient.setTimeout(2000);
 
-    // Start RTU client. Assume 1200 baud to get a long interval value
-    RTUclient.begin(1200);
+    // Start RTU client. 
+    RTUclient.begin(Serial1);
 
     // Define and start RTU server
     RTUserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
@@ -1181,8 +1179,8 @@ void setup()
     RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
     RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=any for serverID=2
 
-    // Have the RTU server run on core 1, again with 1200 baud value to get a long interval 
-    RTUserver.begin(1200, 1);
+    // Have the RTU server run on core 1.
+    RTUserver.begin(Serial2, 1);
 
     ExpectedToggles = 0;
 
@@ -1628,16 +1626,19 @@ void setup()
       myReq.add((uint8_t)('A' + cntr % 26));
     }
     // Loop while doubling the baud rate each turn
+    MBUlogLvl = LOG_LEVEL_VERBOSE;
     while (myBaud < 5000000) {
       Serial1.updateBaudRate(myBaud);
       Serial2.updateBaudRate(myBaud);
+      RTUclient.begin(Serial1);
+      RTUserver.begin(Serial2);
       testsExecuted++;
       ModbusMessage ret = RTUclient.syncRequest(myReq, Token++);
       Error e = ret.getError();
       // If not successful, report it
       if (e != SUCCESS) {
         ModbusError me(e);
-        LOG_N("Baud test failed at %u (%02X - %s)", myBaud, e, (const char *)me);
+        LOG_N("Baud test failed at %u (%02X - %s)\n", myBaud, e, (const char *)me);
       } else {
         // No error, but is the responded value correct?
         uint16_t mySize = 0;
@@ -1651,9 +1652,11 @@ void setup()
       }
       myBaud *= 2;
     }
+    MBUlogLvl = LOG_LEVEL_ERROR;
 
     // Print summary. We will have to wait a bit to get all test cases executed!
     WAIT_FOR_FINISH(RTUclient)
+
     Serial.printf("----->    RTU tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
   
   }

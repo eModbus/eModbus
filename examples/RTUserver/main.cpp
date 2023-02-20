@@ -9,8 +9,8 @@
 // Modbus server include
 #include "ModbusServerRTU.h"
 
-// Create a ModbusRTU server instance listening on Serial2 with 2000ms timeout
-ModbusServerRTU MBserver(Serial2, 2000);
+// Create a ModbusRTU server instance listening with 2000ms timeout
+ModbusServerRTU MBserver(2000);
 
 // FC03: worker do serve Modbus function code 0x03 (READ_HOLD_REGISTER)
 ModbusMessage FC03(ModbusMessage request) {
@@ -46,14 +46,14 @@ void setup() {
 
 // Init Serial2 connected to the RTU Modbus
 // (Fill in your data here!)
+  RTUutils::prepareHardwareSerial(Serial2);
   Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
-  Serial2.setRxFIFOFull(1);
 
 // Register served function code worker for server 1, FC 0x03
   MBserver.registerWorker(0x01, READ_HOLD_REGISTER, &FC03);
 
 // Start ModbusRTU background task
-  MBserver.begin(19200);
+  MBserver.begin(Serial2);
 }
 
 // loop() - nothing done here today!
