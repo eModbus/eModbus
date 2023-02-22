@@ -16,6 +16,8 @@
 #include "TCPstub.h"
 #include "CoilData.h"
 
+#include <SoftwareSerial.h>
+
 #define STRINGIFY(x) #x
 #define LNO(x) "line " STRINGIFY(x) " "
 
@@ -41,16 +43,13 @@ void RTStest(bool level) {
   else       cntRTSlow++;
 }
 
-// Baud rate to be used for RTU components
-const uint32_t BaudRate(115200);
-
 // Test prerequisites
 TCPstub stub;
 ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance for stub use.
 WiFiClient wc;
 ModbusClientTCP TestClientWiFi(wc, 25);         // ModbusClientTCP test instance for WiFi loopback use.
-ModbusClientRTU RTUclient(Serial1, GPIO_NUM_4);  // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
-ModbusServerRTU RTUserver(Serial2, 20000, RTStest);      // ModbusServerRTU instance
+ModbusClientRTU RTUclient(GPIO_NUM_4);  // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
+ModbusServerRTU RTUserver(20000, RTStest);      // ModbusServerRTU instance
 ModbusServerWiFi MBserver;                      // ModbusServerWiFi instance
 ModbusBridgeWiFi Bridge;                        // Modbus bridge instance
 IPAddress ip = {127,   0,   0,   1};            // IP address of ModbusServerWiFi (loopback IF)
@@ -187,6 +186,14 @@ ModbusMessage FC44(ModbusMessage request) {
     if (value == i + 1) correctValues++;
   }
   response.add(request.getServerID(), request.getFunctionCode(), correctValues);
+  return response;
+}
+
+// 2nd Worker function for large message tests
+ModbusMessage FC45(ModbusMessage request) {
+  ModbusMessage response;
+
+  response.add(request.getServerID(), request.getFunctionCode(), request.size());
   return response;
 }
 
@@ -1099,7 +1106,12 @@ void setup()
 
   printPassed = false;
 
+  // Baud rate to be used for RTU components
+  const uint32_t BaudRate(5000000);
+
   // Set up Serial1 and Serial2
+  RTUutils::prepareHardwareSerial(Serial1);
+  RTUutils::prepareHardwareSerial(Serial2);
   Serial1.begin(BaudRate, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
   Serial2.begin(BaudRate, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
 
@@ -1154,19 +1166,21 @@ void setup()
     // RTUclient.onErrorHandler(&handleError);
     RTUclient.setTimeout(2000);
 
-    RTUclient.begin();
+    // Start RTU client. 
+    RTUclient.begin(Serial1);
 
     // Define and start RTU server
     RTUserver.registerWorker(1, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=1
     RTUserver.registerWorker(1, READ_INPUT_REGISTER, &FC03);     // FC=04 for serverID=1
     RTUserver.registerWorker(1, WRITE_HOLD_REGISTER, &FC06);     // FC=06 for serverID=1
     RTUserver.registerWorker(1, USER_DEFINED_44, &FC44);         // FC=44 for serverID=1
+    RTUserver.registerWorker(1, USER_DEFINED_45, &FC45);         // FC=45 for serverID=1
     RTUserver.registerWorker(2, READ_HOLD_REGISTER, &FC03);      // FC=03 for serverID=2
     RTUserver.registerWorker(2, USER_DEFINED_41, &FC41);         // FC=41 for serverID=2
     RTUserver.registerWorker(2, ANY_FUNCTION_CODE, &FCany);      // FC=any for serverID=2
 
-    // Have the RTU server run on core 1 with a grossly different interval time!
-    RTUserver.start(1);
+    // Have the RTU server run on core 1.
+    RTUserver.begin(Serial2, 1);
 
     ExpectedToggles = 0;
 
@@ -1601,11 +1615,52 @@ void setup()
     } else {
       LOG_N("unregisterWorker 02 failed (didit=%d)\n", didit ? 1 : 0);
     }
+    WAIT_FOR_FINISH(RTUclient)
+
+    // Try larger packets with increasing baud rates
+    uint32_t myBaud = 1200;
+    // Prepare request long enough to exceed UART FIFO buffer
+    ModbusMessage myReq;
+    myReq.add((uint8_t)1, USER_DEFINED_45);
+    for (uint16_t cntr = 0; cntr < 160; cntr++) {
+      myReq.add((uint8_t)('A' + cntr % 26));
+    }
+    // Loop while doubling the baud rate each turn
+    MBUlogLvl = LOG_LEVEL_VERBOSE;
+    while (myBaud < 5000000) {
+      Serial1.updateBaudRate(myBaud);
+      Serial2.updateBaudRate(myBaud);
+      RTUclient.begin(Serial1);
+      RTUserver.begin(Serial2);
+      testsExecuted++;
+      ModbusMessage ret = RTUclient.syncRequest(myReq, Token++);
+      Error e = ret.getError();
+      // If not successful, report it
+      if (e != SUCCESS) {
+        ModbusError me(e);
+        LOG_N("Baud test failed at %u (%02X - %s)\n", myBaud, e, (const char *)me);
+      } else {
+        // No error, but is the responded value correct?
+        uint16_t mySize = 0;
+        ret.get(2, mySize);
+        if (mySize != 162) {
+          // No, report it.
+          LOG_N("Baud test failed at %u (size %u != 162)", myBaud, mySize);
+        } else {
+          testsPassed++;
+        }
+      }
+      myBaud *= 2;
+    }
+    MBUlogLvl = LOG_LEVEL_ERROR;
 
     // Print summary. We will have to wait a bit to get all test cases executed!
     WAIT_FOR_FINISH(RTUclient)
-    Serial.printf("----->    RTU loop tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+
+    Serial.printf("----->    RTU tests: %4d, passed: %4d\n", testsExecuted, testsPassed);
+  
   }
+
 
   // ******************************************************************************
   // Tests using WiFi client and server looped together next.

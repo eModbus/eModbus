@@ -46,6 +46,7 @@ void setup() {
 
 // Set up Serial2 connected to Modbus RTU
 // (Fill in your data here!)
+  RTUutils::prepareHardwareSerial(Serial2);
   Serial2.begin(19200, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
 
 // Set up ModbusRTU client.
@@ -56,7 +57,7 @@ void setup() {
 // Set message timeout to 2000ms
   MB.setTimeout(2000);
 // Start ModbusRTU background task
-  MB.begin();
+  MB.begin(Serial2);
 
 // We will first read the registers, then write to them and finally read them again to verify the change
 
