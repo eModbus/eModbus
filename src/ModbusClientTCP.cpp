@@ -34,6 +34,11 @@ ModbusClientTCP::ModbusClientTCP(Client& client, IPAddress host, uint16_t port, 
 
 // Destructor: clean up queue, task etc.
 ModbusClientTCP::~ModbusClientTCP() {
+  end();
+}
+
+// end: stop worker task
+void ModbusClientTCP::end() {
   // Clean up queue
   {
     // Safely lock access
