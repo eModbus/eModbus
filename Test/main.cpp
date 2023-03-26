@@ -16,8 +16,6 @@
 #include "TCPstub.h"
 #include "CoilData.h"
 
-#include <SoftwareSerial.h>
-
 #define STRINGIFY(x) #x
 #define LNO(x) "line " STRINGIFY(x) " "
 
