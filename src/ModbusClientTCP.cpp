@@ -50,11 +50,14 @@ void ModbusClientTCP::end() {
   }
   LOG_D("TCP client worker killed.\n");
   // Kill task
+  if (worker) {
 #if IS_LINUX
-  pthread_cancel(worker);
+    pthread_cancel(worker);
 #else
-  vTaskDelete(worker);
+    vTaskDelete(worker);
 #endif
+    worker = nullptr;
+  }
 }
 
 // begin: start worker task
@@ -66,22 +69,26 @@ void *ModbusClientTCP::pHandle(void *p) {
 #endif
 
 void ModbusClientTCP::begin(int coreID) {
+  if (!worker) {
 #if IS_LINUX
-  int rc = pthread_create(&worker, NULL, &pHandle, this);
-  if (rc) {
-    LOG_E("Error creating TCP client thread: %d\n", rc);
-  } else {
-    LOG_D("TCP client worker started.\n");
-  }
+    int rc = pthread_create(&worker, NULL, &pHandle, this);
+    if (rc) {
+      LOG_E("Error creating TCP client thread: %d\n", rc);
+    } else {
+      LOG_D("TCP client worker started.\n");
+    }
 
 #else
-  // Create unique task name
-  char taskName[18];
-  snprintf(taskName, 18, "Modbus%02XTCP", instanceCounter);
-  // Start task to handle the queue
-  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
-  LOG_D("TCP client worker %s started\n", taskName);
+    // Create unique task name
+    char taskName[18];
+    snprintf(taskName, 18, "Modbus%02XTCP", instanceCounter);
+    // Start task to handle the queue
+    xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
+    LOG_D("TCP client worker %s started\n", taskName);
 #endif
+  } else {
+    LOG_E("Worker thread has been already started!");
+  }
 }
 
 // Set default timeout value (and interval)
