@@ -1630,6 +1630,7 @@ void setup()
       Serial2.updateBaudRate(myBaud);
       RTUclient.begin(Serial1);
       RTUserver.begin(Serial2);
+      LOG_N("testing %d baud.\n", myBaud);
       testsExecuted++;
       ModbusMessage ret = RTUclient.syncRequest(myReq, Token++);
       Error e = ret.getError();
@@ -1643,7 +1644,7 @@ void setup()
         ret.get(2, mySize);
         if (mySize != 162) {
           // No, report it.
-          LOG_N("Baud test failed at %u (size %u != 162)", myBaud, mySize);
+          LOG_N("Baud test failed at %u (size %u != 162)\n", myBaud, mySize);
         } else {
           testsPassed++;
         }
