@@ -21,10 +21,10 @@ using std::queue;
 
 class ModbusClientRTU : public ModbusClient {
 public:
-  // Constructor takes Serial reference and optional DE/RE pin and queue limit
+  // Constructor takes an optional DE/RE pin and queue limit
   explicit ModbusClientRTU(int8_t rtsPin = -1, uint16_t queueLimit = 100);
 
-  // Alternative Constructor takes Serial reference and RTS line toggle callback
+  // Alternative Constructor takes an RTS line toggle callback
   explicit ModbusClientRTU(RTScallback rts, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.

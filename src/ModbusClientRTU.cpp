@@ -10,7 +10,7 @@
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
-// Constructor takes Serial reference and optional DE/RE pin
+// Constructor takes an optional DE/RE pin and queue size
 ModbusClientRTU::ModbusClientRTU(int8_t rtsPin, uint16_t queueLimit) :
   ModbusClient(),
   MR_serial(nullptr),
@@ -32,7 +32,7 @@ ModbusClientRTU::ModbusClientRTU(int8_t rtsPin, uint16_t queueLimit) :
     }
 }
 
-// Alternative constructor takes Serial reference and RTS callback function
+// Alternative constructor takes an RTS callback function
 ModbusClientRTU::ModbusClientRTU(RTScallback rts, uint16_t queueLimit) :
   ModbusClient(),
   MR_serial(nullptr),
