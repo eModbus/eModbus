@@ -336,7 +336,6 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
         // Append response
         m.append(response);
         myClient.write(m.data(), m.size());
-        myClient.flush();
         HEXDUMP_V("Response", m.data(), m.size());
         // count error responses
         if (response.getError() != SUCCESS) {
