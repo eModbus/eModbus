@@ -2,7 +2,6 @@
 // eModbus: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to eModbus
 //               MIT license - see license.md for details
 // =================================================================================================
-#if HAS_FREERTOS
 #include "options.h"
 #include "ModbusMessage.h"
 #include "RTUutils.h"
@@ -10,6 +9,7 @@
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
+#if HAS_FREERTOS
 // calcCRC: calculate Modbus CRC16 on a given array of bytes
 uint16_t RTUutils::calcCRC(const uint8_t *data, uint16_t len) {
   // CRC16 pre-calculated tables
