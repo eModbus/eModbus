@@ -2,6 +2,7 @@
 // eModbus: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to eModbus
 //               MIT license - see license.md for details
 // =================================================================================================
+#if HAS_FREERTOS
 #include "options.h"
 #include "ModbusMessage.h"
 #include "RTUutils.h"
@@ -463,3 +464,4 @@ const char RTUutils::ASCIIread[] = {
 const char RTUutils::ASCIIwrite[] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 
                                       0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46 
 };
+#endif
