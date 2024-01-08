@@ -102,6 +102,7 @@ void ModbusClientRTU::end() {
     // Kill task
     vTaskDelete(worker);
     LOG_D("Client task %d killed.\n", (uint32_t)worker);
+    worker = nullptr;
   }
 }
 
