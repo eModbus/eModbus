@@ -34,3 +34,9 @@
 # Helper scripts etc.
 keywords_populator.py
 platformio.ini
+
+.vscode
+.pio
+.gcc-flags.json
+default.csv
+extra_scripts.py
