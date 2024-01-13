@@ -104,6 +104,7 @@ ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
   uint8_t functionCode = msg.getFunctionCode();
   LOG_D("Local request for %02X/%02X\n", serverID, functionCode);
   HEXDUMP_V("Request", msg.data(), msg.size());
+  messageCount++;
   // Try to get a worker for the request
   MBSworker worker = getWorker(serverID, functionCode);
   // Did we get one?
@@ -129,6 +130,9 @@ ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
       }
     }
     HEXDUMP_V("Response", m.data(), m.size());
+    if (m.getError() != SUCCESS) {
+      errorCount++;
+    }
     return m;
   } else {
     LOG_D("No worker found. Error response.\n");
@@ -140,11 +144,13 @@ ModbusMessage ModbusServer::localRequest(ModbusMessage msg) {
       // No. Respond with "Invalid server ID"
       m.setError(serverID, functionCode, INVALID_SERVER);
     }
+    errorCount++;
     return m;
   }
   // We should never get here...
   LOG_C("Internal problem: should not get here!\n");
   m.setError(serverID, functionCode, UNDEFINED_ERROR);
+  errorCount++;
   return m;
 }
 
