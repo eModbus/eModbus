@@ -81,7 +81,7 @@ void ModbusClientRTU::doBegin(uint32_t baudRate, int coreID) {
   char taskName[18];
   snprintf(taskName, 18, "Modbus%02XRTU", instanceCounter);
   // Start task to handle the queue
-  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 6, &worker, coreID >= 0 ? coreID : NULL);
+  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, CLIENT_TASK_STACK, this, 6, &worker, coreID >= 0 ? coreID : NULL);
 
   LOG_D("Client task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
 }
