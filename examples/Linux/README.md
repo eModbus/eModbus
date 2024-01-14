@@ -1,5 +1,5 @@
 ## Linux Modbus client
-There is some support for a Modbus client running on Linux in the library.
+There is some support for a Modbus client running on (Ubuntu) Linux in the library.
 I developed it for my own use and it serves my purposes, but is far from being the same quality the ESP library has.
 So here more than ever the motto
 
@@ -14,12 +14,11 @@ The `eModbus` directory contains the adapted Linux files to get the ESP library 
 - *Note*: ``Client`` is providing a public static function ``IPAddress hostname_to_ip(const char *hostname);`` that does a DNS conversion for the hostname given. If no IP could be found, a NIL_ADDR is returned!
 - *Note*: In addition to the known types, ``IPAddress`` does support initialization, assignment and comparison with a ``const char *ip``also. It is perfectly valid to conveniently write ``IPAddress i = "192.168.178.1";``.
 - ``parseTarget.h`` and ``parseTarget.cpp`` are providing an ``int parseTarget(const char *source, IPAddress &IP, uint16_t &port, uint8_t &serverID)`` call to analyze and extract a Modbus server target description to a combination of IP, port and server ID. The descriptor has the form ``IP[:port[:serverID]]`` or ``hostname[:port[:serverID]]``.
-- the ``Makefile`` is set up to build the `libeModbus.a` static library.
 
-Additionally, the ``libexplain`` lib was installed to get better error descriptions. It is used in ``Client.cpp``.
-If you do not want or need it, you will have to change the source there.
+The ``Makefile`` is set up to build the `libeModbus.a` and `libeModbusdebug.a` static libraries.
+The latter is compiled with ``-DLOG_LEVEL=LOG_LEVEL_VERBOSE`` and will print out lots of debug information when used.
 
-You will need to copy some more files from the main eModbus ``src`` folder here to complete the required sources:
+`make` will copy some files from the main eModbus ``../../src`` folder here to complete the required sources:
 - ``Logging.cpp`` and ``Logging.h``
 - ``options.h``
 - ``ModbusClient.cpp`` and ``ModbusClient.h``
@@ -29,19 +28,24 @@ You will need to copy some more files from the main eModbus ``src`` folder here 
 - ``ModbusTypeDefs.h`` and ``ModbusTypeDefs.cpp``
 - ``CoilData.h`` and ``CoilData.cpp``
 
-The main Linux directory has a `Makefile` as well to build the two examples `SyncClient.cpp` and `AsynClient.cpp`.
-It makes use of the `libeModbus.a` library, so please be sure to have built that before.
+The main ``Linux`` directory has a `Makefile` as well to build the two examples `SyncClient` and `AsynClient`.
+It makes use of the `libeModbus.a` library, so please be sure to have built and installed that before.
 
 ### Building the example
-The example was developed on **Lubuntu 20.04**, but should run on any major Linux variety.
+The example was developed on **Ubuntu 22.04 LTS**, but should run on any major Linux variety.
 
-If you have collected all the files mentioned in the `eModbus` folder, go into this folder and run ``make``.
-In case all runs okay, you will have a ``libeModbus.a`` static library after ``make`` has finished.
+Go into the ``Linux/eModbus`` folder and run ``make``. In case all went okay, you will have both a ``libeModbus.a`` and a ``libeModbusdebug.a`` static library after ``make`` has finished.
+
 The ``Makefile`` has some more targets:
 - ``make clean`` will remove all object and reference files that may have been created during the build.
 - ``make reallyclean`` will in addition remove all files copied from the main `src` folder as described above.
+- ``make install`` will copy these libraries to ``/usr/local/lib`` as well as the header files to ``/usr/local/include``. The copy operations will use ``sudo``, so if you are not using a Debian Linux you may have to modify that.
 
-Now leave the `eModbus` folder again to run `make` in the folder with the examples.
+Additionally, the ``libexplain`` lib has to be installed to get better error descriptions. It is used in ``Client.cpp``.
+If you do not want or need it, you will have to change the source there.
+
+Now you may leave the `eModbus` folder to run `make` in the parent folder to build the examples.
+The Makefile again has the ``clean`` and ``reallyclean`` targets to clean up the directory afterwards.
 
 ### Trying the example clients
 Both clients are called with 3 arguments:

@@ -53,10 +53,11 @@ void ModbusClientTCP::end() {
   if (worker) {
 #if IS_LINUX
     pthread_cancel(worker);
+    worker = NULL;
 #else
     vTaskDelete(worker);
-#endif
     worker = nullptr;
+#endif
   }
 }
 

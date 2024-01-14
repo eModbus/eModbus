@@ -8,6 +8,7 @@
 
 #if IS_LINUX
 #include <string>
+#include <arpa/inet.h>
 
 using std::string;
 
