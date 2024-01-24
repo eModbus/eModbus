@@ -56,6 +56,9 @@ public:
   // Return number of unprocessed requests in queue
   uint32_t pendingRequests();
 
+  // Remove all pending request from queue
+  void clearQueue();
+  
   // addBroadcastMessage: create a fire-and-forget message to all servers on the RTU bus
   Error addBroadcastMessage(const uint8_t *data, uint8_t len);
 
