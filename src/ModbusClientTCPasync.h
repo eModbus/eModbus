@@ -50,6 +50,9 @@ public:
   // Set maximum amount of messages awaiting a response. Subsequent messages will be queued.
   void setMaxInflightRequests(uint32_t maxInflightRequests);
 
+// Remove all pending request from queue
+  void clearQueue();
+
 protected:
 
   // class describing the TCP header of Modbus packets

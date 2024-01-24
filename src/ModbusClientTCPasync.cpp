@@ -96,6 +96,18 @@ void ModbusClientTCPasync::setMaxInflightRequests(uint32_t maxInflightRequests) 
   MTA_maxInflightRequests = maxInflightRequests;
 }
 
+// Remove all pending request from queue
+void ModbusClientTCPasync::clearQueue()
+{
+  LOCK_GUARD(lock1, qLock);
+  LOCK_GUARD(lock2, sLock);
+  // Delete all elements from queues
+  while (!txQueue.empty()) {
+    delete txQueue.front();
+    txQueue.pop_front();
+  }
+}
+
 // Base addRequest for preformatted ModbusMessage and last set target
 Error ModbusClientTCPasync::addRequestM(ModbusMessage msg, uint32_t token) {
   Error rc = SUCCESS;        // Return value
