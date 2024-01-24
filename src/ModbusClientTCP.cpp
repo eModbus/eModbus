@@ -115,6 +115,13 @@ uint32_t ModbusClientTCP::pendingRequests() {
   return requests.size();
 }
 
+// Remove all pending request from queue
+void ModbusClientTCP::clearQueue() {
+  std::queue<RequestEntry *> empty;
+  LOCK_GUARD(lockGuard, qLock);
+  std::swap(requests, empty);
+}
+
 // Base addRequest for preformatted ModbusMessage and last set target
 Error ModbusClientTCP::addRequestM(ModbusMessage msg, uint32_t token) {
   Error rc = SUCCESS;        // Return value

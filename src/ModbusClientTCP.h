@@ -47,6 +47,9 @@ public:
   // Return number of unprocessed requests in queue
   uint32_t pendingRequests();
 
+  // Remove all pending request from queue
+  void clearQueue();
+
 protected:
   // class describing a target server
   struct TargetHost {
