@@ -376,8 +376,8 @@ template <typename ST, typename CT>
 ModbusMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
   unsigned long lastMillis = millis();     // Timer to check for timeout
   ModbusMessage m;                    // to take read data
-  register uint16_t lengthVal = 0;
-  register uint16_t cnt = 0;
+  uint16_t lengthVal = 0;
+  uint16_t cnt = 0;
   const uint16_t BUFFERSIZE(300);
   uint8_t buffer[BUFFERSIZE];
 
