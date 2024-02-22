@@ -147,7 +147,7 @@ ModbusMessage FC41(ModbusMessage request) {
 
 // Worker function for broadcast requests
 void BroadcastWorker(ModbusMessage request) {
-  HEXDUMP_D("Broadcast caught", request.data(), request.size());
+  HEXDUMP_N("Broadcast caught", request.data(), request.size());
   // Count broadcasts
   broadcastCnt++;
 }
@@ -169,6 +169,28 @@ ModbusMessage FCany(ModbusMessage request) {
 
   response.add(request.getServerID(), request.getFunctionCode());
   response.add(resp, 6);
+  return response;
+}
+
+// Worker function for any server ID
+ModbusMessage SVany(ModbusMessage request) {
+  // return recognizable text
+  ModbusMessage response;
+  uint8_t resp[] = "ANY ID";
+
+  response.add(request.getServerID(), request.getFunctionCode());
+  response.add(resp, 6);
+  return response;
+}
+
+// Worker function for any server ID and any function code
+ModbusMessage SVFCany(ModbusMessage request) {
+  // return recognizable text
+  ModbusMessage response;
+  uint8_t resp[] = "ANY ID/FC";
+
+  response.add(request.getServerID(), request.getFunctionCode());
+  response.add(resp, 9);
   return response;
 }
 
@@ -1559,7 +1581,11 @@ void setup()
     }
     testsExecuted++;
     // We have no worker registered yet, so the message shall be discarded
-    if (broadcastCnt == 0) testsPassed++;
+    if (broadcastCnt == 0) {
+      testsPassed++;
+    } else {
+      LOG_N("Broadcast was caught???\n");
+    }
 
     // Kick off the Sniffer
     // RTUserver.registerSniffer(nullptr);
@@ -1579,7 +1605,18 @@ void setup()
     }
     testsExecuted++;
     // The BC must have been caught
-    if (broadcastCnt == 1) testsPassed++;
+    if (broadcastCnt == 1) {
+      testsPassed++;
+    } else {
+      LOG_N("Broadcast not caught\n");
+    }
+
+    // Check worker function matching patterns
+    RTUserver.registerWorker(ANY_SERVER, USER_DEFINED_66, &SVany); // FC=66 for any server ID
+    RTUserver.registerWorker(ANY_SERVER, ANY_FUNCTION_CODE, &SVFCany); // FC=any for any server ID
+
+    // Unregister ANY/ANY worker again
+    RTUserver.unregisterWorker(ANY_SERVER, ANY_FUNCTION_CODE);
 
     // Check unregistering workers
     bool didit = RTUserver.unregisterWorker(1, USER_DEFINED_48);
