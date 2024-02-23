@@ -147,7 +147,6 @@ ModbusMessage FC41(ModbusMessage request) {
 
 // Worker function for broadcast requests
 void BroadcastWorker(ModbusMessage request) {
-  HEXDUMP_D("Broadcast caught", request.data(), request.size());
   // Count broadcasts
   broadcastCnt++;
 }
@@ -169,6 +168,28 @@ ModbusMessage FCany(ModbusMessage request) {
 
   response.add(request.getServerID(), request.getFunctionCode());
   response.add(resp, 6);
+  return response;
+}
+
+// Worker function for any server ID
+ModbusMessage SVany(ModbusMessage request) {
+  // return recognizable text
+  ModbusMessage response;
+  uint8_t resp[] = "ANY ID";
+
+  response.add(request.getServerID(), request.getFunctionCode());
+  response.add(resp, 6);
+  return response;
+}
+
+// Worker function for any server ID and any function code
+ModbusMessage SVFCany(ModbusMessage request) {
+  // return recognizable text
+  ModbusMessage response;
+  uint8_t resp[] = "ANY ID/FC";
+
+  response.add(request.getServerID(), request.getFunctionCode());
+  response.add(resp, 9);
   return response;
 }
 
@@ -1113,8 +1134,8 @@ void setup()
   Serial1.begin(BaudRate, SERIAL_8N1, GPIO_NUM_32, GPIO_NUM_33);
   Serial2.begin(BaudRate, SERIAL_8N1, GPIO_NUM_17, GPIO_NUM_16);
 
-  Serial.printf("Serial1 at %d baud\n", Serial1.baudRate());
-  Serial.printf("Serial2 at %d baud\n", Serial2.baudRate());
+  LOG_I("Serial1 at %d baud\n", Serial1.baudRate());
+  LOG_I("Serial2 at %d baud\n", Serial2.baudRate());
 
 // CHeck if connections are made
   char chkSerial[64];
@@ -1557,9 +1578,15 @@ void setup()
       ModbusError me(e);
       LOG_N("%s failed: %d - %s\n", (const char *)bcdata, (int)me, (const char *)me);
     }
+    // Wait for the server worker task to pass timeout
+    delay(5000);
     testsExecuted++;
     // We have no worker registered yet, so the message shall be discarded
-    if (broadcastCnt == 0) testsPassed++;
+    if (broadcastCnt == 0) {
+      testsPassed++;
+    } else {
+      LOG_N("Broadcast was caught???\n");
+    }
 
     // Kick off the Sniffer
     // RTUserver.registerSniffer(nullptr);
@@ -1569,7 +1596,6 @@ void setup()
 
     // Now register a worker for Broadcasts
     RTUserver.registerBroadcastWorker(BroadcastWorker);
-    delay(5000);
 
     // Send BC again
     e = RTUclient.addBroadcastMessage(bcdata, bclen);
@@ -1577,9 +1603,75 @@ void setup()
       ModbusError me(e);
       LOG_N("%s failed: %d - %s\n", (const char *)bcdata, (int)me, (const char *)me);
     }
+    delay(5000);
     testsExecuted++;
     // The BC must have been caught
-    if (broadcastCnt == 1) testsPassed++;
+    if (broadcastCnt == 1) {
+      testsPassed++;
+    } else {
+      LOG_N("Broadcast not caught\n");
+    }
+
+    // Check worker function matching patterns
+    RTUserver.registerWorker(ANY_SERVER, READ_HOLD_REGISTER, &SVany); // FC=03 for any server ID
+    RTUserver.registerWorker(ANY_SERVER, ANY_FUNCTION_CODE, &SVFCany); // FC=any for any server ID
+
+    // We have an explicit worker for 01/03: FC03 must be used
+    testsExecuted++;
+    auto wrk = RTUserver.getWorker(1, READ_HOLD_REGISTER).target<ModbusMessage(*)(ModbusMessage)>();
+    if (wrk && *wrk == FC03) {
+      testsPassed++;
+    } else {
+      LOG_N("worker(01/03) != FC03\n");
+    }
+
+    // same for 02/03: FC03 must be used
+    testsExecuted++;
+    wrk = RTUserver.getWorker(2, READ_HOLD_REGISTER).target<ModbusMessage(*)(ModbusMessage)>();
+    if (wrk && *wrk == FC03) {
+      testsPassed++;
+    } else {
+      LOG_N("worker(02/03) != FC03\n");
+    }
+
+    // 08/03 has never been defined, but we have SVany as a generic 03 worker
+    testsExecuted++;
+    wrk = RTUserver.getWorker(8, READ_HOLD_REGISTER).target<ModbusMessage(*)(ModbusMessage)>();
+    if (wrk && *wrk == SVany) {
+      testsPassed++;
+    } else {
+      LOG_N("worker(08/03) != SVany\n");
+    }
+
+    // 02/66 shall be processed by FCany
+    testsExecuted++;
+    wrk = RTUserver.getWorker(2, USER_DEFINED_66).target<ModbusMessage(*)(ModbusMessage)>();
+    if (wrk && *wrk == FCany) {
+      testsPassed++;
+    } else {
+      LOG_N("worker(02/66) != FCany\n");
+    }
+
+    // Finally 54/16 is to be caught by SVFCany, the "catch-all" worker
+    testsExecuted++;
+    wrk = RTUserver.getWorker(54, WRITE_MULT_REGISTERS).target<ModbusMessage(*)(ModbusMessage)>();
+    if (wrk && *wrk == SVFCany) {
+      testsPassed++;
+    } else {
+      LOG_N("worker(54/16) != SVFCany\n");
+    }
+
+    // Unregister ANY/ANY worker again
+    RTUserver.unregisterWorker(ANY_SERVER, ANY_FUNCTION_CODE);
+
+    // Now 54/16 has no worker any more and shall return a nullptr
+    testsExecuted++;
+    wrk = RTUserver.getWorker(54, WRITE_MULT_REGISTERS).target<ModbusMessage(*)(ModbusMessage)>();
+    if (wrk) {
+      LOG_N("worker(54/16) != nullptr\n");
+    } else {
+      testsPassed++;
+    }
 
     // Check unregistering workers
     bool didit = RTUserver.unregisterWorker(1, USER_DEFINED_48);
@@ -1626,11 +1718,12 @@ void setup()
     // Loop while doubling the baud rate each turn
     MBUlogLvl = LOG_LEVEL_VERBOSE;
     while (myBaud < 5000000) {
+      delay(1000);
       Serial1.updateBaudRate(myBaud);
       Serial2.updateBaudRate(myBaud);
       RTUclient.begin(Serial1);
       RTUserver.begin(Serial2);
-      LOG_N("testing %d baud.\n", myBaud);
+      LOG_I("testing %d baud.\n", myBaud);
       testsExecuted++;
       ModbusMessage ret = RTUclient.syncRequest(myReq, Token++);
       Error e = ret.getError();
@@ -2217,10 +2310,18 @@ void setup()
   // ******************************************************************************
   // Counter tests
   // ******************************************************************************
-  Serial.printf("RTUserver: %d messages, %d errors.\n", RTUserver.getMessageCount(), RTUserver.getErrorCount());
-  Serial.printf("RTUclient: %d messages, %d errors.\n", RTUclient.getMessageCount(), RTUclient.getErrorCount());
-  Serial.printf("MBserver: %d messages, %d errors.\n", MBserver.getMessageCount(), MBserver.getErrorCount());
-  Serial.printf("Bridge: %d messages, %d errors.\n", Bridge.getMessageCount(), Bridge.getErrorCount());
+  if (RTUserver.getMessageCount() != 125 || RTUserver.getErrorCount() != 2) {
+    LOG_N("RTUserver reporting unexpected count: %d/%d instead of 125/2\n", RTUserver.getMessageCount(), RTUserver.getErrorCount());
+  }
+  if (RTUclient.getMessageCount() != 132 || RTUclient.getErrorCount() != 7) {
+    LOG_N("RTUclient reporting unexpected count: %d/%d instead of 132/7\n", RTUclient.getMessageCount(), RTUclient.getErrorCount());
+  }
+  if (MBserver.getMessageCount() != 14 || MBserver.getErrorCount() != 5) {
+    LOG_N("MBserver reporting unexpected count: %d/%d instead of 14/5\n", MBserver.getMessageCount(), MBserver.getErrorCount());
+  }
+  if (Bridge.getMessageCount() != 6 || Bridge.getErrorCount() != 4) {
+    LOG_N("Bridge reporting unexpected count: %d/%d instead of 6/4\n", Bridge.getMessageCount(), Bridge.getErrorCount());
+  }
 
 /*
   // ******************************************************************************

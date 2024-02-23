@@ -185,10 +185,12 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       }
       // Is it a broadcast?
       if (request[0] == 0) {
+        LOG_D("Broadcast!\n");
         // Yes. Do we have a listener?
         if (myServer->listener) {
           // Yes. call it
           myServer->listener(request);
+          LOG_D("Broadcast served.\n");
         }
         // else we simply ignore it
       } else {
