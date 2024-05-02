@@ -18,7 +18,7 @@ jobs:
     - name: Add libraries
       run: |
         pio pkg install --global --library me-no-dev/AsyncTCP
-        pio pkg install --global --library https://github.com/maxgerhardt/Ethernet.git  # Ethernet
+        pio pkg install --global --library https://github.com/arduino-libraries/Ethernet.git  # Ethernet
     - name: Build examples
       run: |
         ./scripts/build_examples.sh
