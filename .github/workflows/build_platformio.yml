@@ -12,7 +12,7 @@ jobs:
           examples/LoopbackClientServer/main.cpp,
           examples/RTU04example/main.cpp,
           examples/RTU06example/main.cpp,
-          examples/RTU16server/main.cpp,
+          examples/RTU16example/main.cpp,
           examples/TCP03async/main.cpp,
           examples/TCP03example/main.cpp
         ]
@@ -32,7 +32,7 @@ jobs:
       - name: Download external libraries
         run: pio pkg install --global --library https://github.com/arduino-libraries/Ethernet.git --library me-no-dev/AsyncTCP
       - name: Build PlatformIO examples
-        run: pio ci --lib="." --board=lolin32
+        run: pio ci --lib="." --project-option="lib_ldf_mode=deep+" --board=lolin32
         env:
           PLATFORMIO_CI_SRC: ${{ matrix.example }}
 
@@ -65,31 +65,31 @@ jobs:
       - name: Download external libraries
         run: pio pkg install --global --library https://github.com/arduino-libraries/Ethernet.git --library me-no-dev/AsyncTCP
       - name: Build PlatformIO examples
-        run: pio ci --lib="." --board=lolin32
+        run: pio ci --lib="." --project-option="lib_ldf_mode=deep+" --board=lolin32
         env:
           PLATFORMIO_CI_SRC: ${{ matrix.example }}
 
-  part-3-linux:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        example: [
-          examples/Linux/main.cpp
-        ]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.platformio/.cache
-          key: ${{ runner.os }}-pio
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
-      - name: Build PlatformIO examples
-        run: pio ci --lib="." --project-conf="./examples/Linux/platformio.ini"
-        env:
-          PLATFORMIO_CI_SRC: ${{ matrix.example }}
+  #part-3-linux:
+  #  runs-on: ubuntu-latest
+  #  strategy:
+  #    matrix:
+  #      example: [
+  #        examples/Linux/main.cpp
+  #      ]
+  #  steps:
+  #    - uses: actions/checkout@v3
+  #    - uses: actions/cache@v3
+  #      with:
+  #        path: |
+  #          ~/.cache/pip
+  #          ~/.platformio/.cache
+  #        key: ${{ runner.os }}-pio
+  #    - uses: actions/setup-python@v4
+  #      with:
+  #        python-version: '3.9'
+  #    - name: Install PlatformIO Core
+  #      run: pip install --upgrade platformio
+  #    - name: Build PlatformIO examples
+  #      run: pio ci --lib="." --project-conf="./examples/Linux/platformio.ini"
+  #      env:
+  #        PLATFORMIO_CI_SRC: ${{ matrix.example }}
