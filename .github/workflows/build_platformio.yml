@@ -9,12 +9,12 @@ jobs:
       matrix:
         example: [
           examples/GenerateMessage/main.cpp,
-          examples/LoopbackClientServer/main.cpp
+          examples/LoopbackClientServer/main.cpp,
           examples/RTU04example/main.cpp,
           examples/RTU06example/main.cpp,
           examples/RTU0server/main.cpp,
           examples/TCP03async/main.cpp,
-          examples/TCP03example/main.cpp,
+          examples/TCP03example/main.cpp
         ]
     steps:
       - uses: actions/checkout@v3
@@ -47,7 +47,7 @@ jobs:
           examples/EthernetServer/main.cpp,
           examples/TCPServerAsync/main.cpp,
           examples/WiFi-RTU_Bridge/main.cpp,
-          examples/WiFi-RTU_Bridge_Filtered/main.cpp,
+          examples/WiFi-RTU_Bridge_Filtered/main.cpp
         ]
     steps:
       - uses: actions/checkout@v3
