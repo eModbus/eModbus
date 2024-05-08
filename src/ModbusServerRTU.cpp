@@ -231,8 +231,8 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
             response = m;
           }
         } else {
-          // No callback. Is at least the serverID valid and no broadcast?
-          if (myServer->isServerFor(request[0]) && request[0] != 0x00) {
+          // No callback. Is at least the serverID valid?
+          if (myServer->isServerFor(request[0])) {
             // Yes. Send back a ILLEGAL_FUNCTION error
             response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
           }

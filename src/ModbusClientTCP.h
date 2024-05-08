@@ -58,7 +58,7 @@ protected:
     uint32_t      timeout;      // Time in ms waiting for a response
     uint32_t      interval;     // Time in ms to wait between requests
     
-    inline TargetHost& operator=(TargetHost& t) {
+    inline TargetHost& operator=(const TargetHost& t) {
       host = t.host;
       port = t.port;
       timeout = t.timeout;
@@ -66,7 +66,7 @@ protected:
       return *this;
     }
     
-    inline TargetHost(TargetHost& t) :
+    inline TargetHost(const TargetHost& t) :
       host(t.host),
       port(t.port),
       timeout(t.timeout),
@@ -86,13 +86,13 @@ protected:
       interval(interval)
     { }
 
-    inline bool operator==(TargetHost& t) {
+    inline bool operator==(const TargetHost& t) {
       if (host != t.host) return false;
       if (port != t.port) return false;
       return true;
     }
 
-    inline bool operator!=(TargetHost& t) {
+    inline bool operator!=(const TargetHost& t) {
       if (host != t.host) return true;
       if (port != t.port) return true;
       return false;
@@ -135,7 +135,7 @@ protected:
     }
 
   protected:
-    uint8_t headRoom[6];        // Buffer to hold MSB-first TCP header
+    uint8_t headRoom[6] = {0,0,0,0,0,0};        // Buffer to hold MSB-first TCP header
   };
 
   struct RequestEntry {
@@ -144,7 +144,7 @@ protected:
     TargetHost target;
     ModbusTCPhead head;
     bool isSyncRequest;
-    RequestEntry(uint32_t t, ModbusMessage m, TargetHost tg, bool syncReq = false) :
+    RequestEntry(uint32_t t, const ModbusMessage& m, TargetHost tg, bool syncReq = false) :
       token(t),
       msg(m),
       target(tg),
@@ -153,8 +153,8 @@ protected:
   };
 
   // Base addRequest and syncRequest must be present
-  Error addRequestM(ModbusMessage msg, uint32_t token);
-  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
+  Error addRequestM(ModbusMessage msg, uint32_t token) override;
+  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token) override;
   // TCP-specific addition "...MT()" including adhoc target - used by bridge 
   Error addRequestMT(ModbusMessage msg, uint32_t token, IPAddress targetHost, uint16_t targetPort);
   ModbusMessage syncRequestMT(ModbusMessage msg, uint32_t token, IPAddress targetHost, uint16_t targetPort);
@@ -174,7 +174,7 @@ protected:
   // receive: get response via Client connection
   ModbusMessage receive(RequestEntry *request);
 
-  void isInstance() { return; }   // make class instantiable
+  void isInstance() override { return; }   // make class instantiable
   queue<RequestEntry *> requests;   // Queue to hold requests to be processed
   #if USE_MUTEX
   mutex qLock;                    // Mutex to protect queue

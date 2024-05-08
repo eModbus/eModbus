@@ -61,7 +61,7 @@ protected:
   ModbusServerRTU(ModbusServerRTU& m) = delete;
   ModbusServerRTU& operator=(ModbusServerRTU& m) = delete;
 
-  inline void isInstance() { }           // Make class instantiable
+  inline void isInstance() override { }           // Make class instantiable
 
   // internal common begin function
   void doBegin(uint32_t baudRate, int coreID, uint32_t userInterval);

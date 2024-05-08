@@ -46,15 +46,17 @@ TCPstub stub;
 ModbusClientTCP TestTCP(stub, 2);               // ModbusClientTCP test instance for stub use.
 WiFiClient wc;
 ModbusClientTCP TestClientWiFi(wc, 25);         // ModbusClientTCP test instance for WiFi loopback use.
-ModbusClientRTU RTUclient(GPIO_NUM_4);  // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
+ModbusClientRTU RTUclient(GPIO_NUM_4);          // ModbusClientRTU test instance. Connect a LED to GPIO pin 4 to see the RTS toggle.
 ModbusServerRTU RTUserver(20000, RTStest);      // ModbusServerRTU instance
 ModbusServerWiFi MBserver;                      // ModbusServerWiFi instance
 ModbusBridgeWiFi Bridge;                        // Modbus bridge instance
 IPAddress ip = {127,   0,   0,   1};            // IP address of ModbusServerWiFi (loopback IF)
 uint16_t port = 502;                            // port of modbus server
-uint16_t testsExecuted = 0;            // Global test cases counter. Incremented in testOutput().
-uint16_t testsPassed = 0;              // Global passed test cases counter. Incremented in testOutput().
-bool printPassed = false;              // If true, testOutput will print passed tests as well.
+uint16_t testsExecuted = 0;                     // test cases counter. Incremented in testOutput().
+uint16_t testsPassed = 0;                       // passed test cases counter. Incremented in testOutput().
+uint16_t testsExecutedGlobal = 0;               // Global test cases counter. Incremented in testOutput().
+uint16_t testsPassedGlobal = 0;                 // Global passed test cases counter. Incremented in testOutput().
+bool printPassed = false;                       // If true, testOutput will print passed tests as well.
 TidMap testCasesByTID;
 TokenMap testCasesByToken;
 uint32_t highestTokenProcessed = 0;
@@ -502,6 +504,8 @@ void setup()
   // ******************************************************************************
 
   // Restart test case and tests passed counter
+  testsExecutedGlobal += testsExecuted;
+  testsPassedGlobal += testsPassed;
   testsExecuted = 0;
   testsPassed = 0;
 
@@ -663,6 +667,8 @@ void setup()
   // ******************************************************************************
 
   // Restart test case and tests passed counter
+  testsExecutedGlobal += testsExecuted;
+  testsPassedGlobal += testsPassed;
   testsExecuted = 0;
   testsPassed = 0;
 
@@ -1120,6 +1126,8 @@ void setup()
   // ******************************************************************************
 
   // Restart test case and tests passed counter
+  testsExecutedGlobal += testsExecuted;
+  testsPassedGlobal += testsPassed;
   testsExecuted = 0;
   testsPassed = 0;
 
@@ -1759,6 +1767,8 @@ void setup()
   // ******************************************************************************
 
   // Restart test case and tests passed counter
+  testsExecutedGlobal += testsExecuted;
+  testsPassedGlobal += testsPassed;
   testsExecuted = 0;
   testsPassed = 0;
 
@@ -1990,6 +2000,8 @@ void setup()
   // ******************************************************************************
 
   // Restart test case and tests passed counter
+  testsExecutedGlobal += testsExecuted;
+  testsPassedGlobal += testsPassed;
   testsExecuted = 0;
   testsPassed = 0;
 
@@ -2031,6 +2043,8 @@ void setup()
   // ******************************************************************************
 
   // Restart test case and tests passed counter
+  testsExecutedGlobal += testsExecuted;
+  testsPassedGlobal += testsPassed;
   testsExecuted = 0;
   testsPassed = 0;
 
@@ -2086,6 +2100,8 @@ void setup()
 // CoilData type tests
 // ******************************************************************************
 
+  testsExecutedGlobal += testsExecuted;
+  testsPassedGlobal += testsPassed;
   testsExecuted = 0;
   testsPassed = 0;
   MBUlogLvl = LOG_LEVEL_WARNING;
@@ -2276,6 +2292,8 @@ void setup()
   // ******************************************************************************
   // FC redefinition tests
   // ******************************************************************************
+  testsExecutedGlobal += testsExecuted;
+  testsPassedGlobal += testsPassed;
   testsExecuted = 0;
   testsPassed = 0;
   FCType ft = FCILLEGAL;
@@ -2361,6 +2379,8 @@ void setup()
   */
 
   // ======================================================================================
+  // Print global summary.
+  Serial.printf("\n\n *** Tests run: %5d, passed: %5d\n", testsExecutedGlobal, testsPassedGlobal);
   // Final message
   Serial.println("\n\n *** ----> All finished.");
 

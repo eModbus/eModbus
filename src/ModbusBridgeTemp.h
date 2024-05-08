@@ -8,6 +8,7 @@
 #include <map>
 #include <functional>
 #include "ModbusClient.h"
+#include "ModbusServer.h"
 #include "ModbusClientTCP.h"  // Needed for client.setTarget()
 #include "RTUutils.h"  // Needed for RTScallback
 
@@ -29,7 +30,7 @@ public:
   ModbusBridge();
 
   // Constructors for the RTU variant. Parameters as are for ModbusServerRTU
-  ModbusBridge(uint32_t timeout, int rtsPin = -1);
+  explicit ModbusBridge(uint32_t timeout, int rtsPin = -1);
   ModbusBridge(uint32_t timeout, RTScallback rts);
 
   // Destructor

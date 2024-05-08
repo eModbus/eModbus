@@ -64,7 +64,7 @@ void ModbusClientTCP::end() {
 // begin: start worker task
 #if IS_LINUX
 void *ModbusClientTCP::pHandle(void *p) {
-  handleConnection((ModbusClientTCP *)p);
+  handleConnection(static_cast<ModbusClientTCP *>(p));
   return nullptr;
 }
 #endif
