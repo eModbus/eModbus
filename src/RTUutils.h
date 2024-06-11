@@ -5,9 +5,6 @@
 #ifndef _RTU_UTILS_H
 #define _RTU_UTILS_H
 #include <stdint.h>
-#if NEED_UART_PATCH
-#include <soc/uart_struct.h>
-#endif
 #include <vector>
 #include "Stream.h"
 #include "ModbusTypeDefs.h"

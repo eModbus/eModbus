@@ -3,6 +3,7 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "options.h"
+#if HAS_FREERTOS
 #include "ModbusMessage.h"
 #include "RTUutils.h"
 #undef LOCAL_LOG_LEVEL
@@ -57,10 +58,9 @@ uint16_t RTUutils::calcCRC(const uint8_t *data, uint16_t len) {
 
   uint8_t crcHi = 0xFF;
   uint8_t crcLo = 0xFF;
-  uint8_t index;
 
   while (len--) {
-    index = crcLo ^ *data++;
+    uint8_t index = crcLo ^ *data++;
     crcLo = crcHi ^ crcHiTable[index];
     crcHi = crcLoTable[index];
   }
@@ -464,4 +464,5 @@ const char RTUutils::ASCIIread[] = {
 const char RTUutils::ASCIIwrite[] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 
                                       0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46 
 };
+#endif
 #endif
