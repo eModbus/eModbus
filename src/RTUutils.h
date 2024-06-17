@@ -49,11 +49,13 @@ public:
 // RTSauto: dummy callback for auto half duplex RS485 boards
   inline static void RTSauto(bool level) { return; } // NOLINT
 
+#if HAS_FREERTOS
 // Necessary preparations for a HardwareSerial
 static void prepareHardwareSerial(HardwareSerial& s, uint16_t bufferSize = 260) {
   s.setRxBufferSize(bufferSize);
   s.setTxBufferSize(bufferSize);
 }
+#endif
 
 protected:
 // Printable characters for ASCII protocol: 012345678ABCDEF

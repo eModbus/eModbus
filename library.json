@@ -61,5 +61,9 @@
   "platforms": [
     "espressif32",
     "espressif8266"
-  ]
+  ],
+  "build":
+  {
+    "lib_ldf_Mode": "deep+"
+  }
 }
