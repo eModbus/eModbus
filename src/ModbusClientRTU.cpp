@@ -10,10 +10,10 @@
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 #include "Logging.h"
 
-// Constructor takes Serial reference and optional DE/RE pin
-ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t queueLimit) :
+// Constructor takes an optional DE/RE pin and queue size
+ModbusClientRTU::ModbusClientRTU(int8_t rtsPin, uint16_t queueLimit) :
   ModbusClient(),
-  MR_serial(serial),
+  MR_serial(nullptr),
   MR_lastMicros(micros()),
   MR_interval(2000),
   MR_rtsPin(rtsPin),
@@ -32,10 +32,10 @@ ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, int8_t rtsPin, uint16_t
     }
 }
 
-// Alternative constructor takes Serial reference and RTS callback function
-ModbusClientRTU::ModbusClientRTU(HardwareSerial& serial, RTScallback rts, uint16_t queueLimit) :
+// Alternative constructor takes an RTS callback function
+ModbusClientRTU::ModbusClientRTU(RTScallback rts, uint16_t queueLimit) :
   ModbusClient(),
-  MR_serial(serial),
+  MR_serial(nullptr),
   MR_lastMicros(micros()),
   MR_interval(2000),
   MTRSrts(rts),
@@ -53,29 +53,42 @@ ModbusClientRTU::~ModbusClientRTU() {
   end();
 }
 
-// begin: start worker task
-void ModbusClientRTU::begin(int coreID, uint32_t interval) {
-  // Only start worker if HardwareSerial has been initialized!
-  if (MR_serial.baudRate()) {
-    // Pull down RTS toggle, if necessary
-    MTRSrts(LOW);
+// begin: start worker task - general version
+void ModbusClientRTU::begin(Stream& serial, uint32_t baudRate, int coreID, uint32_t userInterval) {
+  MR_serial = &serial;
+  doBegin(baudRate, coreID, userInterval);
+}
 
-    // Set minimum interval time
-    MR_interval = RTUutils::calculateInterval(MR_serial, interval);
+// begin: start worker task - HardwareSerial version
+void ModbusClientRTU::begin(HardwareSerial& serial, int coreID, uint32_t userInterval) {
+  MR_serial = &serial;
+  uint32_t baudRate = serial.baudRate();
+  serial.setRxFIFOFull(1);
+  doBegin(baudRate, coreID, userInterval);
+}
 
-    // Switch serial FIFO buffer copy threshold to 1 byte (normally is 112!)
-    RTUutils::UARTinit(MR_serial, 1);
+void ModbusClientRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterval) {
+  // Task already running? End it in case
+  end();
 
-    // Create unique task name
-    char taskName[18];
-    snprintf(taskName, 18, "Modbus%02XRTU", instanceCounter);
-    // Start task to handle the queue
-    xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 6, &worker, coreID >= 0 ? coreID : NULL);
+  // Pull down RTS toggle, if necessary
+  MTRSrts(LOW);
 
-    LOG_D("Worker task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
-  } else {
-    LOG_E("Worker task could not be started! HardwareSerial not initialized?\n");
+  // Set minimum interval time
+  MR_interval = RTUutils::calculateInterval(baudRate);
+
+  // If user defined interval is longer, use that
+  if (MR_interval < userInterval) {
+    MR_interval = userInterval;
   }
+
+  // Create unique task name
+  char taskName[18];
+  snprintf(taskName, 18, "Modbus%02XRTU", instanceCounter);
+  // Start task to handle the queue
+  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, CLIENT_TASK_STACK, this, 6, &worker, coreID >= 0 ? coreID : NULL);
+
+  LOG_D("Client task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
 }
 
 // end: stop worker task
@@ -93,7 +106,8 @@ void ModbusClientRTU::end() {
     }
     // Kill task
     vTaskDelete(worker);
-    LOG_D("Worker task %d killed.\n", (uint32_t)worker);
+    LOG_D("Client task %d killed.\n", (uint32_t)worker);
+    worker = nullptr;
   }
 }
 
@@ -130,6 +144,14 @@ void ModbusClientRTU::skipLeading0x00(bool onOff) {
 // Return number of unprocessed requests in queue
 uint32_t ModbusClientRTU::pendingRequests() {
   return requests.size();
+}
+
+// Remove all pending request from queue
+void ModbusClientRTU::clearQueue()
+{
+  std::queue<RequestEntry> empty;
+  LOCK_GUARD(lockGuard, qLock);
+  std::swap(requests, empty);
 }
 
 // Base addRequest taking a preformatted data buffer and length as parameters
@@ -227,7 +249,7 @@ bool ModbusClientRTU::addToQueue(uint32_t token, ModbusMessage request, bool syn
 // This was created in begin() to handle the queue entries
 void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
   // initially clean the serial buffer
-  while (instance->MR_serial.available()) instance->MR_serial.read();
+  while (instance->MR_serial->available()) instance->MR_serial->read();
   delay(100);
 
   // Loop forever - or until task is killed
@@ -240,7 +262,7 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       LOG_D("Pulled request from queue\n");
 
       // Send it via Serial
-      RTUutils::send(instance->MR_serial, instance->MR_lastMicros, instance->MR_interval, instance->MTRSrts, request.msg, instance->MR_useASCII);
+      RTUutils::send(*(instance->MR_serial), instance->MR_lastMicros, instance->MR_interval, instance->MTRSrts, request.msg, instance->MR_useASCII);
 
       LOG_D("Request sent.\n");
       // HEXDUMP_V("Data", request.msg.data(), request.msg.size());
@@ -249,7 +271,8 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       if (request.msg.getServerID() != 0 || ((request.token & 0xFF000000) != 0xBC000000)) {
         // This is a regular request, Get the response - if any
         ModbusMessage response = RTUutils::receive(
-          instance->MR_serial, 
+          'C',
+          *(instance->MR_serial), 
           instance->MR_timeoutValue, 
           instance->MR_lastMicros, 
           instance->MR_interval, 

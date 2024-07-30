@@ -44,7 +44,7 @@ protected:
   ModbusServerTCP(ModbusServerTCP& m) = delete;
   ModbusServerTCP& operator=(ModbusServerTCP& m) = delete;
 
-  inline void isInstance() { }
+  inline void isInstance() override { }
 
   uint8_t numClients;
   TaskHandle_t serverTask;
@@ -159,7 +159,7 @@ template <typename ST, typename CT>
     snprintf(taskName, 18, "MBserve%04X", port);
 
     // Start task to handle the client
-    xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
+    xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
     LOG_D("Server task %s started (%d).\n", taskName, (uint32_t)serverTask);
 
     // Wait two seconds for it to establish
@@ -206,7 +206,7 @@ bool ModbusServerTCP<ST, CT>::accept(CT& client, uint32_t timeout, int coreID) {
       snprintf(taskName, 18, "MBsrv%02Xclnt", i);
 
       // Start task to handle the client
-      xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, 4096, clients[i], 5, &clients[i]->task, coreID >= 0 ? coreID : NULL);
+      xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, SERVER_TASK_STACK, clients[i], 5, &clients[i]->task, coreID >= 0 ? coreID : NULL);
       LOG_D("Started client %d task %d\n", i, (uint32_t)(clients[i]->task));
 
       return true;
@@ -336,7 +336,6 @@ void ModbusServerTCP<ST, CT>::worker(ClientData *myData) {
         // Append response
         m.append(response);
         myClient.write(m.data(), m.size());
-        myClient.flush();
         HEXDUMP_V("Response", m.data(), m.size());
         // count error responses
         if (response.getError() != SUCCESS) {
@@ -377,8 +376,8 @@ template <typename ST, typename CT>
 ModbusMessage ModbusServerTCP<ST, CT>::receive(CT& client, uint32_t timeWait) {
   unsigned long lastMillis = millis();     // Timer to check for timeout
   ModbusMessage m;                    // to take read data
-  register uint16_t lengthVal = 0;
-  register uint16_t cnt = 0;
+  uint16_t lengthVal = 0;
+  uint16_t cnt = 0;
   const uint16_t BUFFERSIZE(300);
   uint8_t buffer[BUFFERSIZE];
 

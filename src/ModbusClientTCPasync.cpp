@@ -109,6 +109,18 @@ bool ModbusClientTCPasync::setTarget(IPAddress host, uint16_t port, uint32_t tim
   return true;
 }
 
+// Remove all pending request from queue
+void ModbusClientTCPasync::clearQueue()
+{
+  LOCK_GUARD(lock1, qLock);
+  LOCK_GUARD(lock2, sLock);
+  // Delete all elements from queues
+  while (!txQueue.empty()) {
+    delete txQueue.front();
+    txQueue.pop_front();
+  }
+}
+
 // Base addRequest for preformatted ModbusMessage and last set target
 Error ModbusClientTCPasync::addRequestM(ModbusMessage msg, uint32_t token) {
   Error rc = SUCCESS;        // Return value
@@ -229,11 +241,11 @@ void ModbusClientTCPasync::onACError(AsyncClient* c, int8_t error) {
 
 void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
   // We assume one full Modbus packet is received in one TCP packet
-
+  LOG_D("packet received (len:%u)\n", length);
+  // reset idle timeout
   MTA_lastActivity = millis();
   ModbusMessage* response = nullptr;
   Error error = SUCCESS;
-
   LOG_D("packet received (len:%d)\n", length);
   HEXDUMP_V("Response packet", data, length);
   uint16_t transactionID = 0;
@@ -246,6 +258,36 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
     LOG_W("No request waiting for response\n");
     return;
   }
+  if (length) {
+    LOG_D("parsing (len:%u)\n", length + 1);
+  }
+  while (length > 0) {
+    RequestEntry* request = nullptr;
+    ModbusMessage* response = nullptr;
+    uint16_t transactionID = 0;
+    bool isOkay = false;
+
+    // 1. Check for valid modbus message
+
+    // MBAP header is 6 bytes, we can't do anything with less
+    // total message should fit MBAP plus remaining bytes (in data[4], data[5])
+    if (length > 6) {
+      transactionID = (data[0] << 8) | data[1];
+      uint16_t protocolID = (data[2] << 8) | data[3];
+      uint16_t messageLength = (data[4] << 8) | data[5];
+      if (protocolID == 0 &&
+        length >= (uint32_t)messageLength + 6 &&
+        messageLength < 256) {
+        response = new ModbusMessage(messageLength);
+        response->add(&data[6], messageLength);
+        LOG_D("packet validated (len:%d)\n", messageLength);
+
+        // on next iteration: adjust remaining length and pointer to data
+        length -= 6 + messageLength;
+        data += 6 + messageLength;
+        isOkay = true;
+      }
+    }
 
   // 2. Check if packet is valid modbus message
 

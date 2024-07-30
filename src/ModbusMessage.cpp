@@ -181,7 +181,7 @@ uint8_t ModbusMessage::determineFloatOrder() {
     uint32_t i = 77230;                             // int value to go into a float without rounding error
     float f = i;                                    // assign it
     uint8_t *b = (uint8_t *)&f;                     // Pointer to bytes of f
-    uint8_t expect[floatSize] = { 0x47, 0x96, 0xd7, 0x00 }; // IEEE754 representation 
+    const uint8_t expect[floatSize] = { 0x47, 0x96, 0xd7, 0x00 }; // IEEE754 representation 
     uint8_t matches = 0;                            // number of bytes successfully matched
      
     // Loop over the bytes of the expected sequence
@@ -225,7 +225,7 @@ uint8_t ModbusMessage::determineDoubleOrder() {
     uint64_t i = 5791007487489389;                  // int64 value to go into a double without rounding error
     double f = i;                                   // assign it
     uint8_t *b = (uint8_t *)&f;                     // Pointer to bytes of f
-    uint8_t expect[doubleSize] = { 0x43, 0x34, 0x92, 0xE4, 0x00, 0x2E, 0xF5, 0x6D }; // IEEE754 representation 
+    const uint8_t expect[doubleSize] = { 0x43, 0x34, 0x92, 0xE4, 0x00, 0x2E, 0xF5, 0x6D }; // IEEE754 representation 
     uint8_t matches = 0;                            // number of bytes successfully matched
      
     // Loop over the bytes of the expected sequence

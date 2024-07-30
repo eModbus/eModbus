@@ -13,12 +13,12 @@
 uint8_t ModbusServerRTU::instanceCounter = 0;
 
 // Constructor with RTS pin GPIO (or -1)
-ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int rtsPin) :
+ModbusServerRTU::ModbusServerRTU(uint32_t timeout, int rtsPin) :
   ModbusServer(),
   serverTask(nullptr),
   serverTimeout(timeout),
-  MSRserial(serial),
-  MSRinterval(2000),     // will be calculated in start()!
+  MSRserial(nullptr),
+  MSRinterval(2000),     // will be calculated in begin()!
   MSRlastMicros(0),
   MSRrtsPin(rtsPin), 
   MSRuseASCII(false),
@@ -40,12 +40,12 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, int r
 }
 
 // Constructor with RTS callback
-ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTScallback rts) :
+ModbusServerRTU::ModbusServerRTU(uint32_t timeout, RTScallback rts) :
   ModbusServer(),
   serverTask(nullptr),
   serverTimeout(timeout),
-  MSRserial(serial),
-  MSRinterval(2000),     // will be calculated in start()!
+  MSRserial(nullptr),
+  MSRinterval(2000),     // will be calculated in begin()!
   MSRlastMicros(0),
   MRTSrts(rts), 
   MSRuseASCII(false),
@@ -63,47 +63,49 @@ ModbusServerRTU::ModbusServerRTU(HardwareSerial& serial, uint32_t timeout, RTSca
 ModbusServerRTU::~ModbusServerRTU() {
 }
 
-// start: create task with RTU server
-bool ModbusServerRTU::start(int coreID, uint32_t interval) {
-  // Task already running?
-  if (serverTask != nullptr) {
-    // Yes. stop it first
-    stop();
-    LOG_D("Server task was running - stopped.\n");
-  }
-
-  // start only if serial interface is initialized!
-  if (MSRserial.baudRate()) {
-    // Set minimum interval time
-    MSRinterval = RTUutils::calculateInterval(MSRserial, interval);
-
-    // Set the UART FIFO copy threshold to 1 byte
-    RTUutils::UARTinit(MSRserial, 1);
-
-    // Create unique task name
-    char taskName[18];
-    snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
-
-    // Start task to handle the client
-    xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, 4096, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
-
-    LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
-  } else {
-    LOG_E("Server task could not be started. HardwareSerial not initialized?\n");
-    return false;
-  }
-
-  return true;
+// start: create task with RTU server - general version
+void ModbusServerRTU::begin(Stream& serial, uint32_t baudRate, int coreID, uint32_t userInterval) {
+  MSRserial = &serial;
+  doBegin(baudRate, coreID, userInterval);
 }
 
-// stop: kill server task
-bool ModbusServerRTU::stop() {
+// start: create task with RTU server - HardwareSerial versions
+void ModbusServerRTU::begin(HardwareSerial& serial, int coreID, uint32_t userInterval) {
+  MSRserial = &serial;
+  uint32_t baudRate = serial.baudRate();
+  serial.setRxFIFOFull(1);
+  doBegin(baudRate, coreID, userInterval);
+}
+
+void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterval) {
+  // Task already running? Stop it in case.
+  end();
+
+  // Set minimum interval time
+  MSRinterval = RTUutils::calculateInterval(baudRate);
+
+  // If user defined interval is longer, use that
+  if (MSRinterval < userInterval) {
+    MSRinterval = userInterval;
+  }
+
+  // Create unique task name
+  char taskName[18];
+  snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
+
+  // Start task to handle the client
+  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
+
+  LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
+}
+
+// end: kill server task
+void ModbusServerRTU::end() {
   if (serverTask != nullptr) {
     vTaskDelete(serverTask);
     LOG_D("Server task %d stopped.\n", (uint32_t)serverTask);
     serverTask = nullptr;
   }
-  return true;
 }
 
 // Toggle protocol to ModbusASCII
@@ -163,7 +165,8 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
 
     // Wait for and read an request
     request = RTUutils::receive(
-      myServer->MSRserial, 
+      'S',
+      *(myServer->MSRserial), 
       myServer->serverTimeout, 
       myServer->MSRlastMicros, 
       myServer->MSRinterval, 
@@ -182,10 +185,12 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       }
       // Is it a broadcast?
       if (request[0] == 0) {
+        LOG_D("Broadcast!\n");
         // Yes. Do we have a listener?
         if (myServer->listener) {
           // Yes. call it
           myServer->listener(request);
+          LOG_D("Broadcast served.\n");
         }
         // else we simply ignore it
       } else {
@@ -226,8 +231,8 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
             response = m;
           }
         } else {
-          // No callback. Is at least the serverID valid and no broadcast?
-          if (myServer->isServerFor(request[0]) && request[0] != 0x00) {
+          // No callback. Is at least the serverID valid?
+          if (myServer->isServerFor(request[0])) {
             // Yes. Send back a ILLEGAL_FUNCTION error
             response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
           }
@@ -236,7 +241,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
         // Do we have gathered a valid response now?
         if (response.size() >= 3) {
           // Yes. send it back.
-          RTUutils::send(myServer->MSRserial, myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
+          RTUutils::send(*(myServer->MSRserial), myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
           LOG_D("Response sent.\n");
           // Count it, in case we had an error response
           if (response.getError() != SUCCESS) {

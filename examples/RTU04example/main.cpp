@@ -29,8 +29,8 @@ float values[NUM_VALUES];
 uint32_t request_time;
 
 // Create a ModbusRTU client instance
-// The RS485 module has no halfduplex, so the second parameter with the DE/RE pin is required!
-ModbusClientRTU MB(Serial2, REDEPIN);
+// The RS485 module has no halfduplex, so the parameter with the DE/RE pin is required!
+ModbusClientRTU MB(REDEPIN);
 
 // Define an onData handler function to receive the regular responses
 // Arguments are received response message and the request's token
@@ -65,6 +65,7 @@ void setup() {
   Serial.println("__ OK __");
 
 // Set up Serial2 connected to Modbus RTU
+  RTUutils::prepareHardwareSerial(Serial2);
   Serial2.begin(BAUDRATE, SERIAL_8N1, RXPIN, TXPIN);
 
 // Set up ModbusRTU client.
@@ -75,7 +76,7 @@ void setup() {
 // Set message timeout to 2000ms
   MB.setTimeout(2000);
 // Start ModbusRTU background task
-  MB.begin();
+  MB.begin(Serial2);
 }
 
 // loop() - cyclically request the data

@@ -8,7 +8,7 @@
 
 // Modbus server include
 #include "ModbusServerWiFi.h"
-// Modbus RTU client include
+// Modbus TCP client include
 #include "ModbusClientTCP.h"
 
 // We will be using the loopback interface, so no SSID or PASSWORD required here!

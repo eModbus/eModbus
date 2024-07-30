@@ -47,6 +47,9 @@ public:
   // Switch target host (if necessary)
   bool setTarget(IPAddress host, uint16_t port, uint32_t timeout = 0, uint32_t interval = 0);
 
+// Remove all pending request from queue
+  void clearQueue();
+
 protected:
   // class describing a target server
   struct TargetHost {
@@ -124,7 +127,7 @@ protected:
       return headRoom;
     }
 
-    inline ModbusTCPhead& operator= (ModbusTCPhead& t) {
+    inline ModbusTCPhead& operator= (const ModbusTCPhead& t) {
       transactionID = t.transactionID;
       protocolID    = t.protocolID;
       len           = t.len;
@@ -132,7 +135,7 @@ protected:
     }
 
   protected:
-    uint8_t headRoom[6];        // Buffer to hold MSB-first TCP header
+    uint8_t headRoom[6] = {0,0,0,0,0,0};        // Buffer to hold MSB-first TCP header
   };
 
   struct RequestEntry {
@@ -152,8 +155,8 @@ protected:
   };
 
   // Base addRequest and syncRequest both must be present
-  Error addRequestM(ModbusMessage msg, uint32_t token);
-  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token);
+  Error addRequestM(ModbusMessage msg, uint32_t token) override;
+  ModbusMessage syncRequestM(ModbusMessage msg, uint32_t token) override;
 
   // addToQueue: send freshly created request to queue
   bool addToQueue(int32_t token, ModbusMessage request, bool syncReq = false);
@@ -161,7 +164,7 @@ protected:
   // receive: get response via Client connection
   // TCPResponse* receive(uint8_t* data, size_t length);
 
-  void isInstance() { return; }     // make class instantiable
+  void isInstance() override { return; }     // make class instantiable
 
   // TCP handling code
   void connectUnlocked();

@@ -34,6 +34,11 @@ ModbusClientTCP::ModbusClientTCP(Client& client, IPAddress host, uint16_t port, 
 
 // Destructor: clean up queue, task etc.
 ModbusClientTCP::~ModbusClientTCP() {
+  end();
+}
+
+// end: stop worker task
+void ModbusClientTCP::end() {
   // Clean up queue
   {
     // Safely lock access
@@ -45,38 +50,46 @@ ModbusClientTCP::~ModbusClientTCP() {
   }
   LOG_D("TCP client worker killed.\n");
   // Kill task
+  if (worker) {
 #if IS_LINUX
-  pthread_cancel(worker);
+    pthread_cancel(worker);
+    worker = NULL;
 #else
-  vTaskDelete(worker);
+    vTaskDelete(worker);
+    worker = nullptr;
 #endif
+  }
 }
 
 // begin: start worker task
 #if IS_LINUX
 void *ModbusClientTCP::pHandle(void *p) {
-  handleConnection((ModbusClientTCP *)p);
+  handleConnection(static_cast<ModbusClientTCP *>(p));
   return nullptr;
 }
 #endif
 
 void ModbusClientTCP::begin(int coreID) {
+  if (!worker) {
 #if IS_LINUX
-  int rc = pthread_create(&worker, NULL, &pHandle, this);
-  if (rc) {
-    LOG_E("Error creating TCP client thread: %d\n", rc);
-  } else {
-    LOG_D("TCP client worker started.\n");
-  }
+    int rc = pthread_create(&worker, NULL, &pHandle, this);
+    if (rc) {
+      LOG_E("Error creating TCP client thread: %d\n", rc);
+    } else {
+      LOG_D("TCP client worker started.\n");
+    }
 
 #else
-  // Create unique task name
-  char taskName[18];
-  snprintf(taskName, 18, "Modbus%02XTCP", instanceCounter);
-  // Start task to handle the queue
-  xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, 4096, this, 5, &worker, coreID >= 0 ? coreID : NULL);
-  LOG_D("TCP client worker %s started\n", taskName);
+    // Create unique task name
+    char taskName[18];
+    snprintf(taskName, 18, "Modbus%02XTCP", instanceCounter);
+    // Start task to handle the queue
+    xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, CLIENT_TASK_STACK, this, 5, &worker, coreID >= 0 ? coreID : NULL);
+    LOG_D("TCP client worker %s started\n", taskName);
 #endif
+  } else {
+    LOG_E("Worker thread has been already started!");
+  }
 }
 
 // Set default timeout value (and interval)
@@ -100,6 +113,13 @@ bool ModbusClientTCP::setTarget(IPAddress host, uint16_t port, uint32_t timeout,
 // Return number of unprocessed requests in queue
 uint32_t ModbusClientTCP::pendingRequests() {
   return requests.size();
+}
+
+// Remove all pending request from queue
+void ModbusClientTCP::clearQueue() {
+  std::queue<RequestEntry *> empty;
+  LOCK_GUARD(lockGuard, qLock);
+  std::swap(requests, empty);
 }
 
 // Base addRequest for preformatted ModbusMessage and last set target

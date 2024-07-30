@@ -5,10 +5,6 @@
 #ifndef _EMODBUS_OPTIONS_H
 #define _EMODBUS_OPTIONS_H
 
-#ifndef RXFIFO_FULL_THRHD_PATCHED
-#define RXFIFO_FULL_THRHD_PATCHED 0
-#endif
-
 /* === ESP32 DEFINITIONS AND MACROS === */
 #if defined(ESP32) 
 #include <Arduino.h>
@@ -16,7 +12,8 @@
 #define HAS_FREERTOS 1
 #define HAS_ETHERNET 1
 #define IS_LINUX 0
-#define NEED_UART_PATCH 1
+const unsigned int SERVER_TASK_STACK = 4096;
+const unsigned int CLIENT_TASK_STACK = 4096;
 
 /* === ESP8266 DEFINITIONS AND MACROS === */
 #elif defined(ESP8266)
@@ -25,7 +22,6 @@
 #define HAS_FREERTOS 0
 #define HAS_ETHERNET 0
 #define IS_LINUX 0
-#define NEED_UART_PATCH 0
 
 /* === LINUX DEFINITIONS AND MACROS === */
 #elif defined(__linux__)
@@ -33,7 +29,6 @@
 #define HAS_FREERTOS 0
 #define HAS_ETHERNET 0
 #define IS_LINUX 1
-#define NEED_UART_PATCH 0
 #include <cstdio>  // for printf()
 #include <cstring> // for memcpy(), strlen() etc.
 #include <cinttypes> // for uint32_t etc.
