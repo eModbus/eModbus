@@ -113,7 +113,6 @@ bool ModbusClientTCPasync::setTarget(IPAddress host, uint16_t port, uint32_t tim
 void ModbusClientTCPasync::clearQueue()
 {
   LOCK_GUARD(lock1, qLock);
-  LOCK_GUARD(lock2, sLock);
   // Delete all elements from queues
   while (!txQueue.empty()) {
     delete txQueue.front();
