@@ -288,54 +288,55 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
       }
     }
 
-  // 2. Check if packet is valid modbus message
+    // 2. Check if packet is valid modbus message
 
-  // MBAP header is 6 bytes, we can't do anything with less
-  // total message should fit MBAP plus remaining bytes (in data[4], data[5])
-  if (length > 6) {
-    transactionID = (data[0] << 8) | data[1];
-    protocolID = (data[2] << 8) | data[3];
-    messageLength = (data[4] << 8) | data[5];
-    if (protocolID == 0 &&
-      length >= (uint32_t)messageLength + 6 &&
-      messageLength < 256) {
-      response = new ModbusMessage(messageLength);
-      if (!response) {
-        LOG_E("Could not create response packet\n");
-        return;
+    // MBAP header is 6 bytes, we can't do anything with less
+    // total message should fit MBAP plus remaining bytes (in data[4], data[5])
+    if (length > 6) {
+      transactionID = (data[0] << 8) | data[1];
+      protocolID = (data[2] << 8) | data[3];
+      messageLength = (data[4] << 8) | data[5];
+      if (protocolID == 0 &&
+        length >= (uint32_t)messageLength + 6 &&
+        messageLength < 256) {
+        response = new ModbusMessage(messageLength);
+        if (!response) {
+          LOG_E("Could not create response packet\n");
+          return;
+        }
+        response->add(&data[6], messageLength);
+        isOkay = true;
       }
-      response->add(&data[6], messageLength);
-      isOkay = true;
     }
-  }
 
-  // 3. Match response with request
-  if (!isOkay || currentRequest->head.transactionID != transactionID) {
-    // invalid packet, abort function
-    // TODO: do we need to return this error to the user?
-    LOG_W("Packet invalid or does not match request\n");
-    delete response;
-    return;
-  }
-  if (currentRequest->msg.getFunctionCode() != (response->getFunctionCode() & 0x7F)) {
-    error = FC_MISMATCH;
-  } else if (currentRequest->msg.getServerID() != response->getServerID()) {
-    error = SERVER_ID_MISMATCH;
-  } else {
-    error = response->getError();
-  }
-  if (error != SUCCESS) {
-    LOCK_GUARD(errorCntLock, countAccessM);
-    errorCount++;
-  }
+    // 3. Match response with request
+    if (!isOkay || currentRequest->head.transactionID != transactionID) {
+      // invalid packet, abort function
+      // TODO: do we need to return this error to the user?
+      LOG_W("Packet invalid or does not match request\n");
+      delete response;
+      return;
+    }
+    if (currentRequest->msg.getFunctionCode() != (response->getFunctionCode() & 0x7F)) {
+      error = FC_MISMATCH;
+    } else if (currentRequest->msg.getServerID() != response->getServerID()) {
+      error = SERVER_ID_MISMATCH;
+    } else {
+      error = response->getError();
+    }
+    if (error != SUCCESS) {
+      LOCK_GUARD(errorCntLock, countAccessM);
+      errorCount++;
+    }
 
-  // 4. Respond to API and cleanup
-  respond(response->getError(), response);
-  MTA_state = CONNECTED;
+    // 4. Respond to API and cleanup
+    respond(response->getError(), response);
+    MTA_state = CONNECTED;
 
-  // 5. check if we have to send the next request
-  if (getNextRequest()) {
-    handleCurrentRequest();
+    // 5. check if we have to send the next request
+    if (getNextRequest()) {
+      handleCurrentRequest();
+    }
   }
 }
 
