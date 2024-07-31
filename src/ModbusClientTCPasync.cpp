@@ -116,7 +116,7 @@ void ModbusClientTCPasync::clearQueue()
   // Delete all elements from queues
   while (!queue.empty()) {
     delete queue.front();
-    queue.pop_front();
+    queue.pop();
   }
 }
 
