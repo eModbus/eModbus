@@ -114,9 +114,9 @@ void ModbusClientTCPasync::clearQueue()
 {
   LOCK_GUARD(lock1, qLock);
   // Delete all elements from queues
-  while (!txQueue.empty()) {
-    delete txQueue.front();
-    txQueue.pop_front();
+  while (!queue.empty()) {
+    delete queue.front();
+    queue.pop_front();
   }
 }
 
