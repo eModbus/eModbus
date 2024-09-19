@@ -47,6 +47,9 @@ public:
   // Inquire protocol mode
   bool isModbusASCII();
 
+  // set timeout
+  void setModbusTimeout(unsigned long timeout);
+
   // Toggle skipping of leading 0x00 byte
   void skipLeading0x00(bool onOff = true);
 
