@@ -126,6 +126,12 @@ bool ModbusServerRTU::isModbusASCII() {
   return MSRuseASCII;
 }
 
+// set timeout
+void ModbusServerRTU::setModbusTimeout(unsigned long timeout)
+{
+  serverTimeout = timeout;
+}
+
 // Toggle skipping of leading 0x00 byte
 void ModbusServerRTU::skipLeading0x00(bool onOff) {
   MSRskipLeadingZeroByte = onOff;
