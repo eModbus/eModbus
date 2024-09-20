@@ -71,10 +71,8 @@ void setup() {
   MB.onDataHandler(&handleData);
 // - provide onError handler function
   MB.onErrorHandler(&handleError);
-// Set message timeout to 2000ms and interval between requests to the same host to 200ms
-  MB.setTimeout(10000);
-// Start ModbusTCP background task
-  MB.setIdleTimeout(60000);
+// Set message timeout to 10000ms and interval between requests to the same host to 500ms
+  MB.setTimeout(10000, 500);
 }
 
 // loop() - nothing done here today!
