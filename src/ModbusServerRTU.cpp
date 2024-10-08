@@ -1,6 +1,5 @@
 // =================================================================================================
-// eModbus: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors
-// to eModbus
+// eModbus: Copyright 2020 by Michael Harwerth, Bert Melis and the contributors to eModbus
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusServerRTU.h"
@@ -14,17 +13,26 @@
 uint8_t ModbusServerRTU::instanceCounter = 0;
 
 // Constructor with RTS pin GPIO (or -1)
-ModbusServerRTU::ModbusServerRTU(uint32_t timeout, int rtsPin)
-    : ModbusServer(), serverTask(nullptr), serverTimeout(timeout),
-      MSRserial(nullptr), MSRinterval(2000), // will be calculated in begin()!
-      MSRlastMicros(0), MSRrtsPin(rtsPin), MSRuseASCII(false),
-      MSRskipLeadingZeroByte(false), listener(nullptr), sniffer(nullptr) {
+ModbusServerRTU::ModbusServerRTU(uint32_t timeout, int rtsPin) :
+  ModbusServer(),
+  serverTask(nullptr),
+  serverTimeout(timeout),
+  MSRserial(nullptr),
+  MSRinterval(2000),     // will be calculated in begin()!
+  MSRlastMicros(0),
+  MSRrtsPin(rtsPin), 
+  MSRuseASCII(false),
+  MSRskipLeadingZeroByte(false),
+  listener(nullptr),
+  sniffer(nullptr) {
   // Count instances one up
   instanceCounter++;
   // If we have a GPIO RE/DE pin, configure it.
   if (MSRrtsPin >= 0) {
     pinMode(MSRrtsPin, OUTPUT);
-    MRTSrts = [this](bool level) { digitalWrite(MSRrtsPin, level); };
+    MRTSrts = [this](bool level) {
+      digitalWrite(MSRrtsPin, level);
+    };
     MRTSrts(LOW);
   } else {
     MRTSrts = RTUutils::RTSauto;
@@ -32,11 +40,18 @@ ModbusServerRTU::ModbusServerRTU(uint32_t timeout, int rtsPin)
 }
 
 // Constructor with RTS callback
-ModbusServerRTU::ModbusServerRTU(uint32_t timeout, RTScallback rts)
-    : ModbusServer(), serverTask(nullptr), serverTimeout(timeout),
-      MSRserial(nullptr), MSRinterval(2000), // will be calculated in begin()!
-      MSRlastMicros(0), MRTSrts(rts), MSRuseASCII(false),
-      MSRskipLeadingZeroByte(false), listener(nullptr), sniffer(nullptr) {
+ModbusServerRTU::ModbusServerRTU(uint32_t timeout, RTScallback rts) :
+  ModbusServer(),
+  serverTask(nullptr),
+  serverTimeout(timeout),
+  MSRserial(nullptr),
+  MSRinterval(2000),     // will be calculated in begin()!
+  MSRlastMicros(0),
+  MRTSrts(rts), 
+  MSRuseASCII(false),
+  MSRskipLeadingZeroByte(false),
+  listener(nullptr),
+  sniffer(nullptr) {
   // Count instances one up
   instanceCounter++;
   // Configure RTS callback
@@ -45,19 +60,18 @@ ModbusServerRTU::ModbusServerRTU(uint32_t timeout, RTScallback rts)
 }
 
 // Destructor
-ModbusServerRTU::~ModbusServerRTU() {}
+ModbusServerRTU::~ModbusServerRTU() {
+}
 
 // start: create task with RTU server - general version
-void ModbusServerRTU::begin(Stream &serial, uint32_t baudRate, int coreID,
-                            uint32_t userInterval) {
+void ModbusServerRTU::begin(Stream& serial, uint32_t baudRate, int coreID, uint32_t userInterval) {
   MSRserial = &serial;
   doBegin(baudRate, coreID, userInterval);
 }
 
 #if HAS_FREERTOS
 // start: create task with RTU server - HardwareSerial versions
-void ModbusServerRTU::begin(HardwareSerial &serial, int coreID,
-                            uint32_t userInterval) {
+void ModbusServerRTU::begin(HardwareSerial& serial, int coreID, uint32_t userInterval) {
   MSRserial = &serial;
   uint32_t baudRate = serial.baudRate();
   serial.setRxFIFOFull(1);
@@ -65,8 +79,7 @@ void ModbusServerRTU::begin(HardwareSerial &serial, int coreID,
 }
 #endif
 
-void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID,
-                              uint32_t userInterval) {
+void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterval) {
   // Task already running? Stop it in case.
   end();
 
@@ -82,7 +95,7 @@ void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID,
   char taskName[18];
   snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
 
-// Start task to handle the client
+  // Start task to handle the client
 #if ARDUINO_ARCH_RP2040
   xTaskCreate((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 8,
               &serverTask);
@@ -94,8 +107,7 @@ void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID,
                           this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
 #endif
 
-  LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask,
-        MSRinterval);
+  LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
 }
 
 // end: kill server task
@@ -121,10 +133,13 @@ void ModbusServerRTU::useModbusRTU() {
 }
 
 // Inquire protocol mode
-bool ModbusServerRTU::isModbusASCII() { return MSRuseASCII; }
+bool ModbusServerRTU::isModbusASCII() {
+  return MSRuseASCII;
+}
 
 // set timeout
-void ModbusServerRTU::setModbusTimeout(unsigned long timeout) {
+void ModbusServerRTU::setModbusTimeout(unsigned long timeout)
+{
   serverTimeout = timeout;
 }
 
@@ -144,7 +159,7 @@ void ModbusServerRTU::registerBroadcastWorker(MSRlistener worker) {
 // Even more special: register a sniffer worker
 void ModbusServerRTU::registerSniffer(MSRlistener worker) {
   // If there is one already, it will be overwritten!
-  // This holds true for the broadcast worker as well,
+  // This holds true for the broadcast worker as well, 
   // so a sniffer never will do else but to sniff on broadcast requests!
   sniffer = worker;
   LOG_D("Registered sniffer\n");
@@ -152,9 +167,9 @@ void ModbusServerRTU::registerSniffer(MSRlistener worker) {
 
 // serve: loop until killed and receive messages from the RTU interface
 void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
-  ModbusMessage request;  // received request message
-  ModbusMessage m;        // Application's response data
-  ModbusMessage response; // Response proper to be sent
+  ModbusMessage request;                // received request message
+  ModbusMessage m;                      // Application's response data
+  ModbusMessage response;               // Response proper to be sent
 
   // init microseconds timer
   myServer->MSRlastMicros = micros();
@@ -167,15 +182,19 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
 
     // Wait for and read an request
     request = RTUutils::receive(
-        'S', *(myServer->MSRserial), myServer->serverTimeout,
-        myServer->MSRlastMicros, myServer->MSRinterval, myServer->MSRuseASCII,
-        myServer->MSRskipLeadingZeroByte);
+      'S',
+      *(myServer->MSRserial), 
+      myServer->serverTimeout, 
+      myServer->MSRlastMicros, 
+      myServer->MSRinterval, 
+      myServer->MSRuseASCII, 
+      myServer->MSRskipLeadingZeroByte);
 
-    // Request longer than 1 byte (that will signal an error in receive())?
+    // Request longer than 1 byte (that will signal an error in receive())? 
     if (request.size() > 1) {
       LOG_D("Request received.\n");
 
-      // Yes.
+      // Yes. 
       // Do we have a sniffer listening?
       if (myServer->sniffer) {
         // Yes. call it
@@ -192,7 +211,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
         }
         // else we simply ignore it
       } else {
-        // No Broadcast.
+        // No Broadcast. 
         // Do we have a callback function registered for it?
         MBSworker callBack = myServer->getWorker(request[0], request[1]);
         if (callBack) {
@@ -221,7 +240,7 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
                 response.resize(6);
               }
               break;
-            default: // Will not get here, but lint likes it!
+            default:   // Will not get here, but lint likes it!
               break;
             }
           } else {
@@ -232,18 +251,14 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
           // No callback. Is at least the serverID valid?
           if (myServer->isServerFor(request[0])) {
             // Yes. Send back a ILLEGAL_FUNCTION error
-            response.setError(request.getServerID(), request.getFunctionCode(),
-                              ILLEGAL_FUNCTION);
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_FUNCTION);
           }
-          // Else we will ignore the request, as it is not meant for us and we
-          // do not deal with broadcasts!
+          // Else we will ignore the request, as it is not meant for us and we do not deal with broadcasts!
         }
         // Do we have gathered a valid response now?
         if (response.size() >= 3) {
           // Yes. send it back.
-          RTUutils::send(*(myServer->MSRserial), myServer->MSRlastMicros,
-                         myServer->MSRinterval, myServer->MRTSrts, response,
-                         myServer->MSRuseASCII);
+          RTUutils::send(*(myServer->MSRserial), myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
           LOG_D("Response sent.\n");
           // Count it, in case we had an error response
           if (response.getError() != SUCCESS) {
