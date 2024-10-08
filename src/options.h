@@ -12,6 +12,7 @@
 #define HAS_FREERTOS 1
 #define HAS_ETHERNET 1
 #define IS_LINUX 0
+#define HASIP 1
 const unsigned int SERVER_TASK_STACK = 4096;
 const unsigned int CLIENT_TASK_STACK = 4096;
 
@@ -22,6 +23,7 @@ const unsigned int CLIENT_TASK_STACK = 4096;
 #define HAS_FREERTOS 0
 #define HAS_ETHERNET 0
 #define IS_LINUX 0
+#define HASIP 1
 
 /* === LINUX DEFINITIONS AND MACROS === */
 #elif defined(__linux__)
@@ -29,6 +31,7 @@ const unsigned int CLIENT_TASK_STACK = 4096;
 #define HAS_FREERTOS 0
 #define HAS_ETHERNET 0
 #define IS_LINUX 1
+#define HASIP 1
 #include <cstdio>  // for printf()
 #include <cstring> // for memcpy(), strlen() etc.
 #include <cinttypes> // for uint32_t etc.
@@ -42,6 +45,15 @@ typedef std::chrono::steady_clock clk;
 #define millis() std::chrono::duration_cast<std::chrono::milliseconds>(clk::now().time_since_epoch()).count()
 #define micros() std::chrono::duration_cast<std::chrono::microseconds>(clk::now().time_since_epoch()).count()
 #endif
+
+#elif defined(ARDUINO_ARCH_RP2040)
+#include <Arduino.h>
+#define USE_MUTEX 0
+#define HAS_RP2040_FREERTOS 1
+#define HAS_ETHERNET 0
+#define IS_LINUX 0
+const unsigned int SERVER_TASK_STACK = 4096;
+const unsigned int CLIENT_TASK_STACK = 4096;
 
 /* === INVALID TARGET === */
 #else

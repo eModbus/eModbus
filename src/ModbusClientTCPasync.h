@@ -11,6 +11,8 @@
 #include <ESPAsyncTCP.h>
 #endif
 #include "options.h"
+
+#if defined(ESP32) || defined(ESP8266) || defined(__linux__)
 #include "ModbusMessage.h"
 #include "ModbusClient.h"
 #include <list>
@@ -155,4 +157,5 @@ protected:
   uint16_t MTA_port;
 };
 
+#endif
 #endif
