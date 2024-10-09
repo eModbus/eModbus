@@ -12,7 +12,7 @@
 #endif
 #include "options.h"
 
-#if defined(ESP32) || defined(ESP8266) || defined(__linux__)
+#if defined(ESP32) || defined(ESP8266)
 #include "ModbusMessage.h"
 #include "ModbusClient.h"
 #include <list>

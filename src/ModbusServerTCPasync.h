@@ -7,7 +7,7 @@
 
 #include "options.h"
 
-#if defined(ESP32) || defined(ESP8266) || defined(__linux__)
+#if defined(ESP32) || defined(ESP8266)
 #include <list>
 #include <queue>
 #if USE_MUTEX

@@ -4,7 +4,7 @@
 // =================================================================================================
 
 #include "ModbusServerTCPasync.h"
-#if defined(ESP32) || defined(ESP8266) || defined(__linux__)
+#if defined(ESP32) || defined(ESP8266)
 
 #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 // #undef LOCAL_LOG_LEVEL
