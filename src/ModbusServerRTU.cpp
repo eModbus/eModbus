@@ -96,13 +96,13 @@ void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterv
   snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
 
   // Start task to handle the client
-#if ARDUINO_ARCH_RP2040
+#if HAS_RP2040_FREERTOS
   xTaskCreate((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 8,
               &serverTask);
   if (configNUM_CORES > 1 && coreID > -1) {
     vTaskCoreAffinitySet(serverTask, (1 << coreID));
   }
-#elif ESP8266 || ESP32
+#elif HAS_FREERTOS
   xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK,
                           this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
 #endif

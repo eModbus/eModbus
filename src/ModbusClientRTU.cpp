@@ -88,12 +88,12 @@ void ModbusClientRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterv
   char taskName[18];
   snprintf(taskName, 18, "Modbus%02XRTU", instanceCounter);
   // Start task to handle the queue
-#if ARDUINO_ARCH_RP2040
+#if HAS_RP2040_FREERTOS
   xTaskCreate((TaskFunction_t)&handleConnection, taskName, CLIENT_TASK_STACK, this, 6, &worker);
   if (configNUM_CORES > 1 && coreID > -1) {
     vTaskCoreAffinitySet(worker, (1 << coreID));
   }
-#elif
+#elif HAS_FREERTOS
   xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, CLIENT_TASK_STACK, this, 6, &worker, coreID >= 0 ? coreID : NULL);
 #endif
   LOG_D("Client task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
