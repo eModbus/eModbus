@@ -7,7 +7,7 @@
 
 #include "options.h"
 
-#if HAS_FREERTOS
+#if HAS_FREERTOS || HAS_RP2040_FREERTOS
 
 #include "ModbusClient.h"
 #include "Stream.h"

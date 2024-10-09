@@ -4,7 +4,7 @@
 // =================================================================================================
 #include "ModbusClientRTU.h"
 
-#if HAS_FREERTOS
+#if HAS_FREERTOS || HAS_RP2040_FREERTOS
 
 #undef LOCAL_LOG_LEVEL
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
@@ -59,6 +59,7 @@ void ModbusClientRTU::begin(Stream& serial, uint32_t baudRate, int coreID, uint3
   doBegin(baudRate, coreID, userInterval);
 }
 
+#if HAS_FREERTOS
 // begin: start worker task - HardwareSerial version
 void ModbusClientRTU::begin(HardwareSerial& serial, int coreID, uint32_t userInterval) {
   MR_serial = &serial;
@@ -66,6 +67,7 @@ void ModbusClientRTU::begin(HardwareSerial& serial, int coreID, uint32_t userInt
   serial.setRxFIFOFull(1);
   doBegin(baudRate, coreID, userInterval);
 }
+#endif 
 
 void ModbusClientRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterval) {
   // Task already running? End it in case
@@ -86,8 +88,14 @@ void ModbusClientRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterv
   char taskName[18];
   snprintf(taskName, 18, "Modbus%02XRTU", instanceCounter);
   // Start task to handle the queue
+#if ARDUINO_ARCH_RP2040
+  xTaskCreate((TaskFunction_t)&handleConnection, taskName, CLIENT_TASK_STACK, this, 6, &worker);
+  if (configNUM_CORES > 1 && coreID > -1) {
+    vTaskCoreAffinitySet(worker, (1 << coreID));
+  }
+#elif
   xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, CLIENT_TASK_STACK, this, 6, &worker, coreID >= 0 ? coreID : NULL);
-
+#endif
   LOG_D("Client task %d started. Interval=%d\n", (uint32_t)worker, MR_interval);
 }
 
