@@ -40,7 +40,7 @@ public:
   // begin: create task with RTU server to accept requests
   void begin(Stream& serial, uint32_t baudRate, int coreID = -1, uint32_t userInterval = 0);
 
-  #if HAS_FREERTOS
+  #if defined(ESP32) || defined(ESP8266)   // Special variant for HardwareSerial
   void begin(HardwareSerial& serial, int coreID = -1, uint32_t userInterval = 0);
   #endif
   

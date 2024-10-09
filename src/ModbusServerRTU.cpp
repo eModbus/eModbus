@@ -69,7 +69,7 @@ void ModbusServerRTU::begin(Stream& serial, uint32_t baudRate, int coreID, uint3
   doBegin(baudRate, coreID, userInterval);
 }
 
-#if HAS_FREERTOS
+#if defined(ESP32) || defined(ESP8266)
 // start: create task with RTU server - HardwareSerial versions
 void ModbusServerRTU::begin(HardwareSerial& serial, int coreID, uint32_t userInterval) {
   MSRserial = &serial;
