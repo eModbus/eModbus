@@ -6,6 +6,7 @@
 #undef LOCAL_LOG_LEVEL
 // #define LOCAL_LOG_LEVEL LOG_LEVEL_ERROR
 #include "Logging.h"
+#include <algorithm>
 
 // Default Constructor - takes optional size of MM_data to allocate memory
 ModbusMessage::ModbusMessage(uint16_t dataLen) {
@@ -157,10 +158,10 @@ void    ModbusMessage::setFunctionCode(uint8_t FC) {
 
 // add() variant to copy a buffer into MM_data. Returns updated size
 uint16_t ModbusMessage::add(const uint8_t *arrayOfBytes, uint16_t count) {
+  uint16_t originalSize = MM_data.size();
+  MM_data.resize(originalSize + count);
   // Copy it
-  while (count--) {
-    MM_data.push_back(*arrayOfBytes++);
-  }
+  std::copy(arrayOfBytes, arrayOfBytes + count, MM_data.begin() + originalSize);
   // Return updated size (logical length of message so far)
   return MM_data.size();
 }
@@ -306,10 +307,7 @@ double ModbusMessage::swapDouble(double& f, int swapRule) {
 
 // add() variant for a vector of uint8_t
 uint16_t ModbusMessage::add(vector<uint8_t> v) {
-  for (auto& b: v) {
-    MM_data.push_back(b);
-  }
-  return MM_data.size();
+  return add(v.data(), v.size());
 }
 
 // add() variants for float and double values
