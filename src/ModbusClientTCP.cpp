@@ -345,8 +345,11 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
       {
         // Safely lock the queue
         LOCK_GUARD(lockGuard, instance->qLock);
-        // Remove the front queue entry
-        instance->requests.pop();
+
+        // Remove the front queue entry if the queue is not empty
+        if (!instance->requests.empty()) {
+          instance->requests.pop();
+        }
         // Delete request
         delete request;
         LOG_D("Request popped from queue.\n");
