@@ -342,8 +342,11 @@ void ModbusClientRTU::handleConnection(ModbusClientRTU *instance) {
       {
         // Safely lock the queue
         LOCK_GUARD(lockGuard, instance->qLock);
-        // Remove the front queue entry
-        instance->requests.pop();
+        
+        // Remove the front queue entry if the queue is not empty
+        if (!instance->requests.empty()) { 
+          instance->requests.pop();
+        }
       }
     } else {
       delay(1);
