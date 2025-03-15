@@ -43,6 +43,15 @@ typedef std::chrono::steady_clock clk;
 #define micros() std::chrono::duration_cast<std::chrono::microseconds>(clk::now().time_since_epoch()).count()
 #endif
 
+#elif defined(ARDUINO_ARCH_RP2040)
+#include <Arduino.h>
+#define USE_MUTEX 0
+#define HAS_RP2040_FREERTOS 1
+#define HAS_ETHERNET 0
+#define IS_LINUX 0
+const unsigned int SERVER_TASK_STACK = 4096;
+const unsigned int CLIENT_TASK_STACK = 4096;
+
 /* === INVALID TARGET === */
 #else
 #error Define target in options.h

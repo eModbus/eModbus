@@ -3,7 +3,7 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "options.h"
-#if HAS_FREERTOS
+#if HAS_FREERTOS || HAS_RP2040_FREERTOS
 #include "ModbusMessage.h"
 #include "RTUutils.h"
 #undef LOCAL_LOG_LEVEL
