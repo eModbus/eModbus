@@ -30,7 +30,7 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
       - name: Download external libraries
-        run: pio pkg install --global --library https://github.com/arduino-libraries/Ethernet.git --library me-no-dev/AsyncTCP
+        run: pio pkg install --global --library https://github.com/arduino-libraries/Ethernet.git --library ESP32Async/AsyncTCP
       - name: Build PlatformIO examples
         run: pio ci --lib="." --project-option="lib_ldf_mode=deep+" --board=lolin32
         env:
@@ -63,7 +63,7 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
       - name: Download external libraries
-        run: pio pkg install --global --library https://github.com/arduino-libraries/Ethernet.git --library me-no-dev/AsyncTCP
+        run: pio pkg install --global --library https://github.com/arduino-libraries/Ethernet.git --library ESP32Async/AsyncTCP
       - name: Build PlatformIO examples
         run: pio ci --lib="." --project-option="lib_ldf_mode=deep+" --board=lolin32
         env:
