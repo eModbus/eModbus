@@ -335,7 +335,7 @@ void ModbusClientTCPasync::onPoll() {
   if (!rxQueue.empty()) {
     RequestEntry* request = rxQueue.begin()->second;
     if (millis() - request->sentTime > MTA_timeout) {
-      LOG_D("request timeouts (now:%lu-sent:%u)\n", millis(), request->sentTime);
+      LOG_D("request timeouts (now:%" PRIu32 "-sent:%" PRIu32 ")\n", millis(), request->sentTime);
       // oldest element timeouts, call onError and clean up
       if (onError) {
         // Handle timeout error
