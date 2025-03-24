@@ -85,7 +85,7 @@ public:
 
 protected:
   ModbusClient();             // Default constructor
-  ~ModbusClient();            // Destructor
+  virtual ~ModbusClient();            // Destructor
   virtual void isInstance() = 0;   // Make class abstract
   ModbusMessage waitSync(uint8_t serverID, uint8_t functionCode, uint32_t token); // wait for syncRequest response to arrive
   // Virtual addRequest variant needed internally. All others done by template!

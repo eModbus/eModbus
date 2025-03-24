@@ -30,7 +30,7 @@ public:
   ModbusClientTCP(Client& client, IPAddress host, uint16_t port, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.
-  ~ModbusClientTCP();
+  virtual ~ModbusClientTCP();
 
   // begin: start worker task
   void begin(int coreID = -1);

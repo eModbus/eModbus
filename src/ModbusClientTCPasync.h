@@ -31,7 +31,7 @@ public:
   explicit ModbusClientTCPasync(IPAddress address, uint16_t port = 502, uint16_t queueLimit = 100);
 
   // Destructor: clean up queue, task etc.
-  ~ModbusClientTCPasync();
+  virtual ~ModbusClientTCPasync();
 
   // optionally manually connect to modbus server. Otherwise connection will be made upon first request
   void connect();
