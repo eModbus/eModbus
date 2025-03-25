@@ -174,7 +174,6 @@ protected:
   // receive: get response via Client connection
   ModbusMessage receive(RequestEntry *request);
 
-  void isInstance() override { return; }   // make class instantiable
   queue<RequestEntry *> requests;   // Queue to hold requests to be processed
   #if USE_MUTEX
   mutex qLock;                    // Mutex to protect queue

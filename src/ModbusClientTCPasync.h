@@ -121,8 +121,6 @@ protected:
   // receive: get response via Client connection
   // TCPResponse* receive(uint8_t* data, size_t length);
 
-  void isInstance() override { return; }     // make class instantiable
-
   // TCP handling code, all static taking a class instancs as param
   void onConnected();
   void onDisconnected();
