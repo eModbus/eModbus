@@ -191,7 +191,6 @@ protected:
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
   uint8_t MT_timeoutsToClose;     // 0: disregard, 1-255: number of timeouts to tolerate before
                                   //    forcibly closing a connection.
-  uint16_t MT_timeoutCount;       // Run time counter of consecutive timeouts.
 
   // Let any ModbusBridge class use protected members
   template<typename SERVERCLASS> friend class ModbusBridge;
