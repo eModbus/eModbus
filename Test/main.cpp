@@ -21,11 +21,11 @@
 
 // Define alternate LOGDEVICE class to test rerouting of the log output
 class AltLog : public Print {
-  size_t write(uint8_t c) {
+  size_t write(uint8_t c) override {
     Serial.write(c);
     return 1;
   }
-  size_t write(const uint8_t *buffer, size_t size) {
+  size_t write(const uint8_t *buffer, size_t size) override {
     Serial.write(buffer, size);
     return size;
   }
@@ -142,19 +142,19 @@ ModbusMessage FC06(ModbusMessage request) {
 }
 
 // Worker function function code 0x41 (user defined)
-ModbusMessage FC41(ModbusMessage request) {
+ModbusMessage FC41(const ModbusMessage& request) {
   // return nothing to test timeout
   return NIL_RESPONSE;
 }
 
 // Worker function for broadcast requests
-void BroadcastWorker(ModbusMessage request) {
+void BroadcastWorker(const ModbusMessage& request) {
   // Count broadcasts
   broadcastCnt++;
 }
 
 // Worker for sniffing the messages
-void Sniffer(ModbusMessage m) {
+void Sniffer(const ModbusMessage& m) {
   Serial.printf("Sniff: ");
   for (auto b : m) {
     Serial.printf("%02X ", b);
@@ -232,21 +232,21 @@ bool testOutput(const char *testname, const char *name, ModbusMessage expected, 
 
   Serial.printf("%s, %s - failed:\n", testname, name);
   Serial.print("   Expected:");
-  for (auto& b : expected) {
+  for (const auto& b : expected) {
     Serial.printf(" %02X", b);
   }
   if (expected.size() == 1) {
     ModbusError me((Error)expected[0]);
-    Serial.printf(" %s", (const char *)me);
+    Serial.printf(" %s", static_cast<const char *>(me));
   }
   Serial.println();
   Serial.print("   Received:");
-  for (auto& b : received) {
+  for (const auto& b : received) {
     Serial.printf(" %02X", b);
   }
   if (received.size() == 1) {
     ModbusError me((Error)received[0]);
-    Serial.printf(" %s", (const char *)me);
+    Serial.printf(" %s", static_cast<const char *>(me));
   }
   Serial.println();
   
@@ -256,7 +256,7 @@ bool testOutput(const char *testname, const char *name, ModbusMessage expected, 
 // Helper function to convert hexadecimal ([0-9A-F]) digits in a char array into a vector of bytes
 ModbusMessage makeVector(const char *text) {
   ModbusMessage rv;            // The vector to be returned
-  uint8_t byte = 0;
+  uint8_t byte = 0;  
   uint8_t nibble = 0;
   bool tick = false;             // Counting nibbles
   bool useIt = false;            // true, if a hex digit was read
@@ -310,7 +310,7 @@ ModbusMessage makeVector(const char *text) {
 //           with hexadecimal digits like ("12 34 56 78 9A BC DE F0"). All characters except [0-9A-F] are ignored!
 //
 // The leading [n] calling arguments are the same that will be used for the respective setMessage() calls.
-bool MSG01(uint8_t serverID, uint8_t functionCode, const char *name, ModbusMessage expected) {
+bool MSG01(uint8_t serverID, uint8_t functionCode, const char *name, const ModbusMessage& expected) {
   ModbusMessage msg;
   Error e = msg.setMessage(serverID, functionCode);
   if (e != SUCCESS) {
@@ -328,7 +328,7 @@ bool MSG01(uint8_t serverID, uint8_t functionCode, const char *name, const char 
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool MSG02(uint8_t serverID, uint8_t functionCode, uint16_t p1, const char *name, ModbusMessage expected) {
+bool MSG02(uint8_t serverID, uint8_t functionCode, uint16_t p1, const char *name, const ModbusMessage& expected) {
   ModbusMessage msg;
   Error e = msg.setMessage(serverID, functionCode, p1);
   if (e != SUCCESS) {
@@ -346,7 +346,7 @@ bool MSG02(uint8_t serverID, uint8_t functionCode, uint16_t p1, const char *name
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool MSG03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, const char *name, ModbusMessage expected) {
+bool MSG03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, const char *name, const ModbusMessage& expected) {
   ModbusMessage msg;
   Error e = msg.setMessage(serverID, functionCode, p1, p2);
   if (e != SUCCESS) {
@@ -364,7 +364,7 @@ bool MSG03(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, con
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool MSG04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, const char *name, ModbusMessage expected) {
+bool MSG04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint16_t p3, const char *name, const ModbusMessage& expected) {
   ModbusMessage msg;
   Error e = msg.setMessage(serverID, functionCode, p1, p2, p3);
   if (e != SUCCESS) {
@@ -382,7 +382,7 @@ bool MSG04(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uin
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool MSG05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, const char *name, ModbusMessage expected) {
+bool MSG05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint16_t *arrayOfWords, const char *name, const ModbusMessage& expected) {
   ModbusMessage msg;
   Error e = msg.setMessage(serverID, functionCode, p1, p2, count, arrayOfWords);
   if (e != SUCCESS) {
@@ -400,7 +400,7 @@ bool MSG05(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uin
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool MSG06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, const char *name, ModbusMessage expected) {
+bool MSG06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uint8_t count, uint8_t *arrayOfBytes, const char *name, const ModbusMessage& expected) {
   ModbusMessage msg;
   Error e = msg.setMessage(serverID, functionCode, p1, p2, count, arrayOfBytes);
   if (e != SUCCESS) {
@@ -418,7 +418,7 @@ bool MSG06(uint8_t serverID, uint8_t functionCode, uint16_t p1, uint16_t p2, uin
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool MSG07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, const char *name, ModbusMessage expected) {
+bool MSG07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *arrayOfBytes, const char *name, const ModbusMessage& expected) {
   ModbusMessage msg;
   Error e = msg.setMessage(serverID, functionCode, count, arrayOfBytes);
   if (e != SUCCESS) {
@@ -436,7 +436,7 @@ bool MSG07(uint8_t serverID, uint8_t functionCode, uint8_t count, uint8_t *array
   return testOutput(__func__, name, makeVector(expected), msg);
 }
 
-bool MSG08(uint8_t serverID, uint8_t functionCode, Error error, const char *name, ModbusMessage expected) {
+bool MSG08(uint8_t serverID, uint8_t functionCode, Error error, const char *name, const ModbusMessage& expected) {
   ModbusMessage msg;
   msg.setError(serverID, functionCode, error);
   return testOutput(__func__, name, expected, msg);
@@ -456,7 +456,7 @@ void handleData(ModbusMessage response, uint32_t token)
   auto tc = testCasesByToken.find(token);
   if (tc != testCasesByToken.end()) {
     // Get a handier pointer for the TestCase found
-    TestCase *myTest(tc->second);
+    const TestCase *myTest(tc->second);
     testOutput(myTest->testname, myTest->name, myTest->expected, response);
   } else {
     Serial.printf("Could not find test case for token %08X\n", token);
@@ -471,7 +471,7 @@ void handleError(Error err, uint32_t token)
   auto tc = testCasesByToken.find(token);
   if (tc != testCasesByToken.end()) {
     // Get a handier pointer for the TestCase found
-    TestCase *myTest(tc->second);
+    const TestCase *myTest(tc->second);
     ModbusMessage response;
     response.add(err);
     testOutput(myTest->testname, myTest->name, myTest->expected, response);
@@ -738,9 +738,9 @@ void setup()
   // Did the call immediately return an error?
   if (e != SUCCESS) {
     // Yes, give it to the test result examiner
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   // Delay a bit to get the request queue accepting again (see ATTENTION! above)
@@ -796,9 +796,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   // Wait for secure timeout end
@@ -822,9 +822,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -845,9 +845,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x03, 1, 3);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -868,9 +868,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x03, 1, 3);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -891,9 +891,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x03, 1, 3);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   // Wait for secure timeout end
@@ -918,9 +918,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -940,9 +940,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -962,9 +962,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -988,9 +988,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -1012,9 +1012,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -1039,9 +1039,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -1061,9 +1061,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -1085,9 +1085,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestTCP)
@@ -1109,9 +1109,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestTCP.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -1152,7 +1152,7 @@ void setup()
   uint16_t chkCnt = 0;
   bool chkFailed = false;
 
-  Serial1.write((uint8_t *)chkSerial, chkLen);
+  Serial1.write(reinterpret_cast<uint8_t *>(chkSerial), chkLen);
   Serial1.flush();
   delay(50);
 
@@ -1170,7 +1170,7 @@ void setup()
   chkLen = strlen(chkSerial);
   chkCnt = 0;
 
-  Serial2.write((uint8_t *)chkSerial, chkLen);
+  Serial2.write(reinterpret_cast<uint8_t *>(chkSerial), chkLen);
   Serial2.flush();
   delay(50);
 
@@ -1235,9 +1235,9 @@ void setup()
     ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 16, 1);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1257,9 +1257,9 @@ void setup()
     ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x06, 16, 0xBEEF);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1279,9 +1279,9 @@ void setup()
     ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 14, 4);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1301,9 +1301,9 @@ void setup()
     ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 2, READ_HOLD_REGISTER, 28, 4);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1326,9 +1326,9 @@ void setup()
     ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 2, 0x07);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1348,9 +1348,9 @@ void setup()
     ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x07);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1369,9 +1369,9 @@ void setup()
     testCasesByToken[tc->token] = tc;
     e = RTUclient.addRequest(tc->token, 3, 0x07);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
   WAIT_FOR_FINISH(RTUclient)
@@ -1391,9 +1391,9 @@ void setup()
     testCasesByToken[tc->token] = tc;
     e = RTUclient.addRequest(tc->token, 2, USER_DEFINED_41);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
     WAIT_FOR_FINISH(RTUclient)
@@ -1419,9 +1419,9 @@ void setup()
     ExpectedToggles++;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 45, 1);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1446,9 +1446,9 @@ void setup()
     }
     e = RTUclient.addRequest(large, tc->token);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1471,9 +1471,9 @@ void setup()
     }
     e = RTUclient.addRequest(large, tc->token);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1496,9 +1496,9 @@ void setup()
       ExpectedToggles++;
       e = RTUclient.addRequest(tc->token, 2, READ_HOLD_REGISTER, 28, 4);
       if (e != SUCCESS) {
-        ModbusMessage r;
-        r.add(e);
-        testOutput(tc->testname, tc->name, tc->expected, r);
+        ModbusMessage ri;
+        ri.add(e);
+        testOutput(tc->testname, tc->name, tc->expected, ri);
         highestTokenProcessed = tc->token;
       }
       delay(10);
@@ -1537,9 +1537,9 @@ void setup()
     testCasesByToken[tc->token] = tc;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 16, 1);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1563,9 +1563,9 @@ void setup()
     testCasesByToken[tc->token] = tc;
     e = RTUclient.addRequest(tc->token, 1, 0x03, 16, 1);
     if (e != SUCCESS) {
-      ModbusMessage r;
-      r.add(e);
-      testOutput(tc->testname, tc->name, tc->expected, r);
+      ModbusMessage ri;
+      ri.add(e);
+      testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
     }
 
@@ -1584,7 +1584,7 @@ void setup()
     e = RTUclient.addBroadcastMessage(bcdata, bclen);
     if (e != SUCCESS) {
       ModbusError me(e);
-      LOG_N("%s failed: %d - %s\n", (const char *)bcdata, (int)me, (const char *)me);
+      LOG_N("%s failed: %d - %s\n", reinterpret_cast<const char *>(bcdata), static_cast<int>(me), static_cast<const char *>(me));
     }
     // Wait for the server worker task to pass timeout
     delay(5000);
@@ -1609,7 +1609,7 @@ void setup()
     e = RTUclient.addBroadcastMessage(bcdata, bclen);
     if (e != SUCCESS) {
       ModbusError me(e);
-      LOG_N("%s failed: %d - %s\n", (const char *)bcdata, (int)me, (const char *)me);
+      LOG_N("%s failed: %d - %s\n", reinterpret_cast<const char *>(bcdata), static_cast<int>(me), static_cast<const char *>(me));
     }
     delay(5000);
     testsExecuted++;
@@ -1734,11 +1734,11 @@ void setup()
       LOG_I("testing %d baud.\n", myBaud);
       testsExecuted++;
       ModbusMessage ret = RTUclient.syncRequest(myReq, Token++);
-      Error e = ret.getError();
+      Error ei = ret.getError();
       // If not successful, report it
-      if (e != SUCCESS) {
-        ModbusError me(e);
-        LOG_N("Baud test failed at %u (%02X - %s)\n", myBaud, e, (const char *)me);
+      if (ei != SUCCESS) {
+        ModbusError me(ei);
+        LOG_N("Baud test failed at %u (%02X - %s)\n", myBaud, ei, static_cast<const char *>(me));
       } else {
         // No error, but is the responded value correct?
         uint16_t mySize = 0;
@@ -1816,9 +1816,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 1, 0x03, 16, 1);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -1837,9 +1837,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 1, 0x06, 16, 0xBEEF);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -1858,9 +1858,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 1, 0x03, 14, 4);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -1879,9 +1879,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 2, READ_HOLD_REGISTER, 28, 4);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -1900,9 +1900,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 2, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -1921,9 +1921,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 1, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -1942,9 +1942,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 3, 0x07);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
@@ -1963,9 +1963,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 2, USER_DEFINED_41);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
   WAIT_FOR_FINISH(TestClientWiFi)
@@ -1985,9 +1985,9 @@ void setup()
   testCasesByToken[tc->token] = tc;
   e = TestClientWiFi.addRequest(tc->token, 1, 0x03, 45, 1);
   if (e != SUCCESS) {
-    ModbusMessage r;
-    r.add(e);
-    testOutput(tc->testname, tc->name, tc->expected, r);
+    ModbusMessage ri;
+    ri.add(e);
+    testOutput(tc->testname, tc->name, tc->expected, ri);
     highestTokenProcessed = tc->token;
   }
 
