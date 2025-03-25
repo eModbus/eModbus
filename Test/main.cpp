@@ -1777,6 +1777,9 @@ void setup()
   // Register onData and onError handlers
   TestClientWiFi.onDataHandler(&handleData);
   TestClientWiFi.onErrorHandler(&handleError);
+  
+  // Activate connection cutting after timeouts
+  TestClientWiFi.closeConnectionOnTimeouts();
 
   // Start ModbusClientTCP background task
   TestClientWiFi.begin();
