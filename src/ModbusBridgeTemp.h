@@ -249,9 +249,9 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
     LOG_D("Request (%02X/%02X) sent\n", servers[aliasID]->serverID, msg.getFunctionCode());
     // TCP servers have a target host/port that needs to be set in the client
     if (servers[aliasID]->serverType == TCP_SERVER) {
-      response = reinterpret_cast<ModbusClientTCP *>(servers[aliasID]->client)->syncRequestMT(msg, (uint32_t)millis(), servers[aliasID]->host, servers[aliasID]->port);
+      response = reinterpret_cast<ModbusClientTCP *>(servers[aliasID]->client)->syncRequestMT(msg, (uint32_t)micros(), servers[aliasID]->host, servers[aliasID]->port);
     } else {
-      response = servers[aliasID]->client->syncRequestM(msg, (uint32_t)millis());
+      response = servers[aliasID]->client->syncRequestM(msg, (uint32_t)micros());
     }
 
     // Response filter hook to be called here
