@@ -4,7 +4,7 @@
 // =================================================================================================
 #include "ModbusServerRTU.h"
 
-#if HAS_FREERTOS
+#if HAS_FREERTOS || HAS_RP2040_FREERTOS
 
 #undef LOG_LEVEL_LOCAL
 #include "Logging.h"
@@ -69,6 +69,7 @@ void ModbusServerRTU::begin(Stream& serial, uint32_t baudRate, int coreID, uint3
   doBegin(baudRate, coreID, userInterval);
 }
 
+#if defined(ESP32) || defined(ESP8266)
 // start: create task with RTU server - HardwareSerial versions
 void ModbusServerRTU::begin(HardwareSerial& serial, int coreID, uint32_t userInterval) {
   MSRserial = &serial;
@@ -76,6 +77,7 @@ void ModbusServerRTU::begin(HardwareSerial& serial, int coreID, uint32_t userInt
   serial.setRxFIFOFull(1);
   doBegin(baudRate, coreID, userInterval);
 }
+#endif
 
 void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterval) {
   // Task already running? Stop it in case.
@@ -94,7 +96,16 @@ void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterv
   snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
 
   // Start task to handle the client
-  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
+#if HAS_FREERTOS
+  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK,
+                          this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
+#else
+  xTaskCreate((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 8,
+              &serverTask);
+  if (configNUM_CORES > 1 && coreID > -1) {
+    vTaskCoreAffinitySet(serverTask, (1 << coreID));
+  }                      
+#endif
 
   LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
 }
