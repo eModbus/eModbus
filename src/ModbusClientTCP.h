@@ -50,6 +50,11 @@ public:
   // Remove all pending request from queue
   void clearQueue();
 
+  // Set number of timeouts to tolerate before a connection is forcibly closed.
+  // 0: never, 1..255: desired number
+  // Returns previous value.
+  uint8_t closeConnectionOnTimeouts(uint8_t n=3);
+
 protected:
   // class describing a target server
   struct TargetHost {
@@ -174,7 +179,6 @@ protected:
   // receive: get response via Client connection
   ModbusMessage receive(RequestEntry *request);
 
-  void isInstance() override { return; }   // make class instantiable
   queue<RequestEntry *> requests;   // Queue to hold requests to be processed
   #if USE_MUTEX
   mutex qLock;                    // Mutex to protect queue
@@ -185,6 +189,8 @@ protected:
   uint32_t MT_defaultTimeout;     // Standard timeout value taken if no dedicated was set
   uint32_t MT_defaultInterval;    // Standard interval value taken if no dedicated was set
   uint16_t MT_qLimit;             // Maximum number of requests to accept in queue
+  uint8_t MT_timeoutsToClose;     // 0: disregard, 1-255: number of timeouts to tolerate before
+                                  //    forcibly closing a connection.
 
   // Let any ModbusBridge class use protected members
   template<typename SERVERCLASS> friend class ModbusBridge;

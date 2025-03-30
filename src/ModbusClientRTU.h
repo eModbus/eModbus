@@ -89,7 +89,6 @@ protected:
   // start background task
   void doBegin(uint32_t baudRate, int coreID, uint32_t userInterval);
 
-  void isInstance() override { return; }   // make class instantiable
   queue<RequestEntry> requests;   // Queue to hold requests to be processed
   #if USE_MUTEX
   mutex qLock;                    // Mutex to protect queue

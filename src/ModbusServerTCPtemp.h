@@ -44,8 +44,6 @@ protected:
   ModbusServerTCP(ModbusServerTCP& m) = delete;
   ModbusServerTCP& operator=(ModbusServerTCP& m) = delete;
 
-  inline void isInstance() override { }
-
   uint8_t numClients;
   TaskHandle_t serverTask;
   uint16_t serverPort;
