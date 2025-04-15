@@ -1729,8 +1729,9 @@ void setup()
       delay(1000);
       Serial1.updateBaudRate(myBaud);
       Serial2.updateBaudRate(myBaud);
-      RTUclient.begin(Serial1);
-      RTUserver.begin(Serial2);
+      uint32_t myInterval = 3500;
+      RTUclient.begin(Serial1, -1, myInterval);
+      RTUserver.begin(Serial2, -1, myInterval);
       LOG_I("testing %d baud.\n", myBaud);
       testsExecuted++;
       ModbusMessage ret = RTUclient.syncRequest(myReq, Token++);
