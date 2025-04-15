@@ -121,6 +121,13 @@ uint32_t ModbusClientTCP::pendingRequests() {
 void ModbusClientTCP::clearQueue() {
   std::queue<RequestEntry *> empty;
   LOCK_GUARD(lockGuard, qLock);
+  // Delete queue entries if still on the queue
+  while (!requests.empty()) {
+    RequestEntry *re = requests.front();
+    delete re;
+    requests.pop();
+  }
+  // Now flush the queue
   std::swap(requests, empty);
 }
 

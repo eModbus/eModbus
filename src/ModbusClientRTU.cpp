@@ -151,6 +151,7 @@ void ModbusClientRTU::clearQueue()
 {
   std::queue<RequestEntry> empty;
   LOCK_GUARD(lockGuard, qLock);
+  // Empty queue
   std::swap(requests, empty);
 }
 
