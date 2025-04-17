@@ -17,6 +17,11 @@ extern "C" {
 }
 #elif IS_LINUX
 #include <pthread.h>
+#elif HAS_RP2040_FREERTOS
+extern "C" {
+#include <FreeRTOS.h>
+#include <task.h>
+}
 #endif
 
 #if USE_MUTEX
@@ -97,7 +102,7 @@ protected:
 
   uint32_t messageCount;           // Number of requests generated. Used for transactionID in TCPhead
   uint32_t errorCount;             // Number of errors received
-#if HAS_FREERTOS
+#if HAS_FREERTOS || HAS_RP2040_FREERTOS
   TaskHandle_t worker;             // Interface instance worker task
 #elif IS_LINUX
   pthread_t worker;

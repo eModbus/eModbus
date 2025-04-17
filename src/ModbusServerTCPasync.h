@@ -7,6 +7,7 @@
 
 #include "options.h"
 
+#if defined(ESP32) || defined(ESP8266)
 #include <list>
 #include <queue>
 #if USE_MUTEX
@@ -88,4 +89,5 @@ class ModbusServerTCPasync : public ModbusServer {
   #endif
 };
 
+#endif
 #endif

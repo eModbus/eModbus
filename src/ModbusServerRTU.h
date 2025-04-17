@@ -7,18 +7,24 @@
 
 #include "options.h"
 
-#if HAS_FREERTOS
+#if HAS_FREERTOS || HAS_RP2040_FREERTOS
 
 #include <Arduino.h>
 #include "Stream.h"
 #include "ModbusServer.h"
 #include "RTUutils.h"
 
+#if HAS_FREERTOS
 extern "C" {
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 }
-
+#elif HAS_RP2040_FREERTOS
+extern "C" {
+#include <FreeRTOS.h>
+#include <task.h>
+}
+#endif 
 // Specal function signature for broadcast or sniffer listeners
 using MSRlistener = std::function<void(ModbusMessage msg)>;
 
@@ -33,8 +39,11 @@ public:
 
   // begin: create task with RTU server to accept requests
   void begin(Stream& serial, uint32_t baudRate, int coreID = -1, uint32_t userInterval = 0);
-  void begin(HardwareSerial& serial, int coreID = -1, uint32_t userInterval = 0);
 
+  #if defined(ESP32) || defined(ESP8266)   // Special variant for HardwareSerial
+  void begin(HardwareSerial& serial, int coreID = -1, uint32_t userInterval = 0);
+  #endif
+  
   // end: kill server task
   void end();
 

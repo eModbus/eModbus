@@ -4,6 +4,8 @@
 // =================================================================================================
 
 #include "ModbusServerTCPasync.h"
+#if defined(ESP32) || defined(ESP8266)
+
 #define LOCAL_LOG_LEVEL LOG_LEVEL_VERBOSE
 // #undef LOCAL_LOG_LEVEL
 #include "Logging.h"
@@ -266,3 +268,5 @@ void ModbusServerTCPasync::onClientDisconnect(mb_client* client) {
   delete client;
   LOG_D("nr clients: %u\n", clients.size());
 }
+
+#endif

@@ -7,7 +7,7 @@
 
 #include "options.h"
 
-#if HAS_FREERTOS
+#if HAS_FREERTOS || HAS_RP2040_FREERTOS
 
 #include "ModbusClient.h"
 #include "Stream.h"
@@ -32,9 +32,9 @@ public:
 
   // begin: start worker task
   void begin(Stream& serial, uint32_t baudrate, int coreID = -1, uint32_t userInterval = 0);
-  // Special variant for HardwareSerial
+#if defined(ESP32) || defined(ESP8266) // Special variant for HardwareSerial
   void begin(HardwareSerial& serial, int coreID = -1, uint32_t userInterval = 0);
-
+#endif
   // end: stop the worker
   void end();
 
