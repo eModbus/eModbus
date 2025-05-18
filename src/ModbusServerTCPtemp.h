@@ -157,7 +157,7 @@ template <typename ST, typename CT>
     snprintf(taskName, 18, "MBserve%04X", port);
 
     // Start task to handle the client
-    xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 5, &serverTask, coreID >= 0 ? coreID : NULL);
+    xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 5, &serverTask, coreID >= 0 ? coreID : tskNO_AFFINITY);
     LOG_D("Server task %s started (%d).\n", taskName, (uint32_t)serverTask);
 
     // Wait two seconds for it to establish
@@ -204,7 +204,7 @@ bool ModbusServerTCP<ST, CT>::accept(CT& client, uint32_t timeout, int coreID) {
       snprintf(taskName, 18, "MBsrv%02Xclnt", i);
 
       // Start task to handle the client
-      xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, SERVER_TASK_STACK, clients[i], 5, &clients[i]->task, coreID >= 0 ? coreID : NULL);
+      xTaskCreatePinnedToCore((TaskFunction_t)&worker, taskName, SERVER_TASK_STACK, clients[i], 5, &clients[i]->task, coreID >= 0 ? coreID : tskNO_AFFINITY);
       LOG_D("Started client %d task %d\n", i, (uint32_t)(clients[i]->task));
 
       return true;

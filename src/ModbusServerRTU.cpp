@@ -94,7 +94,7 @@ void ModbusServerRTU::doBegin(uint32_t baudRate, int coreID, uint32_t userInterv
   snprintf(taskName, 18, "MBsrv%02XRTU", instanceCounter);
 
   // Start task to handle the client
-  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 8, &serverTask, coreID >= 0 ? coreID : NULL);
+  xTaskCreatePinnedToCore((TaskFunction_t)&serve, taskName, SERVER_TASK_STACK, this, 8, &serverTask, coreID >= 0 ? coreID : tskNO_AFFINITY);
 
   LOG_D("Server task %d started. Interval=%d\n", (uint32_t)serverTask, MSRinterval);
 }
