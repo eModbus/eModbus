@@ -254,18 +254,19 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
       response = servers[aliasID]->client->syncRequestM(msg, (uint32_t)micros());
     }
 
-    // Response filter hook to be called here
-    if (servers[aliasID]->responseFilter) {
-      LOG_D("Calling response filter\n");
-      response = servers[aliasID]->responseFilter(response);
-    }
-
     // Re-set the requested server ID and function code (may have been modified by filters)
     response.setServerID(aliasID);
+
     if (response.getError() != SUCCESS) {
       response.setFunctionCode(functionCode | 0x80);
     } else {
       response.setFunctionCode(functionCode);
+    }
+
+    // Response filter hook to be called here
+    if (servers[aliasID]->responseFilter) {
+      LOG_D("Calling response filter\n");
+      response = servers[aliasID]->responseFilter(response);
     }
   } else {
     // If we get here, something has gone wrong internally. We send back an error response anyway.
