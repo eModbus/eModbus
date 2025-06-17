@@ -231,9 +231,17 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
   uint8_t aliasID = msg.getServerID();
   uint8_t functionCode = msg.getFunctionCode();
   ModbusMessage response;
+  bool foundServer = false;
 
   // Find the (alias) serverID
   if (servers.find(aliasID) != servers.end()) {
+    foundServer = true;
+  } else {
+    if (servers.find(ANY_SERVER) != servers.end()) {
+      foundServer = true;
+    }
+  }
+  if (foundServer) {
     // Found it. We may use servers[aliasID] now without allocating a new map slot
 
     // Request filter hook to be called here
@@ -243,7 +251,7 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
     }
 
     // Set real target server ID
-    if (servers[aliasID]->serverID > 0) {
+    if (servers[aliasID]->serverID != ANY_SERVER) {
       msg.setServerID(servers[aliasID]->serverID);
     }
 
