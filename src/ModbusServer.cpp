@@ -102,6 +102,11 @@ bool ModbusServer::isServerFor(uint8_t serverID) {
   // Is there one?
   if (svmap != workerMap.end()) {
     return true;
+  } else {
+    svmap = workerMap.find(ANY_SERVER);
+    if (svmap != workerMap.end()) {
+      return true;
+    }
   }
   return false;
 }
