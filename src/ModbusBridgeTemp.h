@@ -243,7 +243,9 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
     }
 
     // Set real target server ID
-    msg.setServerID(servers[aliasID]->serverID);
+    if (servers[aliasID]->serverID > 0) {
+      msg.setServerID(servers[aliasID]->serverID);
+    }
 
     // Issue the request
     LOG_D("Request (%02X/%02X) sent\n", servers[aliasID]->serverID, msg.getFunctionCode());
