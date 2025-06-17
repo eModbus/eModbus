@@ -232,40 +232,43 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
   uint8_t functionCode = msg.getFunctionCode();
   ModbusMessage response;
   bool foundServer = false;
+  uint8_t usableID = 255;
 
   // Find the (alias) serverID
   if (servers.find(aliasID) != servers.end()) {
     foundServer = true;
+    usableID = aliasID;
   } else {
     if (servers.find(ANY_SERVER) != servers.end()) {
       foundServer = true;
+      usableID = ANY_SERVER;
     }
   }
   if (foundServer) {
     // Found it. We may use servers[aliasID] now without allocating a new map slot
 
     // Request filter hook to be called here
-    if (servers[aliasID]->requestFilter) {
+    if (servers[usableID]->requestFilter) {
       LOG_D("Calling request filter\n");
-      msg = servers[aliasID]->requestFilter(msg);
+      msg = servers[usableID]->requestFilter(msg);
     }
 
     // Set real target server ID
-    if (servers[aliasID]->serverID != ANY_SERVER) {
-      msg.setServerID(servers[aliasID]->serverID);
+    if (servers[usableID]->serverID != ANY_SERVER) {
+      msg.setServerID(servers[usableID]->serverID);
     }
 
     // Issue the request
-    LOG_D("Request (%02X/%02X) sent\n", servers[aliasID]->serverID, msg.getFunctionCode());
+    LOG_D("Request (%02X/%02X) sent\n", servers[usableID]->serverID, msg.getFunctionCode());
     // TCP servers have a target host/port that needs to be set in the client
-    if (servers[aliasID]->serverType == TCP_SERVER) {
-      response = reinterpret_cast<ModbusClientTCP *>(servers[aliasID]->client)->syncRequestMT(msg, (uint32_t)micros(), servers[aliasID]->host, servers[aliasID]->port);
+    if (servers[usableID]->serverType == TCP_SERVER) {
+      response = reinterpret_cast<ModbusClientTCP *>(servers[usableID]->client)->syncRequestMT(msg, (uint32_t)micros(), servers[usableID]->host, servers[usableID]->port);
     } else {
-      response = servers[aliasID]->client->syncRequestM(msg, (uint32_t)micros());
+      response = servers[usableID]->client->syncRequestM(msg, (uint32_t)micros());
     }
 
     // Re-set the requested server ID and function code (may have been modified by filters)
-    response.setServerID(aliasID);
+    response.setServerID(usableID);
 
     if (response.getError() != SUCCESS) {
       response.setFunctionCode(functionCode | 0x80);
@@ -274,9 +277,9 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
     }
 
     // Response filter hook to be called here
-    if (servers[aliasID]->responseFilter) {
+    if (servers[usableID]->responseFilter) {
       LOG_D("Calling response filter\n");
-      response = servers[aliasID]->responseFilter(response);
+      response = servers[usableID]->responseFilter(response);
     }
   } else {
     // If we get here, something has gone wrong internally. We send back an error response anyway.
