@@ -268,7 +268,7 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
     }
 
     // Re-set the requested server ID and function code (may have been modified by filters)
-    response.setServerID(usableID);
+    response.setServerID(aliasID);
 
     if (response.getError() != SUCCESS) {
       response.setFunctionCode(functionCode | 0x80);
