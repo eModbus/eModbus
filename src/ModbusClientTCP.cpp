@@ -358,7 +358,7 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
             LOG_D("No onError handler\n");
           }
         }
-        //   set lastHost/lastPort tp host/port
+        //   set lastHost/lastPort to host/port
         instance->MT_lastTarget = request->target;
       } else {
         // Oops. Connection failed
@@ -379,6 +379,9 @@ void ModbusClientTCP::handleConnection(ModbusClientTCP *instance) {
           // Yes. Forward the error code to it
           instance->onError(IP_CONNECTION_FAILED, request->token);
         }
+        // invalidate lastHost/lastPort to force a new connect
+        instance->MT_lastTarget.host = IPAddress(0, 0, 0, 0);
+        instance->MT_lastTarget.port = 0;
       }
       // Clean-up time. 
       if (!doNotPop)
