@@ -106,6 +106,8 @@ protected:
   MBOnError onError;               // Error response handler
   MBOnResponse onResponse;         // Uniform response handler
   static uint16_t instanceCounter; // Number of ModbusClients created
+  static uint16_t instanceID;      // Next available instance number
+  uint16_t myInstance;
   std::map<uint32_t, ModbusMessage> syncResponse; // Map to hold response messages on synchronous requests
 #if USE_MUTEX
   std::mutex syncRespM;            // Mutex protecting syncResponse map against race conditions

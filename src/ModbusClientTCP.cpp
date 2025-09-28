@@ -84,7 +84,7 @@ void ModbusClientTCP::begin(int coreID) {
 #else
     // Create unique task name
     char taskName[18];
-    snprintf(taskName, 18, "Modbus%02XTCP", instanceCounter);
+    snprintf(taskName, 18, "Modbus%02XTCP", instanceID);
     // Start task to handle the queue
     xTaskCreatePinnedToCore((TaskFunction_t)&handleConnection, taskName, CLIENT_TASK_STACK, this, 5, &worker, coreID >= 0 ? coreID : tskNO_AFFINITY);
     LOG_D("TCP client worker %s started\n", taskName);

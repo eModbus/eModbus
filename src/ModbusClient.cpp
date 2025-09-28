@@ -7,6 +7,7 @@
 #include "Logging.h"
 
 uint16_t ModbusClient::instanceCounter = 0;
+uint16_t ModbusClient::instanceID = 0;
 
 // Default constructor: set the default timeout to 2000ms, zero out all other 
 ModbusClient::ModbusClient() :
@@ -19,7 +20,11 @@ ModbusClient::ModbusClient() :
   #endif
   onData(nullptr),
   onError(nullptr),
-  onResponse(nullptr) { instanceCounter++; }
+  onResponse(nullptr) { 
+    instanceCounter++; 
+    instanceID++; 
+    myInstance = instanceID; 
+  }
 
 // Default destructor: reduce number of clients by one
 ModbusClient::~ModbusClient() {
