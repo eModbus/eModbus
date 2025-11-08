@@ -261,6 +261,9 @@ ModbusMessage RTUutils::receive(uint8_t caller, Stream& serial, uint32_t timeout
               LOG_V("%c/%ldus without data after %u\n", (const char)caller, micros() - lastMicros, bufferPtr);
               state = DATA_READ;
               break;
+            } else {
+              // Give some slack
+              delay(1);
             }
           }
         }
