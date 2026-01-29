@@ -64,6 +64,7 @@
   ],
   "build":
   {
-    "lib_ldf_Mode": "deep+"
+    "libLDFMode": "deep+",
+    "libCompatMode": "strict"
   }
 }
