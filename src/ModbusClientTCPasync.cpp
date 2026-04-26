@@ -275,6 +275,7 @@ void ModbusClientTCPasync::onPacket(uint8_t* data, size_t length) {
       } else {
         // TCP packet did not yield valid modbus response, abort function
         LOG_W("no matching request found\n");
+        delete response;  // delete before early return
         return;
       }
     }
