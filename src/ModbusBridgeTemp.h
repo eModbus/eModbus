@@ -311,19 +311,11 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
       response.setFunctionCode(functionCode);
     }
 
-    // Extended response filter hook to be called here, this includes the read start address and count for the releated request, which allows for more complex filtering
+    // Extended response filter hook to be called here, this includes the releated request, which allows for more complex filtering
     if (servers[usableID]->responseExFilter)
     {
         LOG_D("Calling request extended filter\n");
-        uint16_t address;       // Initial address requested
-        uint16_t words;         // Number of records requested
-
-		if (msg.size() >= 6) // Minimum size for a request with address and count
-        {
-            msg.get(2, address);
-            msg.get(4, words);
-            response = servers[usableID]->responseExFilter(response, address, words);
-        }
+        response = servers[usableID]->responseExFilter(response, msg);
     }
     // Response filter hook to be called here
     else if (servers[usableID]->responseFilter) {
