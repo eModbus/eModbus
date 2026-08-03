@@ -48,6 +48,8 @@ public:
   // Add/remove request/response filters
   bool addRequestFilter(uint8_t aliasID, MBSworker rF);
   bool removeRequestFilter(uint8_t aliasID);
+  bool addresponseExFilter(uint8_t aliasID, MBSExResponseWorker rF);
+  bool removeresponseExFilter(uint8_t aliasID);
   bool addResponseFilter(uint8_t aliasID, MBSworker rF);
   bool removeResponseFilter(uint8_t aliasID);
 
@@ -59,8 +61,9 @@ protected:
     ServerType serverType;        // TCP_SERVER or RTU_SERVER
     IPAddress host;               // TCP: host IP address, else 0.0.0.0
     uint16_t port;                // TCP: host port number, else 0
-    MBSworker requestFilter;      // optional filter requests before forwarding them
+    MBSworker requestFilter;      // optional filter requests before forwarding them	
     MBSworker responseFilter;     // optional filter responses before forwarding them
+    MBSExResponseWorker responseExFilter; // optional extended filter requests before forwarding them
 
     // RTU constructor
     ServerData(uint8_t sid, ModbusClient *c) :
@@ -70,6 +73,7 @@ protected:
       host(IPAddress(0, 0, 0, 0)),
       port(0),
       requestFilter(nullptr),
+	  responseExFilter(nullptr),
       responseFilter(nullptr) {}
     
     // TCP constructor
@@ -80,6 +84,7 @@ protected:
       host(h),
       port(p),
       requestFilter(nullptr),
+      responseExFilter(nullptr),
       responseFilter(nullptr) {}
   };
 
@@ -184,6 +189,36 @@ bool ModbusBridge<SERVERCLASS>::addRequestFilter(uint8_t aliasID, MBSworker rF) 
 }
 
 template<typename SERVERCLASS>
+bool ModbusBridge<SERVERCLASS>::addresponseExFilter(uint8_t aliasID, MBSExResponseWorker rF) {
+    // Is there already an entry for the aliasID?
+    if (servers.find(aliasID) != servers.end()) {
+        // Yes. Chain in filter function
+        servers[aliasID]->responseExFilter = rF;
+        LOG_D("Request extended filter added for server %02X\n", aliasID);
+    }
+    else {
+        LOG_E("Server %d not attached to bridge, no request filter set!\n", aliasID);
+        return false;
+    }
+    return true;
+}
+
+template<typename SERVERCLASS>
+bool ModbusBridge<SERVERCLASS>::removeresponseExFilter(uint8_t aliasID) {
+    // Is there already an entry for the aliasID?
+    if (servers.find(aliasID) != servers.end()) {
+        // Yes. Chain in filter function
+        servers[aliasID]->responseExFilter = nullptr;
+        LOG_D("Request extended filter removed for server %02X\n", aliasID);
+    }
+    else {
+        LOG_E("Server %d not attached to bridge, no request extended filter set!\n", aliasID);
+        return false;
+    }
+    return true;
+}
+
+template<typename SERVERCLASS>
 bool ModbusBridge<SERVERCLASS>::removeRequestFilter(uint8_t aliasID) {
   // Is there already an entry for the aliasID?
   if (servers.find(aliasID) != servers.end()) {
@@ -276,11 +311,17 @@ ModbusMessage ModbusBridge<SERVERCLASS>::bridgeWorker(ModbusMessage msg) {
       response.setFunctionCode(functionCode);
     }
 
+    // Extended response filter hook to be called here, this includes the releated request, which allows for more complex filtering
+    if (servers[usableID]->responseExFilter)
+    {
+        LOG_D("Calling request extended filter\n");
+        response = servers[usableID]->responseExFilter(response, msg);
+    }
     // Response filter hook to be called here
-    if (servers[usableID]->responseFilter) {
+    else if (servers[usableID]->responseFilter) {
       LOG_D("Calling response filter\n");
       response = servers[usableID]->responseFilter(response);
-    }
+    }    
   } else {
     // If we get here, something has gone wrong internally. We send back an error response anyway.
     response.setError(aliasID, functionCode, INVALID_SERVER);

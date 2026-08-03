@@ -28,6 +28,7 @@ const ModbusMessage ECHO_RESPONSE(std::vector<uint8_t>{0xFF, 0xF1});
 
 // MBSworker: function signature for worker functions to handle single serverID/functionCode combinations
 using MBSworker = std::function<ModbusMessage(ModbusMessage msg)>;
+using MBSExResponseWorker = std::function<ModbusMessage(ModbusMessage responseMsg, ModbusMessage requestMsg)>;
 
 class ModbusServer {
 public:
