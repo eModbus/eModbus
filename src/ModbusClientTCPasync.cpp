@@ -70,7 +70,7 @@ void ModbusClientTCPasync::connect() {
 // connect to another modbus server.
 void ModbusClientTCPasync::connect(IPAddress host, uint16_t port) {
   // First disconnect, if connected
-  disconnect(true);
+  disconnect();
   // Set new host and port
   MTA_host = host;
   MTA_port = port;
