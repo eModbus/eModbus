@@ -41,7 +41,11 @@ public:
   void connect(IPAddress host, uint16_t port = 502);
 
   // manually disconnect from modbus server. Connection will also auto close after idle time
-  void disconnect(bool force = false);
+   [[deprecated("Use disconnect() instead")]]
+  void disconnect(bool force);
+
+  // manually disconnect from modbus server. Connection will also auto close after idle time
+  void disconnect();
 
   // Set timeout value
   void setTimeout(uint32_t timeout);
