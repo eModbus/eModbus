@@ -53,7 +53,7 @@ ModbusClientTCPasync::~ModbusClientTCPasync() {
     }
   }
   // force close client
-  MTA_client.close(true);
+  MTA_client.close();
 }
 
 // optionally manually connect to modbus server. Otherwise connection will be made upon first request
@@ -70,7 +70,7 @@ void ModbusClientTCPasync::connect() {
 // connect to another modbus server.
 void ModbusClientTCPasync::connect(IPAddress host, uint16_t port) {
   // First disconnect, if connected
-  disconnect(true);
+  disconnect();
   // Set new host and port
   MTA_host = host;
   MTA_port = port;
@@ -79,8 +79,15 @@ void ModbusClientTCPasync::connect(IPAddress host, uint16_t port) {
 
 // manually disconnect from modbus server. Connection will also auto close after idle time
 void ModbusClientTCPasync::disconnect(bool force) {
+  (void) force;
   LOG_D("disconnecting\n");
-  MTA_client.close(force);
+  MTA_client.close();
+}
+
+// manually disconnect from modbus server. Connection will also auto close after idle time
+void ModbusClientTCPasync::disconnect() {
+  LOG_D("disconnecting\n");
+  MTA_client.close();
 }
 
 // Set timeout value
