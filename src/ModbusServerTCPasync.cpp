@@ -139,8 +139,12 @@ void ModbusServerTCPasync::mb_client::onData(uint8_t* data, size_t len) {
 }
 
 void ModbusServerTCPasync::mb_client::onPoll() {
-  LOCK_GUARD(lock1, obLock);
-  handleOutbox();
+  // Release obLock before closing: close() deletes this mb_client (and obLock)
+  // via the disconnect callback, and destroying a locked mutex leaks it on ESP32.
+  {
+    LOCK_GUARD(lock1, obLock);
+    handleOutbox();
+  }
   if (server->idle_timeout > 0 && 
       millis() - lastActiveTime > server->idle_timeout) {
     LOG_D("client idle, closing\n");
