@@ -427,6 +427,8 @@ ModbusMessage ModbusClientTCP::receive(RequestEntry *request)
   uint8_t data[dataLen];               // Local buffer to collect received data
   uint16_t dataPtr = 0;                // Pointer into data
   bool overflow = false;               // More data than our buffer can hold
+  uint16_t payloadLen = 0;             // MBAP length field, once known (0 = header not read yet)
+  uint16_t frameLen = 0;               // 6 + payloadLen, once known
   ModbusMessage response;              // Response structure to be returned
 
   // Wait for a complete packet, buffer overflow or timeout.
@@ -440,28 +442,35 @@ ModbusMessage ModbusClientTCP::receive(RequestEntry *request)
     // check above stay in control.
     if (MT_client.available())
     {
-      // Read whatever the network buffer holds in one chunk instead of byte-by-byte.
-      int n = MT_client.read(data + dataPtr, dataLen - dataPtr);
+      // As long as the MBAP header is not complete we have to take whatever the
+      // network buffer holds, in one chunk instead of byte-by-byte. Once the frame
+      // length is known, read only what the frame is still missing, so bytes of a
+      // subsequent frame stay in the socket buffer instead of being swallowed here.
+      uint16_t wanted = frameLen ? static_cast<uint16_t>(frameLen - dataPtr) : dataLen;
+      int n = MT_client.read(data + dataPtr, wanted);
       if (n > 0)
       {
         dataPtr += n;
         // Rewind EOT and timeout timers
         lastMillis = millis();
-        // Complete frame yet? MBAP frame = 6 header bytes + length field payload.
-        if (dataPtr >= 6)
+        // Once the MBAP header is complete, decode its length field
+        // MBAP frame = 6 header bytes + length field payload.
+        if (frameLen == 0 && dataPtr >= 6)
         {
-          uint16_t payloadLen = (static_cast<uint16_t>(data[4]) << 8) | data[5];
+          payloadLen = (static_cast<uint16_t>(data[4]) << 8) | data[5];
+          frameLen = 6 + payloadLen;
           // Does the announced frame exceed our local buffer?
-          if (static_cast<uint16_t>(6 + payloadLen) > dataLen)
+          if (frameLen > dataLen)
           {
             // Yes - we cannot hold it. Stop reading and flag the overflow.
             overflow = true;
             break;
           }
-          if (dataPtr >= static_cast<uint16_t>(6 + payloadLen))
-          {
-            break;
-          }
+        }
+        // Complete frame yet?
+        if (frameLen && dataPtr >= frameLen)
+        {
+          break;
         }
       }
     }
@@ -474,8 +483,6 @@ ModbusMessage ModbusClientTCP::receive(RequestEntry *request)
   // Did we get a complete frame?
   if (dataPtr >= 6)
   {
-    uint16_t payloadLen = (static_cast<uint16_t>(data[4]) << 8) | data[5];
-    uint16_t frameLen = 6 + payloadLen;
     if (overflow) {
       // Frame larger than our local buffer - cannot parse it.
       LOG_D("Response buffer overflow\n");
@@ -483,8 +490,10 @@ ModbusMessage ModbusClientTCP::receive(RequestEntry *request)
       return response;
     }
     if (dataPtr > frameLen) {
-      // The buffer holds more than one frame - a stray response is still queued.
-      LOG_D("Received %d bytes, expected %d - dropping connection\n", dataPtr, frameLen);
+      // The server sent more than the announced frame length, or a stray response was
+      // still queued in the socket. Either way we cannot tell which bytes belong to
+      // our frame, so we reject this response and let the next request drain the rest.
+      LOG_D("Received %d bytes, expected %d - surplus data, response discarded\n", dataPtr, frameLen);
       response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), TCP_HEAD_MISMATCH);
       return response;
     }
