@@ -142,26 +142,23 @@ interrupted:
 
 // read: get a single byte from buffer
 int Client::read() {
-  int x;
+  uint8_t x;
 interrupted:
-// read a byte
-  int r = ::read(sockfd, &x, 1);
+// read a byte, but do not block if nothing is there
+  int r = ::recv(sockfd, &x, 1, MSG_DONTWAIT);
 // a 1 signals success
   if (r == 1) return x;
 // We may have been prevented to read
   if (r < 0 && errno == EINTR) goto interrupted;
-// A zero signals no data available
-  if (r == 0) return -1;
-// All else is some error state
-// Lazyness... No error handling here!
-  return r;
+// Nothing buffered (EAGAIN/EWOULDBLOCK) or connection closed
+  return -1;
 }
 
 // read: get a buffer full of data
 int Client::read(uint8_t *buf, size_t size) {
 interrupted:
-// peek-read buffer
-  int r = ::read(sockfd, buf, size);
+// read buffer, but do not block if nothing is there
+  int r = ::recv(sockfd, buf, size, MSG_DONTWAIT);
 // Anything >0 is number of bytes available
   if (r > 0) return r;
 // We may have been prevented to read

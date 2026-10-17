@@ -420,36 +420,85 @@ void ModbusClientTCP::send(RequestEntry *request) {
 }
 
 // receive: get response via Client connection
-ModbusMessage ModbusClientTCP::receive(RequestEntry *request) {
-  unsigned long lastMillis = millis();     // Timer to check for timeout
-  bool hadData = false;               // flag data received
-  const uint16_t dataLen(300);        // Modbus Packet supposedly will fit (260<300)
-  uint8_t data[dataLen];              // Local buffer to collect received data
-  uint16_t dataPtr = 0;               // Pointer into data
-  ModbusMessage response;             // Response structure to be returned
+ModbusMessage ModbusClientTCP::receive(RequestEntry *request)
+{
+  unsigned long lastMillis = millis(); // Timer to check for timeout
+  const uint16_t dataLen(300);         // Modbus Packet supposedly will fit (260<300)
+  uint8_t data[dataLen];               // Local buffer to collect received data
+  uint16_t dataPtr = 0;                // Pointer into data
+  bool overflow = false;               // More data than our buffer can hold
+  ModbusMessage response;              // Response structure to be returned
 
-  // wait for packet data, overflow or timeout
-  while (millis() - lastMillis < request->target.timeout && dataPtr < dataLen && !hadData) {
-    // Is there data waiting?
-    if (MT_client.available()) {
-      // Yes. catch as much as is there and fits into buffer
-      while (MT_client.available() && dataPtr < dataLen) {
-        data[dataPtr++] = MT_client.read();
+  // Wait for a complete packet, buffer overflow or timeout.
+  // A TCP PDU may be split over several segments, so we do not stop on the first
+  // chunk that arrives: we keep reading until the MBAP length field says the
+  // frame is complete.
+  while (millis() - lastMillis < request->target.timeout && !overflow && dataPtr < dataLen)
+  {
+    // Only read when data is waiting. This keeps us from blocking inside the
+    // client read (the Linux Client is a blocking socket) and lets the timeout
+    // check above stay in control.
+    if (MT_client.available())
+    {
+      // Read whatever the network buffer holds in one chunk instead of byte-by-byte.
+      int n = MT_client.read(data + dataPtr, dataLen - dataPtr);
+      if (n > 0)
+      {
+        dataPtr += n;
+        // Rewind EOT and timeout timers
+        lastMillis = millis();
+        // Complete frame yet? MBAP frame = 6 header bytes + length field payload.
+        if (dataPtr >= 6)
+        {
+          uint16_t payloadLen = (static_cast<uint16_t>(data[4]) << 8) | data[5];
+          // Does the announced frame exceed our local buffer?
+          if (static_cast<uint16_t>(6 + payloadLen) > dataLen)
+          {
+            // Yes - we cannot hold it. Stop reading and flag the overflow.
+            overflow = true;
+            break;
+          }
+          if (dataPtr >= static_cast<uint16_t>(6 + payloadLen))
+          {
+            break;
+          }
+        }
       }
-      // Register data received
-      hadData = true;
-      // Rewind EOT and timeout timers
-      lastMillis = millis();
     }
-    delay(1); // Give scheduler room to breathe
+    else
+    {
+      delay(1); // Give scheduler room to breathe
+    }
   }
-  // Did we get some data?
-  if (hadData) {
+
+  // Did we get a complete frame?
+  if (dataPtr >= 6)
+  {
+    uint16_t payloadLen = (static_cast<uint16_t>(data[4]) << 8) | data[5];
+    uint16_t frameLen = 6 + payloadLen;
+    if (overflow) {
+      // Frame larger than our local buffer - cannot parse it.
+      LOG_D("Response buffer overflow\n");
+      response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), TCP_HEAD_MISMATCH);
+      return response;
+    }
+    if (dataPtr > frameLen) {
+      // The buffer holds more than one frame - a stray response is still queued.
+      LOG_D("Received %d bytes, expected %d - dropping connection\n", dataPtr, frameLen);
+      response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), TCP_HEAD_MISMATCH);
+      return response;
+    }
+    if (dataPtr < frameLen) {
+      // Not all of the frame arrived before the timeout - treat as an error.
+      LOG_D("Incomplete response: %d of %d bytes\n", dataPtr, frameLen);
+      response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), TCP_HEAD_MISMATCH);
+      return response;
+    }
     LOG_D("Received response.\n");
     HEXDUMP_V("Response packet", data, dataPtr);
-    // Yes. check it for validity
+    // check it for validity
     // First transactionID and protocolID shall be identical, length has to match the remainder.
-    ModbusTCPhead head(request->head.transactionID, request->head.protocolID, dataPtr - 6);
+    ModbusTCPhead head(request->head.transactionID, request->head.protocolID, payloadLen);
     // Matching head?
     if (memcmp((const uint8_t *)head, data, 6)) {
       // No. return Error response
@@ -462,7 +511,7 @@ ModbusMessage ModbusClientTCP::receive(RequestEntry *request) {
       response.setError(request->msg.getServerID(), request->msg.getFunctionCode(), FC_MISMATCH);
     } else {
       // Looks good.
-      response.add(data + 6, dataPtr - 6);
+      response.add(data + 6, payloadLen);
     }
   } else {
     // No, timeout must have struck
