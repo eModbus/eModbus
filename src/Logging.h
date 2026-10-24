@@ -24,13 +24,13 @@
 #define LOG_LEVEL_DEBUG (5)
 #define LOG_LEVEL_VERBOSE (6)
 
-#define LL_RED "\e[1;31m"
-#define LL_GREEN "\e[32m"
-#define LL_YELLOW "\e[1;33m"
-#define LL_BLUE "\e[34m"
-#define LL_MAGENTA "\e[35m"
-#define LL_CYAN "\e[36m"
-#define LL_NORM "\e[0m"
+#define LL_RED "\x1B[1;31m"
+#define LL_GREEN "\x1B[32m"
+#define LL_YELLOW "\x1B[1;33m"
+#define LL_BLUE "\x1B[34m"
+#define LL_MAGENTA "\x1B[35m"
+#define LL_CYAN "\x1B[36m"
+#define LL_NORM "\x1B[0m"
 
 #define LOG_HEADER(x) "[" #x "] %lu| %-20s [%4d] %s: "
 
